@@ -139,6 +139,8 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	slog := taslog.NewSlowLog("OnMessageCast", 0.5)
 	bh := &ccm.BH
+	traceLog := monitor.NewPerformTraceLogger("OnMessageProposal", bh.Hash, bh.Height)
+
 	defer func() {
 		slog.Log("hash=%v, sender=%v, height=%v, preHash=%v", bh.Hash.ShortS(), ccm.SI.GetID().ShortS(), bh.Height, bh.PreHash.ShortS())
 	}()
@@ -168,12 +170,11 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	blog := newBizLog(mtype)
 
 	si := &ccm.SI
-	traceLog := newHashTraceLog(mtype, bh.Hash, si.GetID())
+	tlog := newHashTraceLog(mtype, bh.Hash, si.GetID())
 	castor := groupsig.DeserializeId(bh.Castor)
 	groupId := groupsig.DeserializeId(bh.GroupId)
 
-	traceLog.logStart("%v:height=%v, castor=%v", mtype, bh.Height, castor.ShortS())
-	blog.debug("proc(%v) begin hash=%v, height=%v, sender=%v, castor=%v, groupId=%v", p.getPrefix(), bh.Hash.ShortS(), bh.Height, si.GetID().ShortS(), castor.ShortS(), groupId.ShortS())
+	tlog.logStart("%v:height=%v, castor=%v", mtype, bh.Height, castor.ShortS())
 
 	var err error
 
@@ -182,9 +183,10 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		if err != nil {
 			result = err.Error()
 		}
-		traceLog.logEnd("%v:height=%v, hash=%v, preHash=%v,groupId=%v, result=%v", mtype, bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
-		blog.debug("height=%v, hash=%v, preHash=%v, groupId=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
+		tlog.logEnd("%v:height=%v, hash=%v, preHash=%v,groupId=%v, result=%v", mtype, bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
 		slog.Log("senderShort=%v, hash=%v, gid=%v, height=%v", si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height)
+		traceLog.Log("PreHash=%v,castor=%v,result=%v", bh.PreHash.String(), ccm.SI.GetID().String(), result)
+
 	}()
 	if ccm.GenHash() != ccm.SI.DataHash {
 		err = fmt.Errorf("msg genHash %v diff from si.DataHash %v", ccm.GenHash().ShortS(), ccm.SI.DataHash.ShortS())
@@ -332,14 +334,17 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 //收到组内成员的出块验证通过消息（组内成员消息）
 func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	blockHash := cvm.BlockHash
-	traceLog := newHashTraceLog("OMV", blockHash, cvm.SI.GetID())
+	tlog := newHashTraceLog("OMV", blockHash, cvm.SI.GetID())
+	traceLog := monitor.NewPerformTraceLogger("OnMessageVerify", blockHash, 0)
+
 
 	var (
 		err error
 		ret int8
 	)
 	defer func() {
-		traceLog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, err)
+		tlog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, err)
+		traceLog.Log("result=%v, %v", ret, err)
 	}()
 
 	vctx := p.blockContexts.getVctxByHash(blockHash)
@@ -348,6 +353,7 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 		p.blockContexts.addVerifyMsg(cvm)
 		return
 	}
+	traceLog.SetHeight(vctx.castHeight)
 	ret, err = p.doVerify(cvm, vctx)
 
 	return
@@ -589,6 +595,8 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	blog := newBizLog("OMRPB")
 	blog.log("hash %v", msg.Hash.ShortS())
 
+	traceLog := monitor.NewPerformTraceLogger("OnBlockBodyRequest", msg.Hash, 0)
+
 	from :=  groupsig.ID{}
 	from.SetHexString(sourceId)
 	tlog := newHashTraceLog("OMRPB", msg.Hash, from)
@@ -596,6 +604,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	var s string
 	defer func() {
 		tlog.log("result:%v", s)
+		traceLog.Log("result:%v", s)
 	}()
 
 	pb := p.blockContexts.getProposed(msg.Hash)
@@ -604,6 +613,8 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 		blog.log("block is nil hash=%v", msg.Hash.ShortS())
 		return
 	}
+
+	traceLog.SetHeight(pb.block.Header.Height)
 
 	if pb.maxResponseCount == 0 {
 		gid := groupsig.DeserializeId(pb.block.Header.GroupId)
@@ -641,9 +652,12 @@ func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBl
 	blog.log("hash %v", msg.Hash.ShortS())
 
 	tlog := newHashTraceLog("OMRSPB", msg.Hash, groupsig.ID{})
+	traceLog := monitor.NewPerformTraceLogger("OnBlockBodyResponse", msg.Hash, 0)
+
 	var s string
 	defer func() {
 		tlog.log("result:%v", s)
+		traceLog.Log("result:%v, txsize:%v", s, len(msg.Transactions))
 	}()
 
 	if p.blockOnChain(msg.Hash) {
@@ -662,6 +676,7 @@ func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBl
 		blog.log("slot is nil")
 		return
 	}
+	traceLog.SetHeight(slot.BH.Height)
 	block := types.Block{Header: slot.BH, Transactions: msg.Transactions}
 	err := p.onBlockSignAggregation(&block, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
 	if err != nil {
