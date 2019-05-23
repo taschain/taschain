@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"taslog"
+	"monitor"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
@@ -71,7 +72,10 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		vrf.markSuccess()
 	}
 
+	traceLog := monitor.NewPerformTraceLogger("OnBlockAddSuccess", bh.Hash, bh.Height)
 	go p.checkSelfCastRoutine()
+
+	traceLog.Log("block onchain cost %v", p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
 
 	//p.triggerFutureBlockMsg(bh)
 	p.triggerFutureVerifyMsg(bh)
