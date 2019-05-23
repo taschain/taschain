@@ -75,7 +75,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	traceLog := monitor.NewPerformTraceLogger("OnBlockAddSuccess", bh.Hash, bh.Height)
 	go p.checkSelfCastRoutine()
 
-	traceLog.Log("start check proposal")
+	traceLog.Log("block onchain cost %v", p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
 
 	//p.triggerFutureBlockMsg(bh)
 	p.triggerFutureVerifyMsg(bh)

@@ -64,7 +64,7 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
 
 	traceLog := monitor.NewPerformTraceLogger("ReserveBlock", bh.Hash, bh.Height)
-	defer traceLog.Log("")
+	defer traceLog.Log("threshlod sign cost %v", p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
 
 	if slot.IsRecovered() {
 		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
@@ -141,11 +141,11 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 
 	traceLog := monitor.NewPerformTraceLogger("ConsensusFinalize", bh.Hash, bh.Height)
 	defer func() {
-		traceLog.Log("result=%v", result)
+		traceLog.Log("result=%v. consensusFinalize cost %v", result, p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
 	}()
 
 	if p.blockOnChain(bh.Hash) { //已经上链
-		result = "block alreayd onchain"
+		result = "block already onchain"
 		return
 	}
 
@@ -245,7 +245,7 @@ func (p *Processor) blockProposal() {
 	bh := block.Header
 
 	traceLogger.SetHash(bh.Hash)
-	traceLogger.Log("PreHash=%v,Qn=%v", bh.PreHash.String(), qn)
+	traceLogger.Log("PreHash=%v,Qn=%v", bh.PreHash.ShortS(), qn)
 
 	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
 	blog.log("begin proposal, hash=%v, height=%v, qn=%v,, verifyGroup=%v, pi=%v...", bh.Hash.ShortS(), height, qn, gid.ShortS(), pi.ShortS())

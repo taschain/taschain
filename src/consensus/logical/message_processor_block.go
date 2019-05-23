@@ -185,7 +185,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		}
 		tlog.logEnd("%v:height=%v, hash=%v, preHash=%v,groupId=%v, result=%v", mtype, bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupId.ShortS(), result)
 		slog.Log("senderShort=%v, hash=%v, gid=%v, height=%v", si.GetID().ShortS(), bh.Hash.ShortS(), groupId.ShortS(), bh.Height)
-		traceLog.Log("PreHash=%v,castor=%v,result=%v", bh.PreHash.String(), ccm.SI.GetID().String(), result)
+		traceLog.Log("PreHash=%v,castor=%v,result=%v", bh.PreHash.ShortS(), ccm.SI.GetID().ShortS(), result)
 
 	}()
 	if ccm.GenHash() != ccm.SI.DataHash {

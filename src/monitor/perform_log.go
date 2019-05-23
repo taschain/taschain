@@ -15,7 +15,7 @@ import (
 
 var traceLogger = taslog.GetLogger(taslog.PerformTraceConfig)
 
-const dateFormte = "2006-01-02 15:04:05"
+const dateFormte = "2006-01-02 15:04:05.000"
 
 type PerformTraceLogger struct {
 	Name 		string
