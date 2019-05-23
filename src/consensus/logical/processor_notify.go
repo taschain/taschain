@@ -21,7 +21,9 @@ func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
 	for _, msg := range futures {
 		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
+		traceLog := monitor.NewPerformTraceLogger("FutureProposal", msg.BH.Hash, msg.BH.Height)
 		ok, err := p.verifyCastMessage(mtype, msg, bh)
+		traceLog.Log("result=%v %v", ok, err)
 		tlog.logEnd("result=%v %v", ok, err)
 	}
 

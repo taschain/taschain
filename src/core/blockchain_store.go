@@ -149,6 +149,8 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 	recoverTxs := make([]*types.Transaction, 0)
 	delRecepites := make([]common.Hash, 0)
 	for curr.Hash != block.Hash {
+		traceLog := monitor.NewPerformTraceLogger("ResetTop", curr.Hash, curr.Height)
+
 		//删除块头
 		if err = chain.saveBlockHeader(curr.Hash, nil); err != nil {
 			return err
@@ -174,6 +176,7 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 		if curr.PreHash == block.Hash {
 			break
 		}
+		traceLog.Log("")
 		curr = chain.queryBlockHeaderByHash(curr.PreHash)
 	}
 	//删除收据

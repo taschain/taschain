@@ -52,7 +52,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	}()
 
 	block.Header = &types.BlockHeader{
-		CurTime:    chain.ts.Now(),
 		Height:     height,
 		ProveValue: proveValue,
 		Castor:     castor,
@@ -62,12 +61,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 		//ProveRoot:  proveRoot,
 		PreHash:	latestBlock.Hash,
 		Nonce: common.ChainDataVersion,
-	}
-	block.Header.Elapsed = int32(block.Header.CurTime.Since(latestBlock.CurTime))
-
-	if block.Header.Elapsed <= 0 {
-		Logger.Error("cur time is before pre time:height=%v, curtime=%v, pretime=%v", height, block.Header.CurTime, latestBlock.CurTime)
-		return nil
 	}
 
 	preRoot := common.BytesToHash(latestBlock.StateTree.Bytes())
@@ -94,6 +87,15 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
+
+	//时间放在交易执行后，为第二轮争取时间
+	block.Header.CurTime = 	chain.ts.Now()
+	block.Header.Elapsed = int32(block.Header.CurTime.Since(latestBlock.CurTime))
+	if block.Header.Elapsed <= 0 {
+		Logger.Error("cur time is before pre time:height=%v, curtime=%v, pretime=%v", height, block.Header.CurTime, latestBlock.CurTime)
+		return nil
+	}
+
 
 	block.Header.Hash = block.Header.GenHash()
 
