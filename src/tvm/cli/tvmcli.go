@@ -111,7 +111,7 @@ func (t *TvmCli) Deploy(contractName string, contractCode string) string{
 	stateHash := t.settings.GetString("root", "StateHash", "")
 	state, _ := account.NewAccountDB(common.HexToHash(stateHash), t.database)
 	transaction := Transaction{}
-	controller := tvm.NewController(state, nil, nil, transaction, "../py")
+	controller := tvm.NewController(state, nil, nil, transaction, 0, "../py")
 
 	nonce := state.GetNonce(*transaction.GetSource())
 	contractAddress := common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.GetSource()[:], common.Uint64ToByte(nonce))))
@@ -151,7 +151,7 @@ func (t *TvmCli) Call(contractAddress string, abiJson string) {
 	stateHash := t.settings.GetString("root", "StateHash", "")
 	state, _ := account.NewAccountDB(common.HexToHash(stateHash), t.database)
 
-	controller := tvm.NewController(state, nil, nil, Transaction{}, "../py")
+	controller := tvm.NewController(state, nil, nil, Transaction{}, 0, "../py")
 
 	//abi := tvm.ABI{}
 	//abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
