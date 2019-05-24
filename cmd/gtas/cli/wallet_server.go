@@ -2,8 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"github.com/taschain/taschain/cmd/gtas/rpc"
 	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/gtas/rpc"
 )
 
 /*

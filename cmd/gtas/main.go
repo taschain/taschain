@@ -16,7 +16,7 @@
 package main
 
 import (
-	"github.com/taschain/taschain/gtas/cli"
+	"github.com/taschain/taschain/cmd/gtas/cli"
 	"runtime"
 )
 
