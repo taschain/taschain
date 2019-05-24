@@ -30,6 +30,7 @@ type PerformTraceLogger struct {
 	OperTime 	time.Time
 	Parent 		string
 	Desc 		string
+	TxNum 		int
 }
 
 type blockTraceLogs struct {
@@ -38,7 +39,7 @@ type blockTraceLogs struct {
 }
 
 var btlogs = &blockTraceLogs{
-	logs: common.MustNewLRUCache(1000),
+	logs: common.MustNewLRUCache(2000),
 }
 
 func InitPerformTraceLogger() {
@@ -99,6 +100,10 @@ func (ti *PerformTraceLogger) SetEnd()  {
 }
 func (ti *PerformTraceLogger) SetParent(p string)  {
 	ti.Parent = p
+}
+
+func (ti *PerformTraceLogger) SetTxNum(num int)  {
+    ti.TxNum = num
 }
 func (ti *PerformTraceLogger) Log(format string, params ...interface{})  {
 	if format != "" {
