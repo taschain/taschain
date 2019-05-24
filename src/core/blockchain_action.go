@@ -79,13 +79,13 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	}
 
 	packTraceLog := monitor.NewPerformTraceLogger("PackForCast", common.Hash{}, height)
-	packTraceLog.SetParent("blockProposal")
+	packTraceLog.SetParent("CastBlock")
 	txs := chain.transactionPool.PackForCast()
 	packTraceLog.SetEnd()
 	defer packTraceLog.Log("")
 
 	exeTraceLog := monitor.NewPerformTraceLogger("Execute", common.Hash{}, height)
-	exeTraceLog.SetParent("blockProposal")
+	exeTraceLog.SetParent("CastBlock")
 	defer exeTraceLog.Log("pack=true")
 	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block.Header, txs, true)
 	exeTraceLog.SetEnd()

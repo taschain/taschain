@@ -247,6 +247,7 @@ func (p *Processor) blockProposal() {
 	bh := block.Header
 
 	traceLogger.SetHash(bh.Hash)
+	traceLogger.SetTxNum(len(block.Transactions))
 	traceLogger.Log("PreHash=%v,Qn=%v", bh.PreHash.ShortS(), qn)
 
 	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
