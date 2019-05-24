@@ -184,7 +184,8 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 
 	//只签qn不小于已签出的最高块的块
 	if vc.hasSignedMoreWeightThan(bh) {
-		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxWeight().String(), bh.TotalQN)
+		max := vc.getSignedMaxWeight()
+		err = fmt.Errorf("已签过更高qn块%v", max.Hash.ShortS())
 		return
 	}
 

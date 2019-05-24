@@ -12,7 +12,7 @@ import (
 */
 
 const (
-	MAX_GROUP_BLOCK_TIME   int = 10           //组铸块最大允许时间=10s
+	MAX_GROUP_BLOCK_TIME   int = 20           //组铸块最大允许时间=10s
 	MAX_WAIT_BLOCK_TIME    int = 2            //广播出块前等待最大时间=2s
 	CONSENSUS_VERSION          = 1            //共识版本号
 	MAX_UNKNOWN_BLOCKS         = 5            //内存保存最大不能上链的未来块（中间块没有收到）
@@ -85,7 +85,7 @@ func InitParam(cc common.SectionConfManager) {
 		GroupWorkGap:        uint64(cc.GetInt("group_cast_qualify_gap", GROUP_Work_GAP)),
 		GroupworkDuration:   uint64(cc.GetInt("group_cast_duration", GROUP_Work_DURATION)),
 		//EffectGapAfterApply: EPOCH,
-		PotentialProposal: 10,
+		PotentialProposal: 5,
 		ProposalBonus: 	common.TAS2RA(12),
 		PackBonus: common.TAS2RA(3),
 		VerifyBonus: common.TAS2RA(15),

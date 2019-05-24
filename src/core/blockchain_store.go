@@ -6,6 +6,7 @@ import (
 	"middleware/types"
 	"storage/account"
 	"fmt"
+	"monitor"
 )
 
 /*
@@ -55,6 +56,8 @@ func (chain *FullBlockChain) saveBlockTxs(blockHash common.Hash, dataBytes []byt
 
 //persist a block in a batch
 func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostState) (ok bool, err error) {
+	traceLog := monitor.NewPerformTraceLogger("CommitBlock", block.Header.Hash, block.Header.Height)
+	defer traceLog.Log("")
 
 	bh := block.Header
 	headerBytes, err := types.MarshalBlockHeader(bh)
@@ -103,6 +106,8 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	}
 	chain.updateLatestBlock(ps.state, bh)
 
+	rmTxLog := monitor.NewPerformTraceLogger("RemovePoolTx", block.Header.Hash, block.Header.Height)
+	defer rmTxLog.Log("")
 	//交易从交易池中删除
 	if block.Transactions != nil {
 		chain.transactionPool.RemoveFromPool(block.GetTransactionHashs())
@@ -144,6 +149,8 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 	recoverTxs := make([]*types.Transaction, 0)
 	delRecepites := make([]common.Hash, 0)
 	for curr.Hash != block.Hash {
+		traceLog := monitor.NewPerformTraceLogger("ResetTop", curr.Hash, curr.Height)
+
 		//删除块头
 		if err = chain.saveBlockHeader(curr.Hash, nil); err != nil {
 			return err
@@ -169,6 +176,7 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 		if curr.PreHash == block.Hash {
 			break
 		}
+		traceLog.Log("")
 		curr = chain.queryBlockHeaderByHash(curr.PreHash)
 	}
 	//删除收据

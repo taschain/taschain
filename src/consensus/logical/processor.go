@@ -29,6 +29,7 @@ import (
 	"sync/atomic"
 	"strings"
 	"middleware/time"
+	"monitor"
 )
 
 var PROC_TEST_MODE bool
@@ -167,6 +168,11 @@ func (p Processor) GetMinerInfo() *model.MinerDO {
 
 //检查铸块组是否合法
 func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, group *StaticGroupInfo, err error) {
+	traceLog := monitor.NewPerformTraceLogger("IsCastLegal", bh.Hash, bh.Height)
+	defer func() {
+		traceLog.Log("result:%v", err)
+	}()
+
 	castor := groupsig.DeserializeId(bh.Castor)
 	minerDO := p.minerReader.getProposeMiner(castor)
 	if minerDO == nil {

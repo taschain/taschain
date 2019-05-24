@@ -62,7 +62,7 @@ func (log *SlowLog) EndStage()  {
 
 func (log *SlowLog) Log(format string, params ... interface{})  {
 	c := time.Since(log.begin)
-	if c.Seconds() < log.threshold {
+	if c.Seconds() < log.threshold && log.threshold > 0.001 {
 		return
 	}
 	s := fmt.Sprintf(format, params...)
@@ -73,7 +73,7 @@ func (log *SlowLog) Log(format string, params ... interface{})  {
 		}
 		detail = fmt.Sprintf("%v,%v(%v)", detail, lt.stage, lt.end.Sub(lt.begin).String())
 	}
-	s = fmt.Sprintf("%v:%v,cost %v, detail %v", log.key, s, c.String(), detail)
+	s = fmt.Sprintf("%v:%v,cost %v, [%v]", log.key, s, c.String(), detail)
 	if SlowLogger != nil {
 		SlowLogger.Warnf(s)
 	} else {

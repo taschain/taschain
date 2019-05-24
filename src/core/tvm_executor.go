@@ -26,6 +26,7 @@ import (
 	"middleware/types"
 	"storage/account"
 	"storage/vm"
+	"monitor"
 )
 
 const TransactionGasCost uint64 = 1000
@@ -48,6 +49,9 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 	transactions := make([]*types.Transaction, 0)
 	evictedTxs := make([]common.Hash, 0)
 	castor := common.BytesToAddress(bh.Castor)
+
+	tLog := monitor.NewPerformTraceLogger("ExecuteTxs", bh.Hash, bh.Height)
+	defer tLog.Log("pack=%v", pack)
 
 	//errs := make([]*types.TransactionError, len(block.Transactions))
 
