@@ -49,6 +49,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 	evictedTxs := make([]common.Hash, 0)
 	castor := common.BytesToAddress(bh.Castor)
 
+
 	//errs := make([]*types.TransactionError, len(block.Transactions))
 
 	for _, transaction := range txs {

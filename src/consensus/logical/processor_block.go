@@ -102,18 +102,12 @@ func (holder *FutureMessageHolder) size() int {
 //}
 
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
-	//begin := time.Now()
-	//defer func() {
-	//	log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
-	//}()
+
 	bh := block.Header
 
 	rlog := newRtLog("doAddOnChain")
-	//blog.log("start, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
 	result = int8(p.MainChain.AddBlockOnChain("", block))
 
-	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
-	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	rlog.log("height=%v, hash=%v, result=%v.", bh.Height, bh.Hash.ShortS(), result)
 	castor := groupsig.DeserializeId(bh.Castor)
 	tlog := newHashTraceLog("doAddOnChain", bh.Hash, castor)

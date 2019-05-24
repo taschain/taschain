@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"taslog"
+	"monitor"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
@@ -20,7 +21,10 @@ func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
 	for _, msg := range futures {
 		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
+		verifyTraceLog := monitor.NewPerformTraceLogger("verifyCastMessage", bh.Hash, bh.Height)
+		verifyTraceLog.SetParent("triggerFutureVerifyMsg")
 		ok, err := p.verifyCastMessage(mtype, msg, bh)
+		verifyTraceLog.Log("result=%v %v", ok, err)
 		tlog.logEnd("result=%v %v", ok, err)
 	}
 
@@ -71,7 +75,10 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		vrf.markSuccess()
 	}
 
+	traceLog := monitor.NewPerformTraceLogger("onBlockAddSuccess", bh.Hash, bh.Height)
 	go p.checkSelfCastRoutine()
+
+	traceLog.Log("block onchain cost %v", p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
 
 	//p.triggerFutureBlockMsg(bh)
 	p.triggerFutureVerifyMsg(bh)

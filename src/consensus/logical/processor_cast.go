@@ -8,6 +8,7 @@ import (
 	"middleware/types"
 	"monitor"
 	"strings"
+	"common"
 )
 
 /*
@@ -61,6 +62,11 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 	blog := newBizLog("reserveBLock")
 	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
+
+	traceLog := monitor.NewPerformTraceLogger("reserveBlock", bh.Hash, bh.Height)
+	traceLog.SetParent("OnMessageVerify")
+	defer traceLog.Log("threshlod sign cost %v", p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
+
 	if slot.IsRecovered() {
 		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
 		p.blockContexts.addReservedVctx(vctx)
@@ -132,16 +138,22 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 
-	blog := newBizLog("consensusFinalize—" + bh.Hash.ShortS())
+	var result string
+
+	traceLog := monitor.NewPerformTraceLogger("consensusFinalize", bh.Hash, bh.Height)
+	traceLog.SetParent("OnMessageVerify")
+	defer func() {
+		traceLog.Log("result=%v. consensusFinalize cost %v", result, p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
+	}()
 
 	if p.blockOnChain(bh.Hash) { //已经上链
-		blog.log("block alreayd onchain!")
+		result = "block already onchain"
 		return
 	}
 
 	gpk := p.getGroupPubKey(groupsig.DeserializeId(bh.GroupId))
 	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
-		blog.log("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
+		result = fmt.Sprintf("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v",
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
 		return
 	}
@@ -172,6 +184,8 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	tlog.log("send ReqProposalBlock msg to %v", slot.castor.ShortS())
 	p.NetServer.ReqProposalBlock(msg, slot.castor.GetHexString())
 
+	result = fmt.Sprintf("Request block body from %v", slot.castor.String())
+
 	slot.setSlotStatus(slSuccess)
 	vctx.markNotified()
 	vctx.successSlot = slot
@@ -182,6 +196,9 @@ func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
 	worker := p.GetVrfWorker()
+
+	traceLogger := monitor.NewPerformTraceLogger("blockProposal", common.Hash{}, worker.castHeight)
+
 	if worker.getBaseBH().Hash != top.Hash {
 		blog.log("vrf baseBH differ from top!")
 		return
@@ -228,6 +245,10 @@ func (p *Processor) blockProposal() {
 		return
 	}
 	bh := block.Header
+
+	traceLogger.SetHash(bh.Hash)
+	traceLogger.Log("PreHash=%v,Qn=%v", bh.PreHash.ShortS(), qn)
+
 	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
 	blog.log("begin proposal, hash=%v, height=%v, qn=%v,, verifyGroup=%v, pi=%v...", bh.Hash.ShortS(), height, qn, gid.ShortS(), pi.ShortS())
 	tlog.logStart("height=%v,qn=%v, preHash=%v, verifyGroup=%v", bh.Height, qn, bh.PreHash.ShortS(), gid.ShortS())
@@ -244,7 +265,11 @@ func (p *Processor) blockProposal() {
 			return
 		}
 		//生成全量账本hash
+		proveTraceLog := monitor.NewPerformTraceLogger("genProveHashs", bh.Hash, bh.Height)
+		proveTraceLog.SetParent("blockProposal")
 		proveHashs := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+		proveTraceLog.Log("")
+
 		p.NetServer.SendCastVerify(ccm, gb, proveHashs)
 
 		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
