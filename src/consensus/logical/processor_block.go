@@ -24,7 +24,6 @@ import (
 	"sync"
 	"bytes"
 	"time"
-	"monitor"
 )
 
 /*
@@ -105,11 +104,6 @@ func (holder *FutureMessageHolder) size() int {
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 
 	bh := block.Header
-
-	traceLog := monitor.NewPerformTraceLogger("DoAddOnChain", bh.Hash, bh.Height)
-	defer func() {
-		traceLog.Log("result:%v", result)
-	}()
 
 	rlog := newRtLog("doAddOnChain")
 	result = int8(p.MainChain.AddBlockOnChain("", block))

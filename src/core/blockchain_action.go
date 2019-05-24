@@ -35,6 +35,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	block := new(types.Block)
 
 	traceLog := monitor.NewPerformTraceLogger("CastBlock", common.Hash{}, height)
+	traceLog.SetParent("blockProposal")
 	defer func() {
 		traceLog.Log("txs size %v", len(block.Transactions))
 	}()
@@ -77,9 +78,17 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 
 	}
 
+	packTraceLog := monitor.NewPerformTraceLogger("PackForCast", common.Hash{}, height)
+	packTraceLog.SetParent("blockProposal")
 	txs := chain.transactionPool.PackForCast()
+	packTraceLog.SetEnd()
+	defer packTraceLog.Log("")
 
+	exeTraceLog := monitor.NewPerformTraceLogger("Execute", common.Hash{}, height)
+	exeTraceLog.SetParent("blockProposal")
+	defer exeTraceLog.Log("pack=true")
 	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block.Header, txs, true)
+	exeTraceLog.SetEnd()
 
 	block.Transactions = transactions
 	//block.Header.Transactions = transactionHashes
@@ -100,6 +109,8 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	block.Header.Hash = block.Header.GenHash()
 
 	traceLog.SetHash(block.Header.Hash)
+	packTraceLog.SetHash(block.Header.Hash)
+	exeTraceLog.SetHash(block.Header.Hash)
 	//Logger.Errorf("receiptes cast bh %v, %+v", block.Header.Hash.String(), receipts)
 
 	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v,stateTree:%s,prestatetree:%s",
@@ -120,8 +131,8 @@ func (chain *FullBlockChain) verifyTxs(bh *types.BlockHeader, txs []*types.Trans
 	begin := time.Now()
 	slog := taslog.NewSlowLog("verifyTxs", 0.8)
 
-	traceLog := monitor.NewPerformTraceLogger("VerifyTxs", bh.Hash, bh.Height)
-
+	traceLog := monitor.NewPerformTraceLogger("verifyTxs", bh.Hash, bh.Height)
+	traceLog.SetParent("addBlockOnChain")
 	var err error
 	defer func() {
 		Logger.Infof("verifyTxs hash:%v,height:%d,totalQn:%d,preHash:%v,len tx:%d, cost:%v, err=%v", bh.Hash.String(), bh.Height, bh.TotalQN, bh.PreHash.String(), len(txs), time.Since(begin).String(), err)
@@ -210,7 +221,8 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 	if b == nil {
 		return false, fmt.Errorf("block is nil")
 	}
-	traceLog := monitor.NewPerformTraceLogger("ValidateBlock", b.Header.Hash, b.Header.Height)
+	traceLog := monitor.NewPerformTraceLogger("validateBlock", b.Header.Hash, b.Header.Height)
+	traceLog.SetParent("addBlockOnChain")
 	defer traceLog.Log("")
 
 	if !chain.HasBlock(b.Header.PreHash) {
@@ -243,9 +255,9 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 
 func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret types.AddBlockResult, err error) {
 	begin := time.Now()
-	slog := taslog.NewSlowLog("addBlockOnChain", 0.8)
+	slog := taslog.NewSlowLog("AddBlockOnChain", 0.8)
 
-	traceLog := monitor.NewPerformTraceLogger("AddBlockOnChain", b.Header.Hash, b.Header.Height)
+	traceLog := monitor.NewPerformTraceLogger("addBlockOnChain", b.Header.Hash, b.Header.Height)
 
 	defer func() {
 		Logger.Debugf("addBlockOnchain hash=%v, height=%v, err=%v, cost=%v", b.Header.Hash.String(), b.Header.Height, err, time.Since(begin).String())
@@ -387,7 +399,8 @@ func (chain *FullBlockChain) validateTxs(bh *types.BlockHeader, txs []*types.Tra
 		return true
 	}
 
-	traceLog := monitor.NewPerformTraceLogger("ValidateTxs", bh.Hash, bh.Height)
+	traceLog := monitor.NewPerformTraceLogger("validateTxs", bh.Hash, bh.Height)
+	traceLog.SetParent("verifyTxs")
 	defer traceLog.Log("size=%v", len(txs))
 
 	addTxs := make([]*types.Transaction, 0)
@@ -416,6 +429,10 @@ func (chain *FullBlockChain) validateTxs(bh *types.BlockHeader, txs []*types.Tra
 			//}
 		}
 	}
+
+	batchTraceLog := monitor.NewPerformTraceLogger("batchAdd", bh.Hash, bh.Height)
+	batchTraceLog.SetParent("validateTxs")
+	defer batchTraceLog.Log("size=%v", len(addTxs))
 	chain.txBatch.batchAdd(addTxs)
 	for _, tx := range addTxs {
 		if err := tx.RecoverSource(); err != nil {
@@ -439,6 +456,10 @@ func (chain *FullBlockChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 }
 
 func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *executePostState) {
+	traceLog := monitor.NewPerformTraceLogger("executeTransaction", block.Header.Hash, block.Header.Height)
+	traceLog.SetParent("verifyTxs")
+	defer traceLog.Log("size=%v", len(block.Transactions))
+
 	cached, _ := chain.verifiedBlocks.Get(block.Header.Hash)
 	if cached != nil {
 		cb := cached.(*executePostState)

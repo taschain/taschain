@@ -408,6 +408,11 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 	//	return errors.NewAccountDB("gov module error")
 	//}
 
+	enableTraceLog := common.GlobalConf.GetBool("gtas", "enable_trace_log", false)
+	if enableTraceLog {
+		monitor.InitPerformTraceLogger()
+	}
+
 	if isSuper {
 		//超级节点启动前先把Redis数据清空
 		//redis.CleanRedisData()

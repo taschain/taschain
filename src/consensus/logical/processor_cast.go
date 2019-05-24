@@ -63,7 +63,8 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	blog := newBizLog("reserveBLock")
 	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
 
-	traceLog := monitor.NewPerformTraceLogger("ReserveBlock", bh.Hash, bh.Height)
+	traceLog := monitor.NewPerformTraceLogger("reserveBlock", bh.Hash, bh.Height)
+	traceLog.SetParent("OnMessageVerify")
 	defer traceLog.Log("threshlod sign cost %v", p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
 
 	if slot.IsRecovered() {
@@ -139,7 +140,8 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 
 	var result string
 
-	traceLog := monitor.NewPerformTraceLogger("ConsensusFinalize", bh.Hash, bh.Height)
+	traceLog := monitor.NewPerformTraceLogger("consensusFinalize", bh.Hash, bh.Height)
+	traceLog.SetParent("OnMessageVerify")
 	defer func() {
 		traceLog.Log("result=%v. consensusFinalize cost %v", result, p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
 	}()
@@ -195,7 +197,7 @@ func (p *Processor) blockProposal() {
 	top := p.MainChain.QueryTopBlock()
 	worker := p.GetVrfWorker()
 
-	traceLogger := monitor.NewPerformTraceLogger("BlockProposal", common.Hash{}, worker.castHeight)
+	traceLogger := monitor.NewPerformTraceLogger("blockProposal", common.Hash{}, worker.castHeight)
 
 	if worker.getBaseBH().Hash != top.Hash {
 		blog.log("vrf baseBH differ from top!")
@@ -263,7 +265,8 @@ func (p *Processor) blockProposal() {
 			return
 		}
 		//生成全量账本hash
-		proveTraceLog := monitor.NewPerformTraceLogger("GenProve", bh.Hash, bh.Height)
+		proveTraceLog := monitor.NewPerformTraceLogger("genProveHashs", bh.Hash, bh.Height)
+		proveTraceLog.SetParent("blockProposal")
 		proveHashs := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
 		proveTraceLog.Log("")
 

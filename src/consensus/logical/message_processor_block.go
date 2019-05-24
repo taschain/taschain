@@ -153,7 +153,7 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	slog := taslog.NewSlowLog("OnMessageCast", 0.5)
 	bh := &ccm.BH
-	traceLog := monitor.NewPerformTraceLogger("OnMessageProposal", bh.Hash, bh.Height)
+	traceLog := monitor.NewPerformTraceLogger("OnMessageCast", bh.Hash, bh.Height)
 
 	defer func() {
 		slog.Log("hash=%v, sender=%v, height=%v, preHash=%v", bh.Hash.ShortS(), ccm.SI.GetID().ShortS(), bh.Height, bh.PreHash.ShortS())
@@ -244,6 +244,9 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		return
 	}
 
+	verifyTraceLog := monitor.NewPerformTraceLogger("verifyCastMessage", bh.Hash, bh.Height)
+	verifyTraceLog.SetParent("OnMessageCast")
+	defer verifyTraceLog.Log("")
 	slog.AddStage("OMC")
 	_, err = p.verifyCastMessage("OMC", ccm, preBH)
 	slog.EndStage()
@@ -594,8 +597,6 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	blog := newBizLog("OMRPB")
 	blog.log("hash %v", msg.Hash.ShortS())
 
-	traceLog := monitor.NewPerformTraceLogger("OnBlockBodyRequest", msg.Hash, 0)
-
 	from :=  groupsig.ID{}
 	from.SetHexString(sourceId)
 	tlog := newHashTraceLog("OMRPB", msg.Hash, from)
@@ -603,7 +604,6 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	var s string
 	defer func() {
 		tlog.log("result:%v", s)
-		traceLog.Log("result:%v", s)
 	}()
 
 	pb := p.blockContexts.getProposed(msg.Hash)
@@ -612,8 +612,6 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 		blog.log("block is nil hash=%v", msg.Hash.ShortS())
 		return
 	}
-
-	traceLog.SetHeight(pb.block.Header.Height)
 
 	if pb.maxResponseCount == 0 {
 		gid := groupsig.DeserializeId(pb.block.Header.GroupId)
@@ -651,12 +649,10 @@ func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBl
 	blog.log("hash %v", msg.Hash.ShortS())
 
 	tlog := newHashTraceLog("OMRSPB", msg.Hash, groupsig.ID{})
-	traceLog := monitor.NewPerformTraceLogger("OnBlockBodyResponse", msg.Hash, 0)
 
 	var s string
 	defer func() {
 		tlog.log("result:%v", s)
-		traceLog.Log("result:%v, txsize:%v", s, len(msg.Transactions))
 	}()
 
 	if p.blockOnChain(msg.Hash) {
@@ -675,7 +671,6 @@ func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBl
 		blog.log("slot is nil")
 		return
 	}
-	traceLog.SetHeight(slot.BH.Height)
 	block := types.Block{Header: slot.BH, Transactions: msg.Transactions}
 	err := p.onBlockSignAggregation(&block, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
 	if err != nil {

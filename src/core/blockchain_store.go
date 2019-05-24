@@ -56,7 +56,8 @@ func (chain *FullBlockChain) saveBlockTxs(blockHash common.Hash, dataBytes []byt
 
 //persist a block in a batch
 func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostState) (ok bool, err error) {
-	traceLog := monitor.NewPerformTraceLogger("CommitBlock", block.Header.Hash, block.Header.Height)
+	traceLog := monitor.NewPerformTraceLogger("commitBlock", block.Header.Hash, block.Header.Height)
+	traceLog.SetParent("addBlockOnChain")
 	defer traceLog.Log("")
 
 	bh := block.Header
@@ -106,7 +107,8 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	}
 	chain.updateLatestBlock(ps.state, bh)
 
-	rmTxLog := monitor.NewPerformTraceLogger("RemovePoolTx", block.Header.Hash, block.Header.Height)
+	rmTxLog := monitor.NewPerformTraceLogger("RemoveFromPool", block.Header.Hash, block.Header.Height)
+	rmTxLog.SetParent("commitBlock")
 	defer rmTxLog.Log("")
 	//交易从交易池中删除
 	if block.Transactions != nil {
@@ -127,6 +129,10 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 			chain.isAdujsting = false
 		}()
 	}
+
+	traceLog := monitor.NewPerformTraceLogger("resetTop", block.Hash, block.Height)
+	traceLog.SetParent("addBlockOnChain")
+	defer traceLog.Log("")
 
 	//加读写锁，此时阻止读
 	chain.rwLock.Lock()
@@ -149,8 +155,6 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 	recoverTxs := make([]*types.Transaction, 0)
 	delRecepites := make([]common.Hash, 0)
 	for curr.Hash != block.Hash {
-		traceLog := monitor.NewPerformTraceLogger("ResetTop", curr.Hash, curr.Height)
-
 		//删除块头
 		if err = chain.saveBlockHeader(curr.Hash, nil); err != nil {
 			return err
@@ -176,7 +180,6 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 		if curr.PreHash == block.Hash {
 			break
 		}
-		traceLog.Log("")
 		curr = chain.queryBlockHeaderByHash(curr.PreHash)
 	}
 	//删除收据
