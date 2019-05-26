@@ -3,9 +3,7 @@ basepath=$(cd `dirname $0`; pwd)
 if [[ $1x = "gtas"x ]]; then
     echo building gtas ...
     if [ ! -f ${basepath}/tvm/libtvm.a ] || [ ! -f ${basepath}/tvm/tvm.h ] ; then
-        git submodule update &&
-        cd $basepath/tvm/ctvm &&
-        git checkout master && git pull &&
+        git submodule update --init &&
         sh $basepath/tvm/ctvm/buildlib.sh &&
         cp $basepath/tvm/ctvm/examples/embedding/libtvm.a $basepath/tvm/ &&
         cp $basepath/tvm/ctvm/py/tvm.h $basepath/tvm/
