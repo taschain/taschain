@@ -30,3 +30,4 @@ src/gopkg.in
 main
 
 venv/
+go.sum
