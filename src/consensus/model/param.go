@@ -20,9 +20,9 @@ const (
 	MaxSlotSize 			= 3				//每一轮slot数
 
 	SSSS_THRESHOLD int = 51                 //1-100
-	GROUP_MAX_MEMBERS int = 100             //一个组最大的成员数量
-	GROUP_MIN_MEMBERS int = 10             //一个组最大的成员数量
-	MINER_MAX_JOINED_GROUP = 5	//一个矿工最多加入的组数
+	GROUP_MAX_MEMBERS int = 4             //一个组最大的成员数量
+	GROUP_MIN_MEMBERS int =  3            //一个组最小的成员数量
+	MINER_MAX_JOINED_GROUP = 50	//一个矿工最多加入的组数
 	CANDIDATES_MIN_RATIO = 1	//最小的候选人相对于组成员数量的倍数
 
 	EPOCH                 int = 5

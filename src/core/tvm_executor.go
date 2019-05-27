@@ -274,7 +274,7 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 	var miner = MinerManagerImpl.Transaction2Miner(transaction)
 	mexist := MinerManagerImpl.GetMinerById(transaction.Source[:], miner.Type, accountdb)
 	if mexist != nil {
-		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source %s", transaction.Source.GetHexString())
+		Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source=%s, miner type=%v, miner Status=%v", transaction.Source.GetHexString(),mexist.Type,mexist.Status)
 		return success
 	}
 	amount := new(big.Int).SetUint64(miner.Stake)

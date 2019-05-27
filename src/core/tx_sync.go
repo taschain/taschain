@@ -257,7 +257,7 @@ func (ts *txSyncer) checkTxCanBroadcast(txHash common.Hash) bool {
 	if t, ok := ts.rctNotifiy.Get(txHash); !ok || time.Since(t.(time.Time)).Seconds() > float64(txNotifyGap) {
 		return true
 	}
-	return false
+	return true
 }
 
 func (ts *txSyncer) notifyTxs() bool {
