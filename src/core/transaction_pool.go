@@ -61,12 +61,15 @@ type TxPool struct {
 	receiptdb *tasdb.PrefixedDatabase
 	batch     tasdb.Batch
 
+	chain 	BlockChain
 	//broadcastList   []*types.Transaction
 	//broadcastTxLock sync.Mutex
 	//broadcastTimer  *time.Timer
 	//
 	//txBroadcastTime       *lru.Cache
 	//oldTxBroadTimer *time.Timer
+
+	gasPriceLowerBound uint64
 
 	lock   sync.RWMutex
 }
@@ -85,13 +88,14 @@ func (m *TxPoolAddMessage) GetData() interface{} {
 }
 
 func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
-	cache, _ := lru.New(txCountPerBlock*blockResponseSize)
 	pool := &TxPool{
 		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
 		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
 		receiptdb: receiptdb,
 		batch:     chain.batch,
-		asyncAdds: cache,
+		asyncAdds: common.MustNewLRUCache(txCountPerBlock*maxReqBlockCount),
+		chain: chain,
+		gasPriceLowerBound:uint64(common.GlobalConf.GetInt("chain", "gasprice_lower_bound", 1)),
 	}
 	pool.received = newSimpleContainer(maxTxPoolSize)
 	pool.bonPool = newBonusPool(chain.bonusManager, bonusTxMaxSize)
@@ -211,6 +215,7 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
 		return fmt.Errorf("tx sign nil")
 	}
 
+
 	var source *common.Address = nil
 	if tx.Type == types.TransactionTypeBonus {
 		if ok, err := BlockChainImpl.GetConsensusHelper().VerifyBonusTransaction(tx); !ok {
@@ -234,10 +239,17 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
 		}
 		src := pk.GetAddress()
 		source = &src
+		tx.Source = source
+
+		//check nonce
+		stateNonce := pool.chain.LatestStateDB().GetNonce(src)
+		if !IsTestTransaction(tx) && (tx.Nonce <= stateNonce || tx.Nonce > stateNonce+1000) {
+			return fmt.Errorf("nonce error:%v %v", tx.Nonce, stateNonce)
+		}
+
 		if !pk.Verify(msg, sign) {
 			return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
 		}
-		tx.Source = source
 	}
 
 	return nil
@@ -308,6 +320,10 @@ func (pool *TxPool) packTx() []*types.Transaction {
 	})
 	if len(txs) < txCountPerBlock {
 		for _, tx := range pool.received.asSlice(txCountPerBlock-len(txs)) {
+			//gas price too low
+			if tx.GasPrice < pool.gasPriceLowerBound {
+				continue
+			}
 			txs = append(txs, tx)
 			if len(txs) >= txCountPerBlock {
 				break

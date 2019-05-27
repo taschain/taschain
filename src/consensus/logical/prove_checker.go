@@ -28,11 +28,9 @@ type prootCheckResult struct {
 }
 
 func newProveChecker(chain core.BlockChain) *proveChecker {
-	rootCache, _ := lru.New(20)
-	vrfCache, _ := lru.New(20)
     return &proveChecker{
-    	proveRootCaches: rootCache,
-    	proposalVrfHashs: vrfCache,
+    	proveRootCaches: common.MustNewLRUCache(50),
+    	proposalVrfHashs: common.MustNewLRUCache(50),
     	chain:chain,
 	}
 }
@@ -79,7 +77,7 @@ func (p *proveChecker) genProveHash(heightLimit uint64, rand []byte, id groupsig
 	return hash
 }
 
-func (p *proveChecker) genProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash, root common.Hash) {
+func (p *proveChecker) genProveHashs(heightLimit uint64, rand []byte, ids []groupsig.ID) (proves []common.Hash) {
 	hashs := make([]common.Hash, len(ids))
 
 	for idx, id := range ids {
@@ -87,12 +85,12 @@ func (p *proveChecker) genProveHashs(heightLimit uint64, rand []byte, ids []grou
 	}
 	proves = hashs
 
-	buf := bytes.Buffer{}
-	for _, hash := range hashs {
-		buf.Write(hash.Bytes())
-	}
-	root = base.Data2CommonHash(buf.Bytes())
-	buf.Reset()
+	//buf := bytes.Buffer{}
+	//for _, hash := range hashs {
+	//	buf.Write(hash.Bytes())
+	//}
+	//root = base.Data2CommonHash(buf.Bytes())
+	//buf.Reset()
 	return
 }
 

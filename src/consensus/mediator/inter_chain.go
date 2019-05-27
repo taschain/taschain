@@ -83,6 +83,9 @@ func (helper *ConsensusHelperImpl) GenerateGenesisInfo() *types.GenesisInfo {
 }
 
 func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
+	if len(prove) == 0 {
+		return big.NewInt(0)
+	}
 	return base.VRF_proof2hash(base.VRFProve(prove)).Big()
 }
 
@@ -91,7 +94,8 @@ func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
 }
 
 func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
-	return Proc.CheckProveRoot(bh)
+	//return Proc.CheckProveRoot(bh)
+	return true, nil	//上链时不再校验，只在共识时校验（update：2019-04-23）
 }
 
 func (helper *ConsensusHelperImpl) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
@@ -130,6 +134,5 @@ func (helper *ConsensusHelperImpl) EstimatePreHeight(bh *types.BlockHeader) uint
 	if height == 1 {
 		return 0
 	}
-    castTime := bh.CurTime.Sub(bh.PreTime).Seconds()
-    return height - uint64(math.Ceil(castTime/float64(model.Param.MaxGroupCastTime)))
+    return height - uint64(math.Ceil(float64(bh.Elapsed)/float64(model.Param.MaxGroupCastTime)))
 }

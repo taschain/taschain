@@ -34,7 +34,6 @@ const (
 	syncGroupNeightborsInterval       = 10
 	syncGroupNeightborTimeout       = 5
 	GroupSyncCandidatePoolSize = 100
-	GroupResponseSize = 20
 )
 
 const (
@@ -171,14 +170,10 @@ func (gs *groupSyncer) sendGroupHeightToNeighbor(gheight uint64) {
 }
 
 func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
-	groupHeightMsg, ok := msg.GetData().(*notify.GroupHeightMessage)
-	if !ok {
-		gs.logger.Errorf("groupHeightHandler GetData assert not ok!")
-		return
-	}
+	groupHeightMsg := notify.AsDefault(msg)
 
-	source := groupHeightMsg.Peer
-	height := utility.ByteToUInt64(groupHeightMsg.HeightByte)
+	source := groupHeightMsg.Source()
+	height := utility.ByteToUInt64(groupHeightMsg.Body())
 	PeerManager.heardFromPeer(source)
 
 	localGroupHeight := gs.gchain.Height()
@@ -287,6 +282,7 @@ func (gs *groupSyncer) syncComplete(id string, timeout bool) bool {
 		PeerManager.heardFromPeer(id)
 	}
 	gs.ticker.RemoveRoutine(gs.syncTimeoutRoutineName(id))
+	PeerManager.updateReqBlockCnt(id, !timeout)
 
 	gs.lock.Lock()
 	defer gs.lock.Unlock()
@@ -306,24 +302,34 @@ func (gs *groupSyncer) requestGroups(ci *SyncCandidateInfo) {
 		return gs.syncComplete(id, true)
 	}, syncGroupNeightborTimeout)
 
-	height := ci.ReqHeight
-	gs.logger.Debugf("Req group from %s,height:%v!", id, height)
-	message := network.Message{Code: network.ReqGroupMsg, Body: utility.UInt64ToByte(height)}
+	gr := &SyncRequest{
+		ReqSize: int32(PeerManager.getPeerReqBlockCount(id)),
+		ReqHeight: ci.ReqHeight,
+	}
+	body, err := MarshalSyncRequest(gr)
+	if err != nil {
+		gs.logger.Errorf("marshalSyncRequest error %v", err)
+		return
+	}
+	gs.logger.Debugf("Req group from %s,height:%v, reqSize:%v", id, gr.ReqHeight, gr.ReqSize)
+	message := network.Message{Code: network.ReqGroupMsg, Body: body}
 	network.GetNetInstance().Send(id, message)
 }
 
 
 func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
-	groupReqMsg, ok := msg.GetData().(*notify.GroupReqMessage)
-	if !ok {
-		gs.logger.Errorf("groupReqHandler GetData assert not ok!")
+	groupReqMsg := notify.AsDefault(msg)
+
+	gr, err := UnmarshalSyncRequest(groupReqMsg.Body())
+	if err != nil {
+		gs.logger.Errorf("unmarshalSyncRequest error %v", err)
 		return
 	}
 
-	sourceId := groupReqMsg.Peer
-	reqHeight := utility.ByteToUInt64(groupReqMsg.ReqBody)
-	gs.logger.Debugf("Rcv group req from:%s,height:%v\n", sourceId, reqHeight)
-	groups := gs.gchain.GetGroupsAfterHeight(reqHeight, GroupResponseSize)
+	sourceId := groupReqMsg.Source()
+	reqHeight := gr.ReqHeight
+	gs.logger.Debugf("Rcv group req from:%s,height:%v, reqSize:%v\n", sourceId, reqHeight, gr.ReqSize)
+	groups := gs.gchain.GetGroupsAfterHeight(reqHeight, int(gr.ReqSize))
 
 	gs.sendGroups(sourceId, groups)
 }
@@ -353,24 +359,21 @@ func (gs *groupSyncer) getPeerHeight(id string) uint64 {
 }
 
 func (gs *groupSyncer) groupHandler(msg notify.Message) {
-	groupInfoMsg, ok := msg.GetData().(*notify.GroupInfoMessage)
-	if !ok {
-		gs.logger.Errorf("groupHandler GetData assert not ok!")
-		return
-	}
+	groupInfoMsg := notify.AsDefault(msg)
+
 	var complete = false
 	defer func() {
 		if !complete {
-			gs.syncComplete(groupInfoMsg.Peer, false)
+			gs.syncComplete(groupInfoMsg.Source(), false)
 		}
 	}()
 
-	groupInfo, e := gs.unMarshalGroupInfo(groupInfoMsg.GroupInfoByte)
+	groupInfo, e := gs.unMarshalGroupInfo(groupInfoMsg.Body())
 	if e != nil {
 		gs.logger.Errorf("Discard GROUP_MSG because of unmarshal error:%s", e.Error())
 		return
 	}
-	sourceId := groupInfoMsg.Peer
+	sourceId := groupInfoMsg.Source()
 
 	groups := groupInfo.Groups
 	rg := ""
@@ -382,7 +385,7 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 
 	peerHeight := gs.getPeerHeight(sourceId)
 	if allSuccess && gs.gchain.Height() < peerHeight {
-		gs.syncComplete(groupInfoMsg.Peer, false)
+		gs.syncComplete(groupInfoMsg.Source(), false)
 		complete = true
 		go gs.trySyncRoutine()
 	}

@@ -35,6 +35,18 @@ type MessageManager struct {
 	mutex sync.Mutex
 }
 
+func decodeMessageInfo(info uint32) (chaidId uint16, protocolVersion uint16) {
+
+	chaidId =  uint16(info >>16)
+	protocolVersion =  uint16(info)
+
+	return  chaidId,protocolVersion
+}
+
+func encodeMessageInfo (chaidId uint16, protocolVersion uint16) uint32{
+
+	return   uint32(chaidId) << 16 | uint32(protocolVersion)
+}
 
 func newMessageManager(id NodeID) *MessageManager {
 

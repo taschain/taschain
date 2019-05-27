@@ -144,7 +144,6 @@ type Block struct {
 	Prove       string      `json:"prove"`
 	TotalQN     uint64        `json:"total_qn"`
 	Qn          uint64        `json:"qn"`
-	Txs         []common.Hash `json:"transactions"`
 	TxNum       uint64        `json:"txs"`
 	StateRoot   common.Hash   `json:"state_root"`
 	TxRoot      common.Hash   `json:"tx_root"`

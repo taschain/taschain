@@ -1,5 +1,6 @@
 package tvm
 
+import "C"
 import (
 	"common"
 	"encoding/json"
@@ -8,9 +9,19 @@ import (
 	"storage/vm"
 )
 var HasLoadPyLibPath = false
+
+type ControllerTransactionInterface interface {
+	GetGasLimit() uint64
+	GetValue() uint64
+	GetSource() *common.Address
+	GetTarget() *common.Address
+	GetData() []byte
+	GetHash() common.Hash
+}
+
 type Controller struct {
 	BlockHeader *types.BlockHeader
-	Transaction types.Transaction
+	Transaction ControllerTransactionInterface
 	AccountDB   vm.AccountDB
 	Reader      vm.ChainReader
 	Vm          *Tvm
@@ -22,28 +33,30 @@ type Controller struct {
 func NewController(accountDB vm.AccountDB,
 	chainReader vm.ChainReader,
 	header *types.BlockHeader,
-	transaction *types.Transaction, libPath string) *Controller {
+	transaction ControllerTransactionInterface,
+	gasUsed uint64,
+	libPath string) *Controller {
 	if controller == nil {
 		controller = &Controller{}
 	}
 	controller.BlockHeader = header
-	controller.Transaction = *transaction
+	controller.Transaction = transaction
 	controller.AccountDB = accountDB
 	controller.Reader = chainReader
 	controller.Vm = nil
 	controller.LibPath = libPath
 	controller.VmStack = make([]*Tvm, 0)
-	controller.GasLeft = transaction.GasLimit
+  controller.GasLeft = transaction.GetGasLimit() - gasUsed
 	return controller
 }
 
-func (con *Controller) Deploy(sender *common.Address, contract *Contract) (int,string) {
-	con.Vm = NewTvm(sender, contract, con.LibPath)
+func (con *Controller) Deploy(contract *Contract) (int,string) {
+	con.Vm = NewTvm(con.Transaction.GetSource(), contract, con.LibPath)
 	defer func() {
 		con.Vm.DelTvm()
 	}()
 	con.Vm.SetGas(int(con.GasLeft))
-	msg := Msg{Data: []byte{}, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+	msg := Msg{Data: []byte{}, Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().GetHexString()}
 	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
 
 	if errorCodeDeploy != 0 {
@@ -74,15 +87,15 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		con.GasLeft = uint64(con.Vm.Gas())
 	}()
 	//先转账
-	if con.Transaction.Value > 0 {
-		amount := big.NewInt(int64(con.Transaction.Value))
+  if con.Transaction.GetValue() > 0 {
+    amount := new(big.Int).SetUint64(con.Transaction.GetValue())
 		if CanTransfer(con.AccountDB, *sender, amount) {
-			transfer(con.AccountDB, *sender, *con.Transaction.Target, amount)
+			transfer(con.AccountDB, *sender, *con.Transaction.GetTarget(), amount)
 		} else {
 			return false,nil,types.TxErrorBalanceNotEnough
 		}
 	}
-	msg := Msg{Data: con.Transaction.Data, Value: con.Transaction.Value, Sender: con.Transaction.Source.GetHexString()}
+	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().GetHexString()}
 	errorCode,errorMsg,libLen := con.Vm.CreateContractInstance(msg)
 	if errorCode != 0{
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
@@ -106,6 +119,48 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		return false,nil,types.NewTransactionError(errorCode,errorMsg)
 	}
 	return true,con.Vm.Logs,nil
+}
+
+func (con *Controller) ExecuteAbiEval(sender *common.Address, contract *Contract, abiJson string) *ExecuteResult {
+	con.Vm = NewTvm(sender, contract, con.LibPath)
+	con.Vm.SetGas(int(con.GasLeft))
+	defer func() {
+		con.Vm.DelTvm()
+		con.GasLeft = uint64(con.Vm.Gas())
+	}()
+	//先转账
+	if con.Transaction.GetValue() > 0 {
+		amount := big.NewInt(int64(con.Transaction.GetValue()))
+		if CanTransfer(con.AccountDB, *sender, amount) {
+			transfer(con.AccountDB, *sender, *con.Transaction.GetTarget(), amount)
+		} else {
+			return nil
+		}
+	}
+	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: sender.GetHexString()}
+	errorCode,_,libLen := con.Vm.CreateContractInstance(msg)
+	if errorCode != 0{
+		return nil
+	}
+	abi := ABI{}
+	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	if abiJsonError!= nil{
+		return nil
+	}
+	errorCode,_ = con.Vm.checkABI(abi)//checkABI
+	if errorCode != 0{
+		return nil
+	}
+	con.Vm.SetLibLine(libLen)
+	result := con.Vm.ExecuteABIKindEval(abi)//execute
+	if result.ResultType == 4/*C.RETURN_TYPE_EXCEPTION*/ {
+		return result
+	}
+	errorCode,_ = con.Vm.StoreData()//store
+	if errorCode != 0{
+		return nil
+	}
+	return result
 }
 
 func(con *Controller) GetGasLeft() uint64{

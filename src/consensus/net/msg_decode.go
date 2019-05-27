@@ -169,14 +169,9 @@ func unMarshalConsensusCastMessage(b []byte) (*model.ConsensusCastMessage, error
 
 	bh := types.PbToBlockHeader(m.Bh)
 
-	hashs := make([]common.Hash, len(m.ProveHash))
-	for i, h := range m.ProveHash {
-		hashs[i] = common.BytesToHash(h)
-	}
-
 	return &model.ConsensusCastMessage{
 		BH:                *bh,
-		ProveHash:         hashs,
+		ProveHash:         common.BytesToHash(m.ProveHash),
 		BaseSignedMessage: *baseMessage(m.Sign),
 	}, nil
 }
@@ -458,3 +453,32 @@ func unMarshalSharePieceResponseMessage(b []byte) (*model.ResponseSharePieceMess
 	}
 	return m, nil
 }
+
+func unmarshalReqProposalBlockMessage(b []byte) (*model.ReqProposalBlock, error) {
+	message := &tas_middleware_pb.ReqProposalBlockMessage{}
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		return nil, e
+	}
+	m := &model.ReqProposalBlock{
+		Hash: common.BytesToHash(message.Hash),
+	}
+	return m, nil
+}
+
+
+func unmarshalResponseProposalBlockMessage(b []byte) (*model.ResponseProposalBlock, error) {
+	message := &tas_middleware_pb.ResponseProposalBlockMessage{}
+	e := proto.Unmarshal(b, message)
+	if e != nil {
+		return nil, e
+	}
+	transactions := types.PbToTransactions(message.Transactions)
+
+	m := &model.ResponseProposalBlock{
+		Hash: common.BytesToHash(message.Hash),
+		Transactions: transactions,
+	}
+	return m, nil
+}
+

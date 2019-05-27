@@ -67,7 +67,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceId))
-		logger.Infof("SharepieceMsg receive from:%v, gHash:%v",sourceId, m.GHash.Hex())
+		logger.Infof("SharepieceMsg receive from:%v, gHash:%v", sourceId, m.GHash.Hex())
 	case network.SignPubkeyMsg:
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
@@ -75,7 +75,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceId))
-		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v",sourceId, m.GHash.Hex(), m.GroupID.GetHexString())
+		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v", sourceId, m.GHash.Hex(), m.GroupID.GetHexString())
 	case network.GroupInitDoneMsg:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
@@ -102,7 +102,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		c.processor.OnMessageCast(m)
-	case network.VerifiedCastMsg2:
+	case network.VerifiedCastMsg:
 		m, e := unMarshalConsensusVerifyMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusVerifyMessage because of unmarshal error%s", e.Error())
@@ -190,6 +190,23 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			return e
 		}
 		c.processor.OnMessageSharePieceResponse(m)
+
+	case network.ReqProposalBlock:
+		m, e := unmarshalReqProposalBlockMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unmarshalReqProposalBlockMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageReqProposalBlock(m,sourceId)
+
+	case network.ResponseProposalBlock:
+		m, e := unmarshalResponseProposalBlockMessage(body)
+		if e != nil {
+			logger.Errorf("[handler]Discard unmarshalResponseProposalBlockMessage because of unmarshal error:%s", e.Error())
+			return e
+		}
+		c.processor.OnMessageResponseProposalBlock(m)
+
 	}
 
 	return nil

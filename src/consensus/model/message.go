@@ -165,7 +165,7 @@ func (msg *ConsensusCurrentMessage) GenHash() common.Hash {
 type ConsensusCastMessage struct {
 	BH types.BlockHeader
 	//GroupID groupsig.ID
-	ProveHash []common.Hash
+	ProveHash common.Hash
 	BaseSignedMessage
 }
 
@@ -352,6 +352,22 @@ func (msg *ResponseSharePieceMessage) GenHash() common.Hash {
 	buf = append(buf, msg.Share.Pub.Serialize()...)
 	buf = append(buf, msg.Share.Share.Serialize()...)
 	return base.Data2CommonHash(buf)
+}
+
+type BlockSignAggrMessage struct {
+	Hash common.Hash
+	Sign groupsig.Signature
+	Random groupsig.Signature
+}
+
+type ReqProposalBlock struct {
+	Hash common.Hash
+}
+
+
+type ResponseProposalBlock struct {
+	Hash common.Hash
+	Transactions []*types.Transaction
 }
 
 

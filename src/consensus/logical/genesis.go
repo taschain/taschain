@@ -10,6 +10,7 @@ import (
 	"consensus/groupsig"
 	"time"
 	"consensus/model"
+	time2 "middleware/time"
 )
 
 /*
@@ -78,7 +79,7 @@ func generateGenesisGroupHeader(memIds []groupsig.ID) *types.GroupHeader {
 	gh := &types.GroupHeader{
 		Name:          "TAS genesis group",
 		Authority:     777,
-		BeginTime:     time.Now(),
+		BeginTime:     time2.TimeToTimeStamp(time.Now()),
 		CreateHeight:  0,
 		ReadyHeight:   1,
 		WorkHeight:    0,

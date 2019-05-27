@@ -209,7 +209,7 @@ func AddPreimage(hashC *C.char, preimageC *C.char) {
 
 //export BlockHash
 func BlockHash(height C.ulonglong) *C.char {
-	block := controller.Reader.QueryBlockByHeight(uint64(height))
+	block := controller.Reader.QueryBlockHeaderByHeight(uint64(height))
 	if block == nil {
 		return C.CString("0x0000000000000000000000000000000000000000000000000000000000000000")
 	}
@@ -238,12 +238,12 @@ func Timestamp() C.ulonglong {
 
 //export TxOrigin
 func TxOrigin() *C.char {
-	return C.CString(controller.Transaction.Source.GetHexString())
+	return C.CString(controller.Transaction.GetSource().GetHexString())
 }
 
 //export TxGasLimit
 func TxGasLimit() C.ulonglong {
-	return C.ulonglong(controller.Transaction.GasLimit)
+	return C.ulonglong(controller.Transaction.GetGasLimit())
 }
 
 //export ContractCall
@@ -273,7 +273,7 @@ func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char{
 	for i:=0; i < len(C.GoString(data)); i++ {
 		log.Data = append(log.Data,C.GoString(data)[i])
 	}
-	log.TxHash = controller.Transaction.Hash
+	log.TxHash = controller.Transaction.GetHash()
 	log.Address = *controller.Vm.ContractAddress //*(controller.Transaction.Target)
 	log.BlockNumber = controller.BlockHeader.Height
 	//block is running ,no blockhash this time

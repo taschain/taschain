@@ -46,9 +46,9 @@ func (chain *FullBlockChain) GetTransactionByHash(onlyBonus, needSource bool,  h
 	if tx == nil {
 		chain.rwLock.RLock()
 		defer chain.rwLock.RUnlock()
-		bhash := chain.transactionPool.GetTxBlockHash(h)
-		if bhash != nil {
-			tx = chain.queryBlockTransactionsOptional(*bhash, h)
+		rc := chain.transactionPool.GetReceipt(h)
+		if rc != nil {
+			tx = chain.queryBlockTransactionsOptional(int(rc.TxIndex), rc.Height, h)
 			if tx != nil && needSource {
 				tx.RecoverSource()
 			}
@@ -69,43 +69,6 @@ func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 	chain.rwLock.RLock()
 	defer chain.rwLock.RUnlock()
 	return chain.latestStateDB
-}
-
-
-func (chain *FullBlockChain) GetBlockTransactions(blockHash common.Hash, txHashList []common.Hash, needSource bool) ([]*types.Transaction, []common.Hash) {
-	txs := make([]*types.Transaction, 0)
-	lost := make([]common.Hash, 0)
-	if nil == txHashList || 0 == len(txHashList) {
-		return txs, lost
-	}
-
-	//先从交易池取
-	for _, hash := range txHashList {
-		tx := chain.GetTransactionByHash(false, needSource, hash)
-		if tx != nil {
-			txs = append(txs, tx)
-		} else {
-			lost = append(lost, hash)
-		}
-	}
-
-	//if len(needFindInDBs) > 0 {
-	//	chain.rwLock.RLock()
-	//	dbTxs := chain.queryBlockTransactionsOptional(blockHash, needFindInDBs)
-	//	chain.rwLock.RUnlock()
-	//	for _, tx := range dbTxs {
-	//		existTxs[tx.Hash] = tx
-	//	}
-	//}
-	//for _, hash := range txHashList {
-	//	if tx, ok := existTxs[hash]; ok {
-	//		txs = append(txs, tx)
-	//	} else {
-	//		lost = append(lost, hash)
-	//	}
-	//}
-
-	return txs, lost
 }
 
 //查询最高块
@@ -129,7 +92,7 @@ func (chain *FullBlockChain) HasHeight(height uint64) bool {
 
 // 根据指定高度查询块
 // 带有缓存
-func (chain *FullBlockChain) QueryBlockByHeight(height uint64) *types.BlockHeader {
+func (chain *FullBlockChain) QueryBlockHeaderByHeight(height uint64) *types.BlockHeader {
 	b := chain.getTopBlockByHeight(height)
 	if b != nil {
 		return b.Header
@@ -141,6 +104,25 @@ func (chain *FullBlockChain) QueryBlockByHeight(height uint64) *types.BlockHeade
 	return chain.queryBlockHeaderByHeight(height)
 }
 
+func (chain *FullBlockChain) QueryBlockByHeight(height uint64) *types.Block {
+	b := chain.getTopBlockByHeight(height)
+	if b != nil {
+		return b
+	}
+
+	chain.rwLock.RLock()
+	defer chain.rwLock.RUnlock()
+
+	bh := chain.queryBlockHeaderByHeight(height)
+	if bh == nil {
+		return nil
+	}
+	txs := chain.queryBlockTransactionsAll(bh.Hash)
+	return &types.Block{
+		Header: bh,
+		Transactions: txs,
+	}
+}
 
 //根据指定哈希查询块
 func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {

@@ -94,7 +94,6 @@ func (pool *BufferPool) GetBuffer(size int) *bytes.Buffer {
 	poolItem := pool.GetPoolItem(size)
 	if poolItem != nil {
 		buf := poolItem.GetBuffer()
-		//	Logger.Debugf("[BufferPool] GetBuffer buf.Cap:%v address: %p ", buf.Cap(),buf)
 		return buf
 	}
 

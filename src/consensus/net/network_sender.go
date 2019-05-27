@@ -7,6 +7,9 @@ import (
 	"consensus/model"
 	"time"
 	"core"
+	"common"
+	"middleware/pb"
+	"github.com/gogo/protobuf/proto"
 )
 
 type NetworkServerImpl struct {
@@ -124,36 +127,22 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 //-----------------------------------------------------------------组铸币----------------------------------------------
 
 //铸币节点完成铸币，将blockheader  签名后发送至组内其他节点进行验证。组内广播
-func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction) {
+func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gb *GroupBrief, proveHashs []common.Hash) {
+	bh := types.BlockHeaderToPb(&ccm.BH)
+	//groupId := m.GroupID.Serialize()
+	si := signDataToPb(&ccm.SI)
 
-	//txs, e := types.MarshalTransactions(body)
-	//if e != nil {
-	//	logger.Errorf("[peer]Discard send cast verify because of MarshalTransactions error:%s", e.Error())
-	//	return
-	//}
-
-	var groupId groupsig.ID
-	e1 := groupId.Deserialize(ccm.BH.GroupId)
-	if e1 != nil {
-		logger.Errorf("[peer]Discard send ConsensusCurrentMessage because of Deserialize groupsig id error::%s", e1.Error())
-		return
+	for idx, mem := range gb.MemIds {
+		message := &tas_middleware_pb.ConsensusCastMessage{Bh: bh, Sign: si, ProveHash: proveHashs[idx].Bytes()}
+		body, err := proto.Marshal(message)
+		if err != nil {
+			logger.Errorf("marshalConsensusCastMessage error:%v %v", err, mem.String())
+			continue
+		}
+		m := network.Message{Code: network.CastVerifyMsg, Body: body}
+		go ns.net.Send(mem.String(), m)
 	}
-	timeFromCast := time.Since(ccm.BH.CurTime)
-	begin := time.Now()
-
-	mems := id2String(group.MemIds)
-
-	//txMsg := network.Message{Code: network.TransactionMsg, Body: txs}
-	//go ns.net.SpreadToGroup(groupId.GetHexString(), mems, txMsg, ccm.BH.TxTree.Bytes())
-
-	ccMsg, e := marshalConsensusCastMessage(ccm)
-	if e != nil {
-		logger.Errorf("[peer]Discard send cast verify because of marshalConsensusCastMessage error:%s", e.Error())
-		return
-	}
-	m := network.Message{Code: network.CastVerifyMsg, Body: ccMsg}
-	go ns.net.SpreadToGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
-	logger.Debugf("send CAST_VERIFY_MSG,%d-%d to group:%s,invoke SpreadToGroup cost time:%v,time from cast:%v,hash:%s", ccm.BH.Height, ccm.BH.TotalQN, groupId.GetHexString(), time.Since(begin), timeFromCast,  ccm.BH.Hash.String())
+	//go ns.net.SpreadToGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
 }
 
 //组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
@@ -163,7 +152,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage,
 		logger.Errorf("[peer]Discard send ConsensusVerifyMessage because of marshal error:%s", e.Error())
 		return
 	}
-	m := network.Message{Code: network.VerifiedCastMsg2, Body: body}
+	m := network.Message{Code: network.VerifiedCastMsg, Body: body}
 
 	//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
 	go ns.send2Self(cvm.SI.GetID(), m)
@@ -176,7 +165,6 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage,
 
 //对外广播经过组签名的block 全网广播
 func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief) {
-	timeFromCast := time.Since(cbm.Block.Header.CurTime)
 	body, e := types.MarshalBlock(&cbm.Block)
 	if e != nil {
 		logger.Errorf("[peer]Discard send ConsensusBlockMessage because of marshal error:%s", e.Error())
@@ -211,9 +199,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 		go ns.net.SpreadToGroup(nextVerifyGroupId, validGroupMembers, blockMsg, []byte(blockMsg.Hash()))
 	}
 
-	core.Logger.Debugf("Broad new block %d-%d,hash:%v,tx count:%d,msg size:%d, time from cast:%v,spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(), len(cbm.Block.Header.Transactions), len(blockMsg.Body), timeFromCast, nextVerifyGroupId)
-	//statistics.AddBlockLog(common.BootId, statistics.BroadBlock, cbm.Block.Header.Height, cbm.Block.Header.ProveValue.Uint64(), len(cbm.Block.Transactions), len(body),
-	//	time.Now().UnixNano(), "", "", common.InstanceIndex, cbm.Block.Header.CurTime.UnixNano())
+	core.Logger.Debugf("Broad new block %d-%d,hash:%v, spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(),  nextVerifyGroupId)
 }
 
 
@@ -342,3 +328,28 @@ func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMes
 
 	ns.net.Send(receiver.String(), m)
 }
+
+
+func (ns *NetworkServerImpl)ReqProposalBlock(msg *model.ReqProposalBlock, target string) {
+	body, e := marshalReqProposalBlockMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send marshalReqProposalBlockMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.ReqProposalBlock, Body: body}
+
+	ns.net.Send(target, m)
+}
+
+func (ns *NetworkServerImpl)ResponseProposalBlock(msg *model.ResponseProposalBlock, target string) {
+
+	body, e := marshalResponseProposalBlockMessage(msg)
+	if e != nil {
+		network.Logger.Errorf("[peer]Discard send marshalResponseProposalBlockMessage because of marshal error:%s", e.Error())
+		return
+	}
+	m := network.Message{Code: network.ResponseProposalBlock, Body: body}
+
+	ns.net.Send(target, m)
+}
+

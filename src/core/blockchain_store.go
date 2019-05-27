@@ -14,18 +14,6 @@ import (
 **  Description: 
 */
 
-//func (gchain *FullBlockChain) PutCheckValue(height uint64, hash []byte) error {
-//	key := utility.UInt64ToByte(height)
-//	return gchain.checkdb.Put(key, hash)
-//}
-//
-//func (gchain *FullBlockChain) GetCheckValue(height uint64) (common.Hash, error) {
-//	key := utility.UInt64ToByte(height)
-//	raw, err := gchain.checkdb.Get(key)
-//	return common.BytesToHash(raw), err
-//}
-
-
 func (chain *FullBlockChain) saveBlockState(b *types.Block, state *account.AccountDB) error {
 	root, err := state.Commit(true)
 	if err != nil {
@@ -116,8 +104,8 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	chain.updateLatestBlock(ps.state, bh)
 
 	//交易从交易池中删除
-	if bh.Transactions != nil {
-		chain.transactionPool.RemoveFromPool(bh.Transactions)
+	if block.Transactions != nil {
+		chain.transactionPool.RemoveFromPool(block.GetTransactionHashs())
 	}
 	if ps.evitedTxs != nil {
 		chain.transactionPool.RemoveFromPool(ps.evitedTxs)
@@ -128,10 +116,12 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 }
 
 func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
-	chain.isAdujsting = true
-	defer func() {
-		chain.isAdujsting = false
-	}()
+	if !chain.isAdujsting {
+		chain.isAdujsting = true
+		defer func() {
+			chain.isAdujsting = false
+		}()
+	}
 
 	//加读写锁，此时阻止读
 	chain.rwLock.Lock()
@@ -152,6 +142,7 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 
 	curr := chain.getLatestBlock()
 	recoverTxs := make([]*types.Transaction, 0)
+	delRecepites := make([]common.Hash, 0)
 	for curr.Hash != block.Hash {
 		//删除块头
 		if err = chain.saveBlockHeader(curr.Hash, nil); err != nil {
@@ -168,16 +159,20 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 		txs := chain.queryBlockTransactionsAll(curr.Hash)
 		if txs != nil {
 			recoverTxs = append(recoverTxs, txs...)
+			for _, tx := range txs {
+				delRecepites = append(delRecepites, tx.Hash)
+			}
 		}
-		//删除收据
-		if err = chain.transactionPool.DeleteReceipts(curr.Transactions); err != nil {
-			return err
-		}
+
 		chain.removeTopBlock(curr.Hash)
 		if curr.PreHash == block.Hash {
 			break
 		}
 		curr = chain.queryBlockHeaderByHash(curr.PreHash)
+	}
+	//删除收据
+	if err = chain.transactionPool.DeleteReceipts(delRecepites); err != nil {
+		return err
 	}
 	//重置当前块
 	if err = chain.saveCurrentBlock(block.Hash); err != nil {
@@ -222,8 +217,15 @@ func (chain *FullBlockChain) removeOrphan(block *types.Block) error {
 	if err = chain.saveBlockTxs(hash, nil); err != nil {
 		return err
 	}
-	if err = chain.transactionPool.DeleteReceipts(block.Header.Transactions); err != nil {
-		return err
+	txs := chain.queryBlockTransactionsAll(hash)
+	if txs != nil {
+		txHashs := make([]common.Hash, len(txs))
+		for i, tx := range txs {
+			txHashs[i] = tx.Hash
+		}
+		if err = chain.transactionPool.DeleteReceipts(txHashs); err != nil {
+			return err
+		}
 	}
 
 	if err = chain.batch.Write(); err != nil {
@@ -385,23 +387,6 @@ func (chain *FullBlockChain) queryBlockByHash(hash common.Hash) *types.Block {
 	}
 
 	txs := chain.queryBlockTransactionsAll(hash)
-	if len(bh.Transactions) > 0 {
-		if txs == nil || len(txs) != len(bh.Transactions) {
-			bodyLen := 0
-			if txs != nil {
-				bodyLen = len(txs)
-			}
-			Logger.Error("header txs len not equal to body len:%v-%v", len(bh.Transactions), bodyLen)
-			return nil
-		}
-		for i, h := range bh.Transactions {
-			tx := txs[i]
-			if tx.Hash != h {
-				Logger.Errorf("header hash not equal body tx: index %v, header %v, body %v", i, h.String(), tx.Hash.String())
-				return nil
-			}
-		}
-	}
 	b := &types.Block{
 		Header: bh,
 		Transactions: txs,
@@ -456,22 +441,22 @@ func (chain *FullBlockChain) getTopBlockByHeight(height uint64) *types.Block {
 	return nil
 }
 
-func (chain *FullBlockChain) queryBlockTransactionsOptional(blockHash common.Hash, txHash common.Hash) (*types.Transaction) {
+func (chain *FullBlockChain) queryBlockTransactionsOptional(txIdx int, height uint64, txHash common.Hash) (*types.Transaction) {
 
-	bh := chain.queryBlockHeaderByHash(blockHash)
+	bh := chain.queryBlockHeaderByHeight(height)
 	if bh == nil {
 		return nil
 	}
-	bs, err := chain.txdb.Get(blockHash.Bytes())
+	bs, err := chain.txdb.Get(bh.Hash.Bytes())
 	if err != nil {
-		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), blockHash.String())
+		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), bh.Hash.String())
 		return  nil
 	}
-	tx, err := decodeTransaction(bh, txHash, bs)
+	tx, err := decodeTransaction(txIdx, txHash, bs)
 	if tx != nil {
 		return tx
 	} else {
-		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v", txHash.String(), err.Error())
+		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.String(), err.Error())
 		return nil
 	}
 }

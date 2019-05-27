@@ -26,10 +26,8 @@ import (
 	"fmt"
 	"middleware/notify"
 	"middleware/types"
-	"storage/tasdb"
 	"sync/atomic"
 	"strings"
-	"github.com/hashicorp/golang-lru"
 	"middleware/time"
 )
 
@@ -39,7 +37,7 @@ var PROC_TEST_MODE bool
 type Processor struct {
 	joiningGroups *JoiningGroups //已加入未完成初始化的组(组初始化完成上链后，不再需要)。组内成员数据过程数据。
 
-	blockContexts *CastBlockContexts //组ID->组铸块上下文
+	blockContexts *castBlockContexts
 
 	globalGroups  *GlobalGroups      //全网组静态信息（包括待完成组初始化的组，即还没有组ID只有DUMMY ID的组）
 
@@ -56,12 +54,11 @@ type Processor struct {
 	//futureBlockMsgs  *FutureMessageHolder //存储缺少父块的块
 	futureVerifyMsgs *FutureMessageHolder //存储缺失前一块的验证消息
 	futureRewardReqs *FutureMessageHolder //块仍未上链的分红交易签名请求
-	verifyMsgCaches *lru.Cache			//缓存验证消息
 
 	proveChecker 	*proveChecker
 
-	storage tasdb.Database
 	ready   bool //是否已初始化完成
+	genesisMember bool
 
 	//////链接口
 	MainChain  core.BlockChain
@@ -106,7 +103,7 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.globalGroups = NewGlobalGroups(p.GroupChain)
 	p.joiningGroups = NewJoiningGroups()
 	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile(), p.getEncryptPrivateKey())
-	p.blockContexts = NewCastBlockContexts()
+	p.blockContexts = newCastBlockContexts(p.MainChain)
 	p.NetServer = net.NewNetworkServer()
 	p.proveChecker = newProveChecker(p.MainChain)
 	p.ts = time.TSInstance
@@ -122,15 +119,8 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 		consensusLogger.Infof("ProcessorId:%v", p.getPrefix())
 	}
 
-	cache, err := lru.New(300)
-	if err != nil {
-		panic(err)
-	}
-	p.verifyMsgCaches = cache
-
 	notify.BUS.Subscribe(notify.BlockAddSucc, p.onBlockAddSuccess)
 	notify.BUS.Subscribe(notify.GroupAddSucc, p.onGroupAddSuccess)
-	notify.BUS.Subscribe(notify.TransactionGotAddSucc, p.onMissTxAddSucc)
 	//notify.BUS.Subscribe(notify.NewBlock, p.onNewBlockReceive)
 
 	jgFile := conf.GetString(ConsensusConfSection, "joined_group_store", "")

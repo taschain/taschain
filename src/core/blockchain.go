@@ -28,7 +28,6 @@ import (
 	"github.com/pkg/errors"
 	"middleware/ticker"
 	"sync"
-	"gopkg.in/fatih/set.v0"
 	time2 "middleware/time"
 )
 
@@ -116,8 +115,6 @@ type FullBlockChain struct {
 
 	ticker 		*ticker.GlobalTicker	//全局定时器
 	ts 			time2.TimeService
-
-	txsWanted set.Interface
 }
 
 
@@ -148,31 +145,15 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		isAdujsting:     false,
 		consensusHelper: helper,
 		ticker:          ticker.NewGlobalTicker("chain"),
-		txsWanted:       set.New(set.ThreadSafe),
 		ts: 			time2.TSInstance,
+		futureBlocks: 	common.MustNewLRUCache(10),
+		verifiedBlocks: common.MustNewLRUCache(10),
+		topBlocks: 		common.MustNewLRUCache(20),
 	}
+
+	types.DefaultPVFunc = helper.VRFProve2Value
 
 	chain.initMessageHandler()
-
-	var err error
-	chain.futureBlocks, err = lru.New(10)
-	if err != nil {
-		return err
-	}
-	chain.verifiedBlocks, err = lru.New(10)
-	if err != nil {
-		return err
-	}
-	chain.topBlocks, _ = lru.New(20)
-	if err != nil {
-		return err
-	}
-	//gchain.castedBlock, err = lru.New(10)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//gchain.verifiedBodyCache, _ = lru.New(50)
 
 	ds, err := tasdb.NewDataSource(chain.config.dbfile)
 	if err != nil {
@@ -265,12 +246,13 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 
 	block := new(types.Block)
 	block.Header = &types.BlockHeader{
-		Height:       0,
-		ExtraData:    common.Sha256([]byte("tas")),
-		CurTime:      time.Date(2019, 3, 21, 23, 0, 0, 0, time.Local),
-		ProveValue:   []byte{},
-		TotalQN:      0,
-		Transactions: make([]common.Hash, 0), //important!!
+		Height:     0,
+		ExtraData:  common.Sha256([]byte("tas")),
+		CurTime:    time2.TimeToTimeStamp(time.Date(2019, 4, 25, 0, 0, 0, 0, time.UTC)),
+		ProveValue: []byte{},
+		Elapsed:    0,
+		TotalQN:    0,
+		//Transactions: make([]common.Hash, 0), //important!!
 		Nonce:        common.ChainDataVersion,
 	}
 
@@ -367,20 +349,9 @@ func (chain *FullBlockChain) compareChainWeight(bh2 *types.BlockHeader) int {
 }
 
 func (chain *FullBlockChain) compareBlockWeight(bh1 *types.BlockHeader, bh2 *types.BlockHeader) int {
-	if bh1.TotalQN > bh2.TotalQN {
-		return 1
-	} else if bh1.TotalQN == bh2.TotalQN {
-		v1 := chain.consensusHelper.VRFProve2Value(bh1.ProveValue)
-		v2 := chain.consensusHelper.VRFProve2Value(bh2.ProveValue)
-		ret := v1.Cmp(v2)
-		if ret == 0 && bh1.Hash != bh2.Hash {
-			Logger.Errorf("compareBlockWeight error: bh1 %+v, bh2 %+v", bh1, bh2)
-			panic(fmt.Sprintf("different block hash same prove value, bh1 %v %v %v, bh2 %v %v %v", bh1.Hash.String(), bh1.Height, common.ToHex(bh1.ProveValue), bh2.Hash.String(), bh2.Height, common.ToHex(bh2.ProveValue)))
-		}
-		return ret
-	} else {
-		return -1
-	}
+	bw1 := types.NewBlockWeight(bh1)
+	bw2 := types.NewBlockWeight(bh2)
+	return bw1.Cmp(bw2)
 }
 
 func (chain *FullBlockChain) Close() {

@@ -19,12 +19,10 @@ type bonusPool struct {
 }
 
 func newBonusPool(pm *BonusManager, size int) *bonusPool {
-	pc, _ := lru.New(size)
-	idx, _ := lru.New(size)
 	return &bonusPool{
-		pool:pc,
-		blockHashIndex:idx,
-		bm: pm,
+		pool:			common.MustNewLRUCache(size),
+		blockHashIndex:	common.MustNewLRUCache(size),
+		bm: 			pm,
 	}
 }
 

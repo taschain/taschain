@@ -4,7 +4,6 @@ import (
 	"consensus/model"
 	"common"
 	"consensus/groupsig"
-	"middleware/types"
 )
 
 /*
@@ -52,6 +51,10 @@ type MessageProcessor interface {
 
 	OnMessageSharePieceReq(msg *model.ReqSharePieceMessage)
 	OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage)
+
+	OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourceId string)
+	OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock)
+
 }
 
 type GroupBrief struct {
@@ -68,7 +71,7 @@ type NetworkServer interface {
 
 	BroadcastGroupInfo(cgm *model.ConsensusGroupInitedMessage)
 
-	SendCastVerify(ccm *model.ConsensusCastMessage, group *GroupBrief, body []*types.Transaction)
+	SendCastVerify(ccm *model.ConsensusCastMessage, gb *GroupBrief, proveHashs []common.Hash)
 
 	SendVerifiedCast(cvm *model.ConsensusVerifyMessage, receiver groupsig.ID)
 
@@ -93,6 +96,13 @@ type NetworkServer interface {
 	SendGroupPingMessage(msg *model.CreateGroupPingMessage, receiver groupsig.ID)
 
 	SendGroupPongMessage(msg *model.CreateGroupPongMessage, group *GroupBrief)
+
 	ReqSharePiece(msg *model.ReqSharePieceMessage, receiver groupsig.ID)
+
 	ResponseSharePiece(msg *model.ResponseSharePieceMessage, receiver groupsig.ID)
+
+	ReqProposalBlock(msg *model.ReqProposalBlock, target string)
+
+	ResponseProposalBlock(msg *model.ResponseProposalBlock, target string)
+
 }
