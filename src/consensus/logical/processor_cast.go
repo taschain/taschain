@@ -248,7 +248,7 @@ func (p *Processor) blockProposal() {
 
 	traceLogger.SetHash(bh.Hash)
 	traceLogger.SetTxNum(len(block.Transactions))
-	traceLogger.Log("PreHash=%v,Qn=%v", bh.PreHash.ShortS(), qn)
+
 
 	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
 	blog.log("begin proposal, hash=%v, height=%v, qn=%v,, verifyGroup=%v, pi=%v...", bh.Hash.ShortS(), height, qn, gid.ShortS(), pi.ShortS())
@@ -270,6 +270,8 @@ func (p *Processor) blockProposal() {
 		proveTraceLog.SetParent("blockProposal")
 		proveHashs := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
 		proveTraceLog.Log("")
+
+		traceLogger.Log("PreHash=%v,Qn=%v", bh.PreHash.ShortS(), qn)
 
 		p.NetServer.SendCastVerify(ccm, gb, proveHashs)
 
