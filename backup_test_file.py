@@ -2,6 +2,7 @@
 
 import os
 import sys
+import subprocess
 
 def get_paths(root):
     paths = []
@@ -27,10 +28,16 @@ if __name__ == '__main__':
         paths = get_paths(os.getcwd())
         for path in paths:
             print(path)
-            os.rename(path, path + '.back')
+            # os.chdir(os.path.dirname(path))
+            # filename = os.path.basename(path)
+            subprocess.getstatusoutput('git mv {} {}'.format(path, path + '.back'))
+            # os.rename(path, path + '.back')
     elif sys.argv[1] == 'restore':
         endwith = '_test.go.back'
         paths = get_paths(os.getcwd())
         for path in paths:
             print(path)
-            os.rename(path, path[:-5])
+            # os.chdir(os.path.dirname(path))
+            # filename = os.path.basename(path)
+            subprocess.getstatusoutput('git mv {} {}'.format(path, path[:-5]))
+            # os.rename(path, path[:-5])
