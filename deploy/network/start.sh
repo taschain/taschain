@@ -21,10 +21,10 @@ do
     apply_type=${cfg[1]}
     apply='light'
     rpc_port=$[8100+$instance_index]
-#    if [ $apply_type = 1 ];then
-#        apply='heavy'
+    if [ $apply_type = 1 ];then
+        apply='heavy'
 #        rpc_port=8101
-#    fi
+    fi
 
     pprof_port=$[9000+$instance_index]
     config_file='tas'$instance_index'.ini'
