@@ -2,7 +2,7 @@
 
 #instance_index1:is_heavy,instance_index2:is_heavy...
 params=$1
-nat_server='120.78.127.246'
+nat_server='47.99.147.25'
 nat_port=3100
 
 if [ ! -d 'logs' ]; then
