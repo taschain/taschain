@@ -318,7 +318,7 @@ func (pool *TxPool) packTx() []*types.Transaction {
 	if len(txs) < txCountPerBlock {
 		pool.received.forEach(func(tx *types.Transaction) bool {
 			txs = append(txs, tx)
-			return len(txs) <= txCountPerBlock
+			return len(txs) < txCountPerBlock
 		})
 	}
 	return txs
