@@ -87,9 +87,11 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 			err = fmt.Errorf("block signed")
 			return
 		}
-		err = vctx.baseCheck(bh, si.GetID())
-		if err != nil {
-			return
+		if vctx.prevBH.Hash == bh.PreHash {
+			err = vctx.baseCheck(bh, si.GetID())
+			if err != nil {
+				return
+			}
 		}
 	}
 	castorDO := p.minerReader.getProposeMiner(castor)
