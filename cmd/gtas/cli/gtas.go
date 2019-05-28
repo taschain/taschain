@@ -257,7 +257,7 @@ func (gtas *Gtas) Run() {
 	case consoleCmd.FullCommand():
 		err := ConsoleInit(*keystore, *remoteHost, *remotePort, *showRequest, *rpcPort)
 		if err != nil {
-			fmt.Errorf(err.Error())
+			fmt.Println(err.Error())
 		}
 
 		//case tCmd.FullCommand():

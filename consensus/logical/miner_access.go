@@ -71,7 +71,6 @@ func (access *MinerPoolReader) getAllMinerDOByType(ntype byte, h uint64) []*mode
 	for iter.Next() {
 		if curr, err := iter.Current(); err != nil {
 			continue
-			access.blog.log("minerManager iterator error %v", err)
 		} else {
 			md := convert2MinerDO(curr)
 			mds = append(mds, md)

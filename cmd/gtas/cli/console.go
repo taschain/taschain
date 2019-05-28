@@ -324,7 +324,7 @@ func (c *sendTxCmd) parse(args []string) bool {
 			c.fs.PrintDefaults()
 			return false
 		}
-		contract := tvm.Contract{string(f), c.contractName, nil}
+		contract := tvm.Contract{Code: string(f), ContractName: c.contractName, ContractAddress: nil}
 
 		jsonBytes, errMarsh := json.Marshal(contract)
 		if errMarsh != nil {

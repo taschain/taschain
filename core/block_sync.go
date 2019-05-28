@@ -395,7 +395,7 @@ func (bs *blockSyncer) addCandidatePool(source string, topBlockInfo *TopBlockInf
 	}
 }
 
-func (bs blockSyncer) blockReqHandler(msg notify.Message) {
+func (bs *blockSyncer) blockReqHandler(msg notify.Message) {
 	m := notify.AsDefault(msg)
 
 	br, err := UnmarshalSyncRequest(m.Body())

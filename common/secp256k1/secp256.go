@@ -110,7 +110,6 @@ func RecoverPubkey(msg []byte, sig []byte) ([]byte, error) {
 func VerifySignature(pubkey, msg, signature []byte) bool {
 	if len(msg) != 32 || len(signature) != 64 || len(pubkey) == 0 {
 		panic("Bad input parameters in VerifySignature!")
-		return false
 	}
 	sigdata := (*C.uchar)(unsafe.Pointer(&signature[0]))
 	msgdata := (*C.uchar)(unsafe.Pointer(&msg[0]))

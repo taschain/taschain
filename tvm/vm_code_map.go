@@ -159,7 +159,6 @@ func GetInterfaceType(value interface{}) string {
 		return "unknow"
 		//panic("")
 	}
-	return ""
 }
 
 func PycodeCheckAbi(abi ABI) string {

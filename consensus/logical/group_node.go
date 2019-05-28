@@ -43,7 +43,6 @@ func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece model.SharePiece) in
 	} else { //收到过
 		return -1
 	}
-	return 0
 }
 
 func (gmd *GroupInitPool) GetSize() int {
