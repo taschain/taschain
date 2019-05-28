@@ -55,6 +55,7 @@ var (
 	LightDBAddress      = BigToAddress(big.NewInt(1))
 	HeavyDBAddress      = BigToAddress(big.NewInt(2))
 	MinerCountDBAddress = BigToAddress(big.NewInt(3))
+	MinerStakeDetailDBAddress = BigToAddress(big.NewInt(4))
 )
 
 //160位地址

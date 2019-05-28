@@ -500,7 +500,7 @@ func (gtas *Gtas) autoApplyMiner(mtype int) {
 	}
 
 	nonce := core.BlockChainImpl.GetNonce(miner.ID.ToAddress()) + 1
-	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 100, 100, nonce, types.TransactionTypeMinerApply, common.ToHex(data))
+	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 20000, 100, nonce, types.TransactionTypeMinerApply, common.ToHex(data))
 	common.DefaultLogger.Debugf("apply result", ret, err)
 
 }

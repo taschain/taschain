@@ -225,20 +225,76 @@ func (ca *RemoteChainOpImpl) AbortMiner(mtype int, gas, gasprice uint64) *Result
 	return ca.SendRaw(tx)
 }
 
-func (ca *RemoteChainOpImpl) RefundMiner(mtype int, gas, gasprice uint64) *Result {
+func (ca *RemoteChainOpImpl) RefundMiner(mtype int, addrStr string, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
 		return r
 	}
 	aci := r.Data.(*Account)
-	if aci.Miner == nil {
-		return opError(fmt.Errorf("the current account is not a miner account"))
+	data := []byte{}
+	data = append(data, byte(mtype))
+	if addrStr == "" {
+		addrStr = aci.Address
 	}
+	addr := common.HexToAddress(addrStr)
+	data = append(data, addr.Bytes()...)
 	tx := &txRawData{
-		Gas:       gas,
-		Gasprice:  gasprice,
-		TxType:    types.TransactionTypeMinerRefund,
-		Data:      string([]byte{byte(mtype)}),
+		Gas:      gas,
+		Gasprice: gasprice,
+		TxType:   types.TransactionTypeMinerRefund,
+		Data:     common.ToHex(data),
+		ExtraData: aci.Address,
+	}
+	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
+	return ca.SendRaw(tx)
+}
+
+func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, refundValue, gas, gasprice uint64) *Result {
+	r := ca.aop.AccountInfo()
+	if !r.IsSuccess() {
+		return r
+	}
+	aci := r.Data.(*Account)
+	data := []byte{}
+	data = append(data, byte(mtype))
+	if addrStr == "" {
+		addrStr = aci.Address
+	}
+	refundValue = common.TAS2RA(refundValue)
+	addr := common.HexToAddress(addrStr)
+	data = append(data, addr.Bytes()...)
+	data = append(data, common.Uint64ToByte(refundValue)...)
+	tx := &txRawData{
+		Gas:      gas,
+		Gasprice: gasprice,
+		TxType:   types.TransactionTypeMinerStake,
+		Data:     common.ToHex(data),
+		ExtraData: aci.Address,
+	}
+	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
+	return ca.SendRaw(tx)
+}
+
+func (ca *RemoteChainOpImpl) MinerCancelStake(mtype int, addrStr string, refundValue, gas, gasprice uint64) *Result {
+	r := ca.aop.AccountInfo()
+	if !r.IsSuccess() {
+		return r
+	}
+	aci := r.Data.(*Account)
+	data := []byte{}
+	data = append(data, byte(mtype))
+	if addrStr == "" {
+		addrStr = aci.Address
+	}
+	refundValue = common.TAS2RA(refundValue)
+	addr := common.HexToAddress(addrStr)
+	data = append(data, addr.Bytes()...)
+	data = append(data, common.Uint64ToByte(refundValue)...)
+	tx := &txRawData{
+		Gas:      gas,
+		Gasprice: gasprice,
+		TxType:   types.TransactionTypeMinerCancelStake,
+		Data:     common.ToHex(data),
 		ExtraData: aci.Address,
 	}
 	ca.aop.(*AccountManager).resetExpireTime(aci.Address)

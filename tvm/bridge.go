@@ -314,3 +314,81 @@ func DataNext(cvalue *C.char) *C.char {
 	data := controller.AccountDB.DataNext(uintptr(value.Uint64()))
 	return C.CString(data)
 }
+
+//export MinerStake
+func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
+	fmt.Println("VM MinerStake", _type)
+	ss := controller.AccountDB.Snapshot()
+	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
+	if !ok{
+		//TODO
+	}
+	source := controller.Vm.ContractAddress
+	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	if CanTransfer(controller.AccountDB, *source, value) {
+		mexist := controller.mm.GetMinerById(miner.Bytes(), byte(_type), controller.AccountDB)
+		if mexist != nil &&
+			controller.mm.AddStake(mexist.Id, mexist, value.Uint64(), controller.AccountDB) &&
+			controller.mm.AddStakeDetail(source.Bytes(), mexist, value.Uint64(), controller.AccountDB) {
+			controller.AccountDB.SubBalance(*source, value)
+			return true
+		}
+	}
+	controller.AccountDB.RevertToSnapshot(ss)
+	return false
+}
+
+//export MinerCancelStake
+func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
+	fmt.Println("VM MinerCancelStake", _type)
+	ss := controller.AccountDB.Snapshot()
+	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
+	if !ok{
+		//TODO
+	}
+	source := controller.Vm.ContractAddress
+	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	mexist := controller.mm.GetMinerById(miner.Bytes(), byte(_type), controller.AccountDB)
+	if mexist != nil &&
+		controller.mm.CancelStake(source.Bytes(), mexist, value.Uint64(), controller.AccountDB, controller.BlockHeader.Height) &&
+		controller.mm.ReduceStake(mexist.Id, mexist, value.Uint64(), controller.AccountDB, controller.BlockHeader.Height) {
+		return true
+	}
+	controller.AccountDB.RevertToSnapshot(ss)
+	return false
+}
+
+//export MinerRefundStake
+func MinerRefundStake(minerAddr *C.char, _type int) bool{
+	fmt.Println("VM MinerRefundStake", _type)
+	var success = false
+	ss := controller.AccountDB.Snapshot()
+	source := controller.Vm.ContractAddress
+	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	mexist := controller.mm.GetMinerById(miner.Bytes(), byte(_type), controller.AccountDB)
+	height := controller.BlockHeader.Height
+	if mexist != nil {
+		if mexist.Type == types.MinerTypeHeavy {
+			latestCancelPledgeHeight := controller.mm.GetLatestCancelStakeHeight(source.Bytes(), mexist, controller.AccountDB)
+			if height > latestCancelPledgeHeight+10 || (mexist.Status == types.MinerStatusAbort && height > mexist.AbortHeight + 10) {
+				value, ok := controller.mm.RefundStake(source.Bytes(), mexist, controller.AccountDB)
+				if ok {
+					refundValue := big.NewInt(0).SetUint64(value)
+					controller.AccountDB.AddBalance(*source, refundValue)
+					success = true
+				}
+			}
+		} else {
+			value, ok := controller.mm.RefundStake(source.Bytes(), mexist, controller.AccountDB)
+			if ok {
+				refundValue := big.NewInt(0).SetUint64(value)
+				controller.AccountDB.AddBalance(*source, refundValue)
+				success = true
+			}
+		}
+	}
+	if !success {
+		controller.AccountDB.RevertToSnapshot(ss)
+	}
+	return success
+}
