@@ -1,25 +1,23 @@
-// Copyright 2014 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+//   Copyright (C) 2018 TASChain
 //
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
 //
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
 //
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package trie
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethdb"
+	"math/big"
 	"math/rand"
 	"testing"
 
@@ -96,37 +94,14 @@ func TestIteratorLargeData(t *testing.T) {
 	}
 }
 
-// Tests that the node iterator indeed walks over the entire database contents.
-func TestNodeIteratorCoverage(t *testing.T) {
-	// Create some arbitrary test trie to iterate
-	db, trie, _ := makeTestTrie()
-
-	// Gather all the node hashes found by the iterator
-	hashes := make(map[common.Hash]struct{})
-	for it := trie.NodeIterator(nil); it.Next(true); {
-		if it.Hash() != (common.Hash{}) {
-			hashes[it.Hash()] = struct{}{}
-		}
-	}
-	// Cross check the hashes and the database itself
-	for hash := range hashes {
-		if _, err := db.Node(hash); err != nil {
-			t.Errorf("failed to retrieve reported node %x: %v", hash, err)
-		}
-	}
-	for hash, obj := range db.nodes {
-		if obj != nil && hash != (common.Hash{}) {
-			if _, ok := hashes[hash]; !ok {
-				t.Errorf("state entry not reported %x", hash)
-			}
-		}
-	}
-	for _, key := range db.diskdb.(*ethdb.MemDatabase).Keys() {
-		if _, ok := hashes[common.BytesToHash(key)]; !ok {
-			t.Errorf("state entry not reported %x", key)
-		}
-	}
+// testAccount is the data associated with an account used by the state tests.
+type testAccount struct {
+	address common.Address
+	balance *big.Int
+	nonce   uint64
+	code    []byte
 }
+
 
 type kvs struct{ k, v string }
 

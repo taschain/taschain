@@ -12,7 +12,6 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 package tasdb
 
 import (
@@ -32,6 +31,7 @@ func TestCreateLDB(t *testing.T) {
 		fmt.Printf("error to create ldb : %s\n", "testldb")
 		return
 	}
+	defer ldb.Close()
 
 	// 测试put
 	err = ldb.Put([]byte("testkey"), []byte("testvalue"))
@@ -90,6 +90,7 @@ func TestLDBScan(t *testing.T) {
 		t.Fatal(err)
 	}
 	ldb, err := ds.NewPrefixDatabase("testldb")
+	defer ldb.Close()
 	key1 := []byte{0, 1, 1}
 	key2 := []byte{0, 1, 2}
 	key3 := []byte{0, 2, 1}
@@ -133,7 +134,7 @@ func TestClearLDB(t *testing.T) {
 		t.Fatal(err)
 	}
 	ldb, err := ds.NewPrefixDatabase("testldb")
-
+	defer ldb.Close()
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
@@ -166,6 +167,7 @@ func TestBatchPutVisiableBeforeWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	ldb, err := ds.NewPrefixDatabase("testldb")
+	defer ldb.Close()
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
@@ -202,6 +204,7 @@ func TestIteratorWithPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	ldb, err := ds.NewPrefixDatabase("testldb")
+	defer ldb.Close()
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
@@ -237,6 +240,7 @@ func TestIteratorWithPrefix2(t *testing.T) {
 		t.Fatal(err)
 	}
 	ldb, err := ds.NewPrefixDatabase("testldb")
+	defer ldb.Close()
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
@@ -289,6 +293,7 @@ func TestGetAfter(t *testing.T) {
 		t.Fatal(err)
 	}
 	ldb, err := ds.NewPrefixDatabase("testldb")
+	defer ldb.Close()
 	if err != nil {
 		t.Fatalf("error to create ldb : %s\n", "testldb")
 		return
