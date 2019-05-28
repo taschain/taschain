@@ -99,7 +99,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	calcReceiptsTraceLog := monitor.NewPerformTraceLogger("calcReceiptsTree", common.Hash{}, 0)
 	calcReceiptsTraceLog.SetParent("CastBlock")
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
-	traceLog.Log("size=%v", len(receipts))
+	calcReceiptsTraceLog.Log("size=%v", len(receipts))
 
 	//时间放在交易执行后，为第二轮争取时间
 	block.Header.CurTime = 	chain.ts.Now()
@@ -493,7 +493,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 	calcReceiptsTraceLog := monitor.NewPerformTraceLogger("calcReceiptsTree", common.Hash{}, 0)
 	calcReceiptsTraceLog.SetParent("executeTransaction")
 	receiptsTree := calcReceiptsTree(receipts)
-	traceLog.Log("size=%v", len(receipts))
+	calcReceiptsTraceLog.Log("size=%v", len(receipts))
 
 	if receiptsTree != block.Header.ReceiptTree {
 		Logger.Errorf("fail to verify receipt, hash1:%s hash2:%s", receiptsTree.String(), block.Header.ReceiptTree.String())
