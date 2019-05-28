@@ -17,10 +17,11 @@ package main
 
 import (
 	"gtas/cli"
+	"runtime"
 )
 
 func main() {
-	//runtime.GOMAXPROCS(4)
+	runtime.GOMAXPROCS(runtime.NumCPU()*2)
 	gtas := cli.NewGtas()
 	gtas.Run()
 }
