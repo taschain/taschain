@@ -216,3 +216,14 @@
 15:23:07.705712 db@open done T·3.112665ms
 15:23:07.706200 db@close closing
 15:23:07.706358 db@close done T·155.844µs
+=============== May 28, 2019 (CST) ===============
+13:45:00.664225 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+13:45:00.664458 version@stat F·[1] S·1KiB[1KiB] Sc·[0.25]
+13:45:00.664479 db@open opening
+13:45:00.664552 journal@recovery F·1
+13:45:00.666480 journal@recovery recovering @39
+13:45:00.667383 version@stat F·[1] S·1KiB[1KiB] Sc·[0.25]
+13:45:00.668342 db@janitor F·3 G·0
+13:45:00.668378 db@open done T·3.874767ms
+13:45:00.668766 db@close closing
+13:45:00.668862 db@close done T·93.336µs
