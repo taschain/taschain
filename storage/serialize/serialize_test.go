@@ -19,14 +19,14 @@ func TestSerialize(t *testing.T) {
 	accountDump(a)
 	byte, err := EncodeToBytes(a)
 	if err != nil {
-		fmt.Printf("encode error\n" + err.Error())
+		t.Errorf("encoding error")
 	}
-	fmt.Println(byte)
+
 
 	var b = Account{}
 	decodeErr := DecodeBytes(byte, &b)
 	if decodeErr != nil {
-		fmt.Printf("decode error\n" + decodeErr.Error())
+		t.Errorf("decode error")
 	}
 	accountDump(b)
 }
