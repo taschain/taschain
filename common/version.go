@@ -17,7 +17,8 @@ package common
 //const GtasVersion = "0.7.7"	//网络消息转发 bug fix
 //const GtasVersion = "0.8.0"		//链优化
 //const GtasVersion = "0.8.1"		//bug fix。提案时验证时间是否在前一块时间之后
-const GtasVersion = "0.8.2" //时间同步和矫正
+//const GtasVersion = "0.8.2"		//时间同步和矫正
+const GtasVersion = "0.9.0"		//共识不校验交易
 
 const ConsensusVersion = 1
 
