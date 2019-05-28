@@ -142,8 +142,8 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPor
 
 func (gtas *Gtas) runtimeInit() {
 	debug.SetGCPercent(100)
-	debug.SetMaxStack(2 * 1000000000)
-	common.DefaultLogger.Infof("setting gc 100%, max memory 2g")
+	debug.SetMaxStack(4 * 1000000000)
+	common.DefaultLogger.Infof("setting gc 100%, max memory 4g")
 
 }
 
