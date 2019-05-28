@@ -18,10 +18,10 @@ package types
 import (
 	"bytes"
 	"common"
-	"utility"
-	"middleware/time"
-	"math/big"
 	"fmt"
+	"math/big"
+	"middleware/time"
+	"utility"
 )
 
 type AddBlockOnChainSituation string
@@ -58,6 +58,8 @@ const (
 	Sys_Check_Abi_Error              = 2002
 	Sys_Abi_JSON_Error               = 2003
 	Sys_CONTRACT_CALL_MAX_DEEP_Error = 2004
+
+	txFixSize = 200 //每个交易固定字段大小
 )
 
 var (
@@ -98,8 +100,6 @@ const (
 	TransactionTypeToBeRemoved = -1
 )
 
-
-
 //tx data with source
 type Transaction struct {
 	Data   []byte          `msgpack:"dt,omitempty"`
@@ -117,7 +117,7 @@ type Transaction struct {
 	//PubKey *common.PublicKey
 	//Sign *common.Sign
 	Sign   []byte          `msgpack:"si"`
-	Source *common.Address `msgpack:"src"`	//don't streamlize
+	Source *common.Address `msgpack:"src"` //don't streamlize
 }
 
 //source,sign在hash计算范围内
@@ -149,7 +149,6 @@ func (tx *Transaction) HexSign() string {
 	return common.ToHex(tx.Sign)
 }
 
-
 func (tx *Transaction) RecoverSource() error {
 	if tx.Source != nil || tx.Type == TransactionTypeBonus {
 		return nil
@@ -163,13 +162,16 @@ func (tx *Transaction) RecoverSource() error {
 	return err
 }
 
-func (tx Transaction) GetData() []byte{return tx.Data}
-func (tx Transaction) GetGasLimit() uint64 {return tx.GasLimit}
-func (tx Transaction) GetValue() uint64    {return tx.Value}
-func (tx Transaction) GetSource() *common.Address {return tx.Source}
-func (tx Transaction) GetTarget() *common.Address {return tx.Target}
-func (tx Transaction) GetHash() common.Hash {return tx.Hash}
+func (tx Transaction) GetData() []byte            { return tx.Data }
+func (tx Transaction) GetGasLimit() uint64        { return tx.GasLimit }
+func (tx Transaction) GetValue() uint64           { return tx.Value }
+func (tx Transaction) GetSource() *common.Address { return tx.Source }
+func (tx Transaction) GetTarget() *common.Address { return tx.Target }
+func (tx Transaction) GetHash() common.Hash       { return tx.Hash }
 
+func (tx *Transaction) Size() int {
+	return txFixSize + len(tx.Data) + len(tx.ExtraData)
+}
 
 //type Transactions []*Transaction
 //
@@ -243,26 +245,25 @@ type Miner struct {
 	Status       byte
 }
 
-
 //区块头结构
 type BlockHeader struct {
-	Hash       common.Hash     // 本块的hash，to do : 是对哪些数据的哈希
-	Height     uint64          // 本块的高度
-	PreHash    common.Hash     //上一块哈希
-	Elapsed    int32           //距离上一块铸块时间的时长
-	ProveValue []byte          //vrf prove
-	TotalQN    uint64          //整条链的QN
+	Hash       common.Hash    // 本块的hash，to do : 是对哪些数据的哈希
+	Height     uint64         // 本块的高度
+	PreHash    common.Hash    //上一块哈希
+	Elapsed    int32          //距离上一块铸块时间的时长
+	ProveValue []byte         //vrf prove
+	TotalQN    uint64         //整条链的QN
 	CurTime    time.TimeStamp //当前铸块时间
-	Castor     []byte          //出块人ID
-	GroupId    []byte          //组ID，groupsig.ID的二进制表示
-	Signature  []byte          // 组签名
-	Nonce      int32           //盐
+	Castor     []byte         //出块人ID
+	GroupId    []byte         //组ID，groupsig.ID的二进制表示
+	Signature  []byte         // 组签名
+	Nonce      int32          //盐
 	//Transactions []common.Hash // 交易集哈希列表
-	TxTree       common.Hash   // 交易默克尔树根hash
-	ReceiptTree  common.Hash
-	StateTree    common.Hash
-	ExtraData    []byte
-	Random       []byte
+	TxTree      common.Hash // 交易默克尔树根hash
+	ReceiptTree common.Hash
+	StateTree   common.Hash
+	ExtraData   []byte
+	Random      []byte
 	//ProveRoot    common.Hash
 	//EvictedTxs   []common.Hash
 }
@@ -305,11 +306,11 @@ func (bh *BlockHeader) GenHash() common.Hash {
 }
 
 func (bh *BlockHeader) PreTime() time.TimeStamp {
-    return bh.CurTime.Add(int64(-bh.Elapsed))
+	return bh.CurTime.Add(int64(-bh.Elapsed))
 }
 
 func (bh *BlockHeader) HasTransactions() bool {
-    return bh.TxTree != common.EmptyHash
+	return bh.TxTree != common.EmptyHash
 }
 
 type Block struct {
@@ -321,7 +322,7 @@ func (b *Block) GetTransactionHashs() []common.Hash {
 	if b.Transactions == nil {
 		return []common.Hash{}
 	}
-    hashs := make([]common.Hash, 0)
+	hashs := make([]common.Hash, 0)
 	for _, tx := range b.Transactions {
 		hashs = append(hashs, tx.Hash)
 	}
@@ -399,8 +400,9 @@ type StateNode struct {
 }
 
 type BlockWeight struct {
-	TotalQN 	uint64
-	PV			*big.Int
+	Hash    common.Hash
+	TotalQN uint64
+	PV      *big.Int
 }
 
 type PvFunc func(pvBytes []byte) *big.Int
@@ -423,10 +425,11 @@ func (bw *BlockWeight) Cmp(bw2 *BlockWeight) int {
 func NewBlockWeight(bh *BlockHeader) *BlockWeight {
 	return &BlockWeight{
 		TotalQN: bh.TotalQN,
-		PV: DefaultPVFunc(bh.ProveValue),
+		PV:      DefaultPVFunc(bh.ProveValue),
+		Hash:    bh.Hash,
 	}
 }
 
 func (bw *BlockWeight) String() string {
-    return fmt.Sprintf("%v-%v", bw.TotalQN, bw.PV.Uint64())
+	return fmt.Sprintf("%v:%v-%v", bw.Hash.String(), bw.TotalQN, bw.PV.Uint64())
 }

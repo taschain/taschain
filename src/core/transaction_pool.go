@@ -36,7 +36,8 @@ const (
 	//oldTxBroadcastTimerInterval = time.Second * 30
 	//oldTxInterval               = time.Second * 60
 
-	txCountPerBlock = 3000
+	//txCountPerBlock = 3000
+	txAccumulateSizeMaxPerBlock = 1024*1024
 	gasLimitMax     = 500000
 
 	txMaxSize 		= 64000	//每个交易最大大小
@@ -93,7 +94,7 @@ func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase
 		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
 		receiptdb: receiptdb,
 		batch:     chain.batch,
-		asyncAdds: common.MustNewLRUCache(txCountPerBlock*maxReqBlockCount),
+		asyncAdds: common.MustNewLRUCache(3000*maxReqBlockCount),
 		chain: chain,
 		gasPriceLowerBound:uint64(common.GlobalConf.GetInt("chain", "gasprice_lower_bound", 1)),
 	}
@@ -246,10 +247,10 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) (error) {
 		if !IsTestTransaction(tx) && (tx.Nonce <= stateNonce || tx.Nonce > stateNonce+1000) {
 			return fmt.Errorf("nonce error:%v %v", tx.Nonce, stateNonce)
 		}
-
-		if !pk.Verify(msg, sign) {
-			return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
-		}
+		//
+		//if !pk.Verify(msg, sign) {
+		//	return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
+		//}
 	}
 
 	return nil
@@ -313,19 +314,22 @@ func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, wh
 }
 
 func (pool *TxPool) packTx() []*types.Transaction {
-	txs := make([]*types.Transaction, 0, txCountPerBlock)
+	txs := make([]*types.Transaction, 0)
+	accuSize := 0
 	pool.bonPool.forEach(func(tx *types.Transaction) bool {
 		txs = append(txs, tx)
-		return len(txs) < txCountPerBlock
+		accuSize += tx.Size()
+		return accuSize < txAccumulateSizeMaxPerBlock
 	})
-	if len(txs) < txCountPerBlock {
-		for _, tx := range pool.received.asSlice(txCountPerBlock-len(txs)) {
+	if len(txs) < txAccumulateSizeMaxPerBlock {
+		for _, tx := range pool.received.asSlice(10000) {
 			//gas price too low
 			if tx.GasPrice < pool.gasPriceLowerBound {
 				continue
 			}
 			txs = append(txs, tx)
-			if len(txs) >= txCountPerBlock {
+			accuSize += tx.Size()
+			if accuSize >= txAccumulateSizeMaxPerBlock {
 				break
 			}
 		}

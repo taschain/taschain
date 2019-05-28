@@ -20,9 +20,10 @@ import (
 	"core"
 	"errors"
 	"fmt"
-	"gopkg.in/alecthomas/kingpin.v2"
 	"network"
 	"os"
+
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"consensus/mediator"
 	chandler "consensus/net"
@@ -30,7 +31,6 @@ import (
 	"consensus/groupsig"
 	"consensus/model"
 	"encoding/json"
-	"github.com/vmihailenco/msgpack"
 	"middleware"
 	"middleware/types"
 	"monitor"
@@ -40,6 +40,8 @@ import (
 	"runtime/debug"
 	"strconv"
 	"taslog"
+
+	"github.com/vmihailenco/msgpack"
 )
 
 const (
