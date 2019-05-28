@@ -101,7 +101,7 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 
 // miner 起旷工节点
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPort uint16, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string, enableLog bool, chainId uint16) {
-	gtas.runtimeInit()
+	//gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, natIp, natPort, seedIp, seedId, light, keystore, enableLog, chainId)
 	if err != nil {
 		fmt.Println(err.Error())
