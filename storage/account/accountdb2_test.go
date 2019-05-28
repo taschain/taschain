@@ -23,7 +23,7 @@ import (
 )
 
 func TestAccountDB_AddBalance(t *testing.T) {
-	db, _ := tasdb.NewLDBDatabase(".", 0, 0)
+	db, _ := tasdb.NewMemDatabase()
 	defer db.Close()
 	triedb := NewDatabase(db)
 	state, _ := NewAccountDB(common.Hash{}, triedb)
@@ -44,7 +44,7 @@ func TestAccountDB_AddBalance(t *testing.T) {
 }
 
 func TestAccountDB_SetData(t *testing.T) {
-	db, _ := tasdb.NewLDBDatabase(".", 0, 0)
+	db, _ := tasdb.NewMemDatabase()
 	defer db.Close()
 	triedb := NewDatabase(db)
 	state, _ := NewAccountDB(common.Hash{}, triedb)
@@ -74,7 +74,7 @@ func TestAccountDB_SetData(t *testing.T) {
 
 
 func TestAccountDB_SetCode(t *testing.T) {
-	db, _ := tasdb.NewLDBDatabase(".", 0, 0)
+	db, _ := tasdb.NewMemDatabase()
 	defer db.Close()
 	triedb := NewDatabase(db)
 	state, _ := NewAccountDB(common.Hash{}, triedb)

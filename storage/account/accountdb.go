@@ -398,25 +398,6 @@ func (self *AccountDB) DataNext(iterator uintptr) string {
 	return fmt.Sprintf(`{"key":"%s","value":%s,"hasValue":%d}`, key, value, hasValue)
 }
 
-func (self *AccountDB) Copy() *AccountDB {
-	self.lock.Lock()
-	defer self.lock.Unlock()
-
-	state := &AccountDB{
-		db:   self.db,
-		trie: self.trie,
-		//accountObjects:      make(map[common.Address]*accountObject, len(self.accountObjectsDirty)),
-		accountObjectsDirty: make(map[common.Address]struct{}, len(self.accountObjectsDirty)),
-		refund:              self.refund,
-		logSize:             self.logSize,
-	}
-
-	for addr := range self.accountObjectsDirty {
-		//state.accountObjects[addr] = self.accountObjects[addr].deepCopy(state, state.MarkAccountObjectDirty)
-		state.accountObjectsDirty[addr] = struct{}{}
-	}
-	return state
-}
 
 func (self *AccountDB) Snapshot() int {
 	id := self.nextRevisionId

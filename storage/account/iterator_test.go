@@ -17,6 +17,7 @@ package account
 
 import (
 	"bytes"
+	"math/big"
 	"testing"
 
 	"fmt"
@@ -24,27 +25,14 @@ import (
 	"github.com/taschain/taschain/storage/tasdb"
 )
 
-func TestNodeIterator(t *testing.T) {
-	diskdb, _ := tasdb.NewMemDatabase()
-	db := NewDatabase(diskdb)
-	state, _ := NewAccountDB(common.Hash{}, db)
-	state.CreateAccount(common.StringToAddress("1"))
-	state.SetCode(common.StringToAddress("1"), []byte("hello world"))
 
-	state.SetData(common.StringToAddress("1"), "a", []byte("b"))
-	state.SetData(common.StringToAddress("1"), "c", []byte("d"))
-	state.Commit(true)
-	stateObject := state.getAccountObject(common.StringToAddress("1"))
 
-	for it2 := stateObject.DataIterator(db, nil); it2.Next(); {
-		fmt.Printf("%s %s\n", string(it2.Key), it2.Value)
-	}
-
-	for it := NewNodeIterator(state); it.Next(); {
-		if it.Hash != (common.Hash{}) {
-			fmt.Println(string(it.code))
-		}
-	}
+// testAccount is the data associated with an account used by the state tests.
+type testAccount struct {
+	address common.Address
+	balance *big.Int
+	nonce   uint64
+	code    []byte
 }
 
 // Tests that the node iterator indeed walks over the entire database contents.
@@ -83,6 +71,40 @@ func TestNodeIteratorCoverage(t *testing.T) {
 		}
 	}
 }
+
+// makeTestState create a sample test state to test node-wise reconstruction.
+func makeTestState() (AccountDatabase, common.Hash, []*testAccount) {
+	// Create an empty state
+
+	transDb, _ := tasdb.NewMemDatabase()
+	db := NewDatabase(transDb)
+	state, _ := NewAccountDB(common.Hash{}, db)
+
+	// Fill it with some arbitrary data
+	accounts := []*testAccount{}
+	for i := byte(0); i < 96; i++ {
+		obj := state.GetOrNewAccountObject(common.BytesToAddress([]byte{i}))
+		acc := &testAccount{address: common.BytesToAddress([]byte{i})}
+
+		obj.AddBalance(big.NewInt(int64(11 * i)))
+		acc.balance = big.NewInt(int64(11 * i))
+
+		obj.SetNonce(uint64(42 * i))
+		acc.nonce = uint64(42 * i)
+
+		if i%3 == 0 {
+			obj.SetCode(Keccak256Hash([]byte{i, i, i, i, i}), []byte{i, i, i, i, i})
+			acc.code = []byte{i, i, i, i, i}
+		}
+		state.updateAccountObject(obj)
+		accounts = append(accounts, acc)
+	}
+	root, _ := state.Commit(false)
+
+	// Return the generated state
+	return db, root, accounts
+}
+
 
 func TestIterator2(t *testing.T) {
 	diskdb, _ := tasdb.NewMemDatabase()
