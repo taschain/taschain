@@ -24,7 +24,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/monitor"
 	"github.com/taschain/taschain/taslog"
-	"gopkg.in/karalabe/cookiejar.v2/exts/mathext"
 	"math"
 	"time"
 )
@@ -158,7 +157,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 
 	slog.AddStage("addLog")
 	detalHeight := int(bh.Height - p.MainChain.Height())
-	if mathext.AbsInt(detalHeight) < 100 && monitor.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 3) {
+	if common.AbsInt(detalHeight) < 100 && monitor.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 3) {
 		monitor.Instance.AddLogIfNotInternalNodes(le)
 	}
 	slog.EndStage()
