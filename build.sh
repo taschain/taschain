@@ -21,7 +21,7 @@ function buildp2p() {
         fi
     else
         if [ ! -f ${basepath}/network/p2p/bin/p2p_core.so ]; then
-            cd network/p2p/platform/drawin &&# <-darwin
+            cd network/p2p/platform/linux &&
             make &&
             cp ${basepath}/network/p2p/bin/p2p_core.dylib ${output_dir}
         fi
