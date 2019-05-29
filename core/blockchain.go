@@ -16,9 +16,9 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/ticker"
 	time2 "github.com/taschain/taschain/middleware/time"
