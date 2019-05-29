@@ -11,11 +11,13 @@ import (
 	"taslog"
 	"testing"
 	"time"
+	"utility"
 )
 
 var (
 	executor *TVMExecutor
 	adb *account.AccountDB
+	accountdb account.AccountDatabase
 )
 func init() {
 	executor = &TVMExecutor{}
@@ -29,12 +31,9 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("Init block chain error! Error:%s", err.Error()))
 	}
-	db := account.NewDatabase(statedb)
+	accountdb = account.NewDatabase(statedb)
 
-	adb, err = account.NewAccountDB(common.Hash{}, db)
-	if err != nil {
-		panic(err)
-	}
+
 	Logger = taslog.GetLogger("")
 }
 
@@ -84,7 +83,7 @@ func TestTVMExecutor_Execute(t *testing.T) {
 	for i := 0; i < txNum; i++ {
 		txs[i] = genRandomTx()
 	}
-	stateHash, evts, executed, receptes, err := executor.Execute(adb, &types.BlockHeader{}, txs, false)
+	stateHash, evts, executed, receptes, err := executor.Execute(adb, &types.BlockHeader{}, txs, false, nil)
 	if err != nil {
 		t.Fatalf("execute error :%v", err)
 	}
@@ -100,15 +99,28 @@ func TestTVMExecutor_Execute(t *testing.T) {
 }
 
 
+
+
+
 func BenchmarkTVMExecutor_Execute(b *testing.B) {
 	txNum := 5400
+	var state common.Hash
+	var ts = utility.NewTimeStatCtx()
 	for i := 0; i < b.N; i++ {
+		adb, err := account.NewAccountDB(state, accountdb)
+		if err != nil {
+			panic(err)
+		}
 		txs := make([]*types.Transaction, txNum)
 		for i := 0; i < txNum; i++ {
 			txs[i] = genRandomTx()
 		}
-		executor.Execute(adb, &types.BlockHeader{}, txs, false)
+		b := time.Now()
+		executor.Execute(adb, &types.BlockHeader{}, txs, false, ts)
+		ts.AddStat("Execute", time.Since(b))
 	}
+	b.Log(ts.Output())
+
 }
 
 func writeFile(f *os.File, bs *[]byte) {

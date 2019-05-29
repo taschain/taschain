@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"taslog"
 	"testing"
+	"time"
+	"utility"
 )
 
 /*
@@ -72,8 +74,15 @@ func init(){
 func BenchmarkCommitBlock(b *testing.B){
 	db := ctx.fullChain.getDB()
 	//block := initBlock()
-	ctx.block.Header.Hash=common.BytesToHash([]byte(strconv.Itoa(rand.Int())))
-	ctx.fullChain.commitBlock(ctx.block,&executePostState{state:db})
+	st := utility.NewTimeStatCtx()
+	for i := 0; i < b.N; i++ {
+		ctx.block.Header.Hash = common.BytesToHash([]byte(strconv.Itoa(rand.Int())))
+		b := time.Now()
+		ctx.fullChain.commitBlock(ctx.block, &executePostState{state: db, ts:st})
+		st.AddStat("commitBlock", time.Since(b))
+	}
+
+	fmt.Println(st.Output())
 }
 
 func newFullChain()*FullBlockChain{

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"taslog"
 	"monitor"
+	"utility"
 )
 
 /*
@@ -26,6 +27,7 @@ type executePostState struct {
 	receipts types.Receipts
 	evitedTxs []common.Hash
 	txs 	[]*types.Transaction
+	ts 		*utility.TimeStatCtx
 }
 
 //构建一个铸块（组内当前铸块人同步操作）
@@ -87,7 +89,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	exeTraceLog := monitor.NewPerformTraceLogger("Execute", common.Hash{}, height)
 	exeTraceLog.SetParent("CastBlock")
 	defer exeTraceLog.Log("pack=true")
-	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block.Header, txs, true)
+	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block.Header, txs, true, nil)
 	exeTraceLog.SetEnd()
 
 	block.Transactions = transactions
@@ -480,7 +482,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 		return false, nil
 	}
 
-	statehash, evitTxs, _, receipts, err := chain.executor.Execute(state, block.Header, block.Transactions, false)
+	statehash, evitTxs, _, receipts, err := chain.executor.Execute(state, block.Header, block.Transactions, false,nil)
 	if statehash != block.Header.StateTree {
 		Logger.Errorf("Fail to verify statetrexecute transaction failee, hash1:%s hash2:%s", statehash.String(), block.Header.StateTree.String())
 		return false, nil

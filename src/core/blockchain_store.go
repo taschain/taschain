@@ -2,6 +2,7 @@ package core
 
 import (
 	"common"
+	"time"
 	"utility"
 	"middleware/types"
 	"storage/account"
@@ -61,13 +62,17 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	defer traceLog.Log("")
 
 	bh := block.Header
+	b := time.Now()
 	headerBytes, err := types.MarshalBlockHeader(bh)
+	ps.ts.AddStat("MarshalBlockHeader", time.Since(b))
 	if err != nil {
 		Logger.Errorf("Fail to json Marshal, error:%s", err.Error())
 		return
 	}
 
+	b = time.Now()
 	bodyBytes, err := encodeBlockTransactions(block)
+	ps.ts.AddStat("encodeBlockTransactions", time.Since(b))
 	if err != nil {
 		Logger.Errorf("encode block transaction error:%v", err)
 		return
@@ -78,6 +83,7 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 
 	defer 	chain.batch.Reset()
 
+	b = time.Now()
 	//提交state
 	if err = chain.saveBlockState(block, ps.state); err != nil {
 		return
@@ -105,11 +111,15 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	if err = chain.batch.Write(); err != nil {
 		return
 	}
+	ps.ts.AddStat("batch.Write", time.Since(b))
+
 	chain.updateLatestBlock(ps.state, bh)
 
 	rmTxLog := monitor.NewPerformTraceLogger("RemoveFromPool", block.Header.Hash, block.Header.Height)
 	rmTxLog.SetParent("commitBlock")
 	defer rmTxLog.Log("")
+
+	b = time.Now()
 	//交易从交易池中删除
 	if block.Transactions != nil {
 		chain.transactionPool.RemoveFromPool(block.GetTransactionHashs())
@@ -117,7 +127,7 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	if ps.evitedTxs != nil {
 		chain.transactionPool.RemoveFromPool(ps.evitedTxs)
 	}
-
+	ps.ts.AddStat("RemoveFromPool", time.Since(b))
 	ok = true
 	return
 }

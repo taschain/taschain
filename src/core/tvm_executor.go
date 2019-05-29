@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 	"math/big"
+	"utility"
 
 	"common"
 	"tvm"
@@ -42,7 +43,9 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	}
 }
 
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.BlockHeader, txs []*types.Transaction, pack bool) (state common.Hash, evits []common.Hash, executed []*types.Transaction, recps []*types.Receipt, err error) {
+
+
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.BlockHeader, txs []*types.Transaction, pack bool, ts *utility.TimeStatCtx) (state common.Hash, evits []common.Hash, executed []*types.Transaction, recps []*types.Receipt, err error) {
 	beginTime := time.Now()
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
@@ -52,6 +55,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 
 	//errs := make([]*types.TransactionError, len(block.Transactions))
 
+	b := time.Now()
 	for _, transaction := range txs {
 		if pack && time.Since(beginTime).Seconds() > float64(MaxCastBlockTime) {
 			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.String())
@@ -106,9 +110,10 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 		}
 
 	}
+	ts.AddStat("executeLoop", time.Since(b))
 	//accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().ProposalBonus())
 
-	state = accountdb.IntermediateRoot(true)
+	state = accountdb.IntermediateRoot(true, ts)
 	return state, evictedTxs, transactions, receipts, nil
 }
 
