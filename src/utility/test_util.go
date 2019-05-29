@@ -41,8 +41,15 @@ func (ts *TimeStatCtx) AddStat(name string, dur time.Duration) {
 
 func (ts *TimeStatCtx) Output() string {
     s := ""
+    var maxM *TimeMetric
 	for key, v := range ts.Stats {
-		s += fmt.Sprintf("%v %v %v\n", key, v.Total, v.Cost.Seconds()/float64(v.Total))
+		if maxM == nil || v.Cost > maxM.Cost {
+			maxM = v
+		}
+		s += fmt.Sprintf("%v %v\n", key, v.Cost.Seconds()/float64(v.Total))
+	}
+	for key, v := range ts.Stats {
+		s += fmt.Sprintf("%v %v\t %v\n", key, v.Cost.Seconds()/float64(v.Total), v.Cost.Seconds()/maxM.Cost.Seconds())
 	}
 	return s
 }

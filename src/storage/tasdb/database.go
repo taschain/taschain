@@ -284,9 +284,12 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 func newLevelDBInstance(file string, cache int, handles int) (*leveldb.DB, error) {
 	db, err := leveldb.OpenFile(file, &opt.Options{
 		OpenFilesCacheCapacity: handles,
-		BlockCacheCapacity:     cache / 2 * opt.MiB,
-		WriteBuffer:            cache / 4 * opt.MiB, // Two of these are used internally
+		BlockCacheCapacity:     32 * opt.MiB,
+		WriteBuffer:            1024 * opt.MiB, // Two of these are used internally
 		Filter:                 filter.NewBloomFilter(10),
+		CompactionTableSize: 	8*opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+		CompactionTotalSize: 	64*opt.MiB,
 	})
 
 	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
