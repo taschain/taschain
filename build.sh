@@ -14,28 +14,31 @@ function buildtvm() {
 
 function buildp2p() {
     if [[ `uname -s` = "Darwin" ]]; then
-        if [ ! -f ${basepath}/network/p2p/bin/p2p_core.dylib ]; then
-            cd network/p2p/platform/drawin &&# <-darwin
+        if [ ! -f ${basepath}/network/libp2pcore.a ] || [ ! -f ${basepath}/network/p2p_api.h ] ; then
+            cd network/p2p/platform/darwin && #
             make &&
-            cp ${basepath}/network/p2p/bin/p2p_core.dylib ${output_dir}
-        fi
+            mv ${basepath}/network/p2p/bin/libp2pcore.a $basepath/network/ &&
+            cp ${basepath}/network/p2p/p2p_api.h $basepath/network/
+         fi
     else
-        if [ ! -f ${basepath}/network/p2p/bin/p2p_core.so ]; then
-            cd network/p2p/platform/drawin &&# <-darwin
+        if [ ! -f ${basepath}/network/libp2pcore.a ] || [ ! -f ${basepath}/network/p2p_api.h ] ; then
+            cd network/p2p/platform/linux &&#
             make &&
-            cp ${basepath}/network/p2p/bin/p2p_core.dylib ${output_dir}
+            mv ${basepath}/network/p2p/bin/libp2pcore.a $basepath/network/ &&
+            cp ${basepath}/network/p2p/p2p_api.h $basepath/network/
         fi
     fi
     if [ $? -ne 0 ];then
         exit 1
     fi
 }
-git submodule update --init
+#git submodule update --init
 if [[ $1x = "gtas"x ]]; then
     echo building gtas ...
     buildtvm
+    buildp2p
+
     go build -o ${output_dir}/gtas $basepath/cmd/gtas &&
-    buildp2p &&
     echo build gtas successfully...
 
     elif [[ $1x = "tvmcli"x ]]; then
@@ -44,5 +47,6 @@ if [[ $1x = "gtas"x ]]; then
     echo build tvmcli successfully...
     elif [[ $1x = "clean"x ]]; then
     rm $basepath/tvm/tvm.h $basepath/tvm/libtvm.a
+    rm $basepath/network/p2p_api.h $basepath/network/libp2pcore.a
     echo cleaned
 fi
