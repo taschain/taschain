@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"utility"
 
 	"storage/trie"
 	"storage/serialize"
@@ -462,9 +463,14 @@ func (s *AccountDB) Finalise(deleteEmptyObjects bool) {
 	s.clearJournalAndRefund()
 }
 
-func (s *AccountDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
+func (s *AccountDB) IntermediateRoot(deleteEmptyObjects bool, ts *utility.TimeStatCtx) common.Hash {
+	//b := time.Now()
 	s.Finalise(deleteEmptyObjects)
-	return s.trie.Hash()
+	//ts.AddStat("finalise", time.Since(b))
+	//b = time.Now()
+	h := s.trie.Hash()
+	//ts.AddStat("hash", time.Since(b))
+	return h
 }
 
 func (self *AccountDB) Prepare(thash, bhash common.Hash, ti int) {

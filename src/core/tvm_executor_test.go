@@ -1,155 +1,146 @@
 package core
-//
-//import (
-//	"middleware/types"
-//	"common"
-//	"storage/tasdb"
-//	"storage/core"
-//	"testing"
-//	"fmt"
-//	"os"
-//)
-//
-//func ExampleNewTVMExecutor() {
-//
-//}
-//
-//func TestContract(t *testing.T) {
-//	scripts := []string{
-//		`import account
-//account.create_account("0x1234")
-//if account.get_balance("0x1234") != 0:
-//	raise Exception("get_balance error")
-//account.add_balance("0x1234",1000000000000000000)
-//if account.get_balance("0x1234") != 1000000000000000000:
-//	raise Exception("get_balance error")
-//account.sub_balance("0x1234",1)
-//if account.get_balance("0x1234") != 999999999999999999:
-//	raise Exception("get_balance error")
-//account.set_nonce("0x1234", 10)
-//if account.get_nonce("0x1234") != 10:
-//	raise Exception("get_nonce error")
-//account.set_code("0xe8ba89a51b095e63d83f1ec95441483415c64065", "print('hello world')")
-//`,
-//`
-//import account
-//code_hash = account.get_code_hash("0xe8ba89a51b095e63d83f1ec95441483415c64065")
-//code = account.get_code("0xe8ba89a51b095e63d83f1ec95441483415c64065")
-//assert code == "print('hello world')"
-//size = account.get_code_size("0xe8ba89a51b095e63d83f1ec95441483415c64065")
-//assert size == 20
-//account.add_refund(10)
-//account.add_refund(5)
-//refund = account.get_refund()
-//assert refund == 15
-//account.set_data("0xe8ba89a51b095e63d83f1ec95441483415c64066", "test", "right")
-//assert account.get_data("0xe8ba89a51b095e63d83f1ec95441483415c64066", "test") == "right"
-//before = account.has_suicided("0xe8ba89a51b095e63d83f1ec95441483415c64066")
-//account.suicide("0xe8ba89a51b095e63d83f1ec95441483415c64066")
-//after = account.has_suicided("0xe8ba89a51b095e63d83f1ec95441483415c64066")
-//assert before != after
-//assert account.exists("0xe8ba89a51b095e63d83f1ec95441483415c64066") != False
-//assert account.exists("0xe8ba89a51b095e63d83f1ec95441483415c64000") != True
-//account.create_account("0x123456")
-//num = account.snapshot()
-//account.add_balance("0x123456",100)
-//assert account.get_balance("0x123456") == 100
-//account.revert_to_snapshot(num)
-//assert account.get_balance("0x123456") == 0
-//`,
-//	}
-//	block := types.Block{}
-//	block.Transactions = make([]*types.Transaction, 0)
-//	for _, script := range scripts{
-//		transaction := types.Transaction{}
-//		addr := common.HexStringToAddress("0x5ed34dd026e1b695224df06fca9c4481649ff29e")
-//		transaction.Source = &addr
-//		transaction.Data = []byte(script)
-//		block.Transactions = append(block.Transactions, &transaction)
-//	}
-//	executor := TVMExecutor{}
-//	db, err := tasdb.NewLDBDatabase(Home() + "/TasProject/work/test2", 0, 0)
-//	if err != nil {
-//		fmt.Println(err)
-//	}
-//	defer db.Close()
-//	triedb := core.NewDatabase(db)
-//	state, _ := core.NewAccountDB(common.Hash{}, triedb)
-//	_, receipts, _ := executor.Execute(state, &block, nil)
-//	//fmt.Println(hash.Hex())
-//	//fmt.Println(receipts[0].ContractAddress.GetHexString())
-//	root, _ := state.Commit(false)
-//	//fmt.Println(root.Hex())
-//	triedb.TrieDB().Commit(root, false)
-//
-//	block = types.Block{}
-//	block.Transactions = make([]*types.Transaction,0)
-//	for _, receipt := range receipts{
-//		fmt.Println(receipt.ContractAddress.GetHexString())
-//		transaction := types.Transaction{}
-//		addr := common.HexStringToAddress("0x5ed34dd026e1b695224df06fca9c4481649ff29e")
-//		transaction.Source = &addr
-//		transaction.Data = []byte("{}")
-//		addr = receipt.ContractAddress
-//		transaction.Target = &addr
-//		block.Transactions = append(block.Transactions, &transaction)
-//	}
-//	executor = TVMExecutor{}
-//	triedb = core.NewDatabase(db)
-//	state, err = core.NewAccountDB(common.HexToHash(root.Hex()), triedb)
-//	if err != nil {
-//		fmt.Println(err)
-//	}
-//	_, receipts, _ = executor.Execute(state, &block, nil)
-//}
-//
-//func Home() string{
-//	return os.Getenv("HOME")
-//}
-//
-//func TestContractCreate(t *testing.T)  {
-//	block := types.Block{}
-//	transaction := types.Transaction{}
-//	addr := common.HexStringToAddress("0x5ed34dd026e1b695224df06fca9c4481649ff29e")
-//	transaction.Source = &addr
-//	transaction.Data = []byte("print(\"hello world\")")
-//	block.Transactions = make([]*types.Transaction,1)
-//	block.Transactions[0] = &transaction
-//	executor := TVMExecutor{}
-//	db, err := tasdb.NewLDBDatabase(Home() + "/TasProject/work/test2", 0, 0)
-//	if err != nil {
-//		fmt.Println(err)
-//	}
-//	defer db.Close()
-//	triedb := core.NewDatabase(db)
-//	state, _ := core.NewAccountDB(common.Hash{}, triedb)
-//	hash, receipts, _ := executor.Execute(state, &block, nil)
-//	fmt.Println(hash.Hex())
-//	fmt.Println(receipts[0].ContractAddress.GetHexString())
-//	root, _ := state.Commit(false)
-//	fmt.Println(root.Hex())
-//	triedb.TrieDB().Commit(root, false)
-//}
-//
-//func TestContractCall(t *testing.T)  {
-//	block := types.Block{}
-//	transaction := types.Transaction{}
-//	addr := common.HexStringToAddress("0x5ed34dd026e1b695224df06fca9c4481649ff29e")
-//	transaction.Source = &addr
-//	transaction.Data = []byte("{}")
-//	addr = common.HexStringToAddress("0xe8ba89a51b095e63d83f1ec95441483415c64064")
-//	transaction.Target = &addr
-//	block.Transactions = make([]*types.Transaction,1)
-//	block.Transactions[0] = &transaction
-//	executor := TVMExecutor{}
-//	db, _ := tasdb.NewLDBDatabase(Home() + "/TasProject/work/test2", 0, 0)
-//	defer db.Close()
-//	triedb := core.NewDatabase(db)
-//	state, err := core.NewAccountDB(common.HexToHash("0xebe99d497383b3f492809715045f0b23324e0b723afd6b1405aa44c2ab6223a0"), triedb)
-//	if err != nil {
-//		fmt.Println(err)
-//	}
-//	hash, receipts, _ := executor.Execute(state, &block, nil)
-//	fmt.Println(hash.Hex())
-//	fmt.Println(receipts[0].ContractAddress.GetHexString())
-//}
+
+import (
+	"common"
+	"fmt"
+	"math/rand"
+	"middleware/types"
+	"os"
+	"storage/account"
+	"storage/tasdb"
+	"taslog"
+	"testing"
+	"time"
+	"utility"
+)
+
+var (
+	executor *TVMExecutor
+	adb *account.AccountDB
+	accountdb account.AccountDatabase
+)
+func init() {
+	executor = &TVMExecutor{}
+
+	ds, err := tasdb.NewDataSource("test_db")
+	if err != nil {
+		panic(err)
+	}
+
+	statedb, err := ds.NewPrefixDatabase("state")
+	if err != nil {
+		panic(fmt.Sprintf("Init block chain error! Error:%s", err.Error()))
+	}
+	accountdb = account.NewDatabase(statedb)
+
+
+	Logger = taslog.GetLogger("")
+}
+
+
+func randomAddress() common.Address {
+	r := rand.Uint64()
+	return common.BytesToAddress(common.Uint64ToByte(r))
+}
+
+func genRandomTx() *types.Transaction {
+	target := randomAddress()
+	source := randomAddress()
+	tx := &types.Transaction{
+		Value: 1,
+		Nonce:1,
+		Target: &target,
+		Source: &source,
+		Type: types.TransactionTypeTransfer,
+		GasLimit: 10000,
+		GasPrice: 1000,
+	}
+	tx.Hash = tx.GenHash()
+	return tx
+}
+
+func TestTVMExecutor_Execute(t *testing.T) {
+	executor := &TVMExecutor{}
+
+	ds, err := tasdb.NewDataSource("test_db")
+	if err != nil {
+		t.Fatalf("new datasource error:%v", err)
+	}
+
+	statedb, err := ds.NewPrefixDatabase("state")
+	if err != nil {
+		t.Fatalf("Init block chain error! Error:%s", err.Error())
+	}
+	db := account.NewDatabase(statedb)
+
+	adb, err := account.NewAccountDB(common.Hash{}, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	txNum := 10
+	txs := make([]*types.Transaction, txNum)
+	for i := 0; i < txNum; i++ {
+		txs[i] = genRandomTx()
+	}
+	stateHash, evts, executed, receptes, err := executor.Execute(adb, &types.BlockHeader{}, txs, false, nil)
+	if err != nil {
+		t.Fatalf("execute error :%v", err)
+	}
+	t.Log(stateHash, evts, len(executed), len(receptes))
+	if len(txs) != len(executed) {
+		t.Error("executed tx num error")
+	}
+	for i, tx := range txs {
+		if executed[i].Hash != tx.Hash {
+			t.Error("execute tx error")
+		}
+	}
+}
+
+
+
+
+
+func BenchmarkTVMExecutor_Execute(b *testing.B) {
+	txNum := 5400
+	var state common.Hash
+	var ts = utility.NewTimeStatCtx()
+	for i := 0; i < b.N; i++ {
+		adb, err := account.NewAccountDB(state, accountdb)
+		if err != nil {
+			panic(err)
+		}
+		txs := make([]*types.Transaction, txNum)
+		for i := 0; i < txNum; i++ {
+			txs[i] = genRandomTx()
+		}
+		b := time.Now()
+		executor.Execute(adb, &types.BlockHeader{}, txs, false, ts)
+		ts.AddStat("Execute", time.Since(b))
+	}
+	b.Log(ts.Output())
+
+}
+
+func writeFile(f *os.File, bs *[]byte) {
+	f.Write(*bs)
+}
+func TestReadWriteFile(t *testing.T) {
+	file := "test_file"
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	begin := time.Now()
+	cost := time.Duration(0)
+	bs := make([]byte, 1024*1024*2)
+	for i := 0; i < 100; i++ {
+		b := time.Now()
+		writeFile(f, &bs)
+		cost += time.Since(b)
+		//sha3.Sum256(randomAddress().Bytes())
+
+	}
+	t.Log(time.Since(begin).String(), cost.String())
+}

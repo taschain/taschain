@@ -35,8 +35,8 @@ import (
 
 const (
 	svWorking     = iota   //正在铸块,等待分片
-	svSuccess              //块签名已聚合
 	svNotified				//块已通知提案者
+	svSuccess              //块已上链
 	svTimeout              //组铸块超时
 )
 
@@ -189,8 +189,8 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 		return
 	}
 
-	if vc.castSuccess() {
-		err = fmt.Errorf("已出块")
+	if vc.castSuccess() || vc.isNotified() {
+		err = fmt.Errorf("已出块%v", vc.consensusStatus)
 		return
 	}
 	if vc.castExpire() {
@@ -327,7 +327,7 @@ func (vc *VerifyContext) GetSlots() []*SlotContext {
 
 func (vc *VerifyContext) checkNotify() (*SlotContext) {
 	blog := newBizLog("checkNotify")
-	if !vc.castSuccess() || vc.isNotified() {
+	if vc.isNotified() || vc.castSuccess() {
 		return nil
 	}
 	if vc.ts.Since(vc.createTime) < int64(model.Param.MaxWaitBlockTime) {

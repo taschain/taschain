@@ -17,12 +17,12 @@ package serialize
 
 import (
 	"bytes"
-	"encoding/gob"
 	"io"
+	"github.com/vmihailenco/msgpack"
 )
 
 func Decode(r io.Reader, val interface{}) error {
-	decoder := gob.NewDecoder(r)
+	decoder := msgpack.NewDecoder(r)
 	if err := decoder.Decode(val); err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 	"monitor"
 	"strings"
 	"common"
+	"sync"
 )
 
 /*
@@ -68,7 +69,7 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	defer traceLog.Log("threshlod sign cost %v", p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
 
 	if slot.IsRecovered() {
-		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
+		//vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
 		p.blockContexts.addReservedVctx(vctx)
 		if !p.tryNotify(vctx) {
 			blog.log("reserved, height=%v", vctx.castHeight)
@@ -239,7 +240,27 @@ func (p *Processor) blockProposal() {
 	}
 	gid := gb.Gid
 
-	block := p.MainChain.CastBlock(uint64(height), pi, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	var (
+		block *types.Block
+		proveHashs []common.Hash
+		proveTraceLog *monitor.PerformTraceLogger
+	)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		block = p.MainChain.CastBlock(uint64(height), pi, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		//生成全量账本hash
+		proveTraceLog = monitor.NewPerformTraceLogger("genProveHashs", common.Hash{}, 0)
+		proveTraceLog.SetParent("blockProposal")
+		proveHashs = p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+		proveTraceLog.SetEnd()
+	}()
+	wg.Wait()
 	if block == nil {
 		blog.log("MainChain::CastingBlock failed, height=%v", height)
 		return
@@ -248,6 +269,9 @@ func (p *Processor) blockProposal() {
 
 	traceLogger.SetHash(bh.Hash)
 	traceLogger.SetTxNum(len(block.Transactions))
+	proveTraceLog.SetHash(bh.Hash)
+	proveTraceLog.SetHeight(bh.Height)
+	proveTraceLog.Log("")
 
 
 	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
@@ -265,11 +289,7 @@ func (p *Processor) blockProposal() {
 			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
-		//生成全量账本hash
-		proveTraceLog := monitor.NewPerformTraceLogger("genProveHashs", bh.Hash, bh.Height)
-		proveTraceLog.SetParent("blockProposal")
-		proveHashs := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
-		proveTraceLog.Log("")
+
 
 		traceLogger.Log("PreHash=%v,Qn=%v", bh.PreHash.ShortS(), qn)
 

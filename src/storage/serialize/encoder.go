@@ -17,8 +17,8 @@ package serialize
 
 import (
 	"io"
-	"encoding/gob"
 	"bytes"
+	"github.com/vmihailenco/msgpack"
 )
 
 type Encoder interface {
@@ -30,7 +30,7 @@ func Encode(w io.Writer, val interface{}) error {
 	case Encoder:
 		value.Encode(w)
 	default:
-		encoder := gob.NewEncoder(w)
+		encoder := msgpack.NewEncoder(w)
 		if err := encoder.Encode(val); err != nil {
 			return err
 		}
