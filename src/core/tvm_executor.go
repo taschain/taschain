@@ -55,7 +55,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 
 	//errs := make([]*types.TransactionError, len(block.Transactions))
 
-	b := time.Now()
+	//b := time.Now()
 	for _, transaction := range txs {
 		if pack && time.Since(beginTime).Seconds() > float64(MaxCastBlockTime) {
 			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.String())
@@ -110,8 +110,8 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 		}
 
 	}
-	ts.AddStat("executeLoop", time.Since(b))
-	//accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().ProposalBonus())
+	//ts.AddStat("executeLoop", time.Since(b))
+	accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().ProposalBonus())
 
 	state = accountdb.IntermediateRoot(true, ts)
 	return state, evictedTxs, transactions, receipts, nil

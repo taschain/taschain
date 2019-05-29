@@ -20,7 +20,6 @@ import (
 	"math/big"
 	"sort"
 	"sync"
-	"time"
 	"utility"
 
 	"storage/trie"
@@ -465,12 +464,12 @@ func (s *AccountDB) Finalise(deleteEmptyObjects bool) {
 }
 
 func (s *AccountDB) IntermediateRoot(deleteEmptyObjects bool, ts *utility.TimeStatCtx) common.Hash {
-	b := time.Now()
+	//b := time.Now()
 	s.Finalise(deleteEmptyObjects)
-	ts.AddStat("finalise", time.Since(b))
-	b = time.Now()
+	//ts.AddStat("finalise", time.Since(b))
+	//b = time.Now()
 	h := s.trie.Hash()
-	ts.AddStat("hash", time.Since(b))
+	//ts.AddStat("hash", time.Since(b))
 	return h
 }
 
