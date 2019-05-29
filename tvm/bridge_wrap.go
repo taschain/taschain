@@ -16,7 +16,6 @@
 package tvm
 
 /*
-#cgo CFLAGS:  -I ./include
 #cgo LDFLAGS: -L ./ -ltvm
 
 #include "tvm.h"

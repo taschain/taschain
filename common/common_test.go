@@ -18,11 +18,26 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/math"
 	"log"
 	"math/big"
 	"runtime/debug"
 	"testing"
+)
+
+// BigPow returns a ** b as a big integer.
+func BigPow(a, b int64) *big.Int {
+	r := big.NewInt(a)
+	return r.Exp(r, big.NewInt(b), nil)
+}
+
+// Various big integer limit values.
+var (
+	tt255     = BigPow(2, 255)
+	tt256     = BigPow(2, 256)
+	tt256m1   = new(big.Int).Sub(tt256, big.NewInt(1))
+	tt63      = BigPow(2, 63)
+	MaxBig256 = new(big.Int).Set(tt256m1)
+	MaxBig63  = new(big.Int).Sub(tt63, big.NewInt(1))
 )
 
 /*
@@ -93,7 +108,7 @@ func TestLen(t *testing.T) {
 }
 
 func TestBigMarshal(t *testing.T) {
-	bi := math.MaxBig256
+	bi := MaxBig256
 	bs, _ := (bi.MarshalText())
 	t.Log(len(bs), len(bi.Bytes()))
 

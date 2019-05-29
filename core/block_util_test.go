@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/taschain/taschain/middleware/types"
 	"log"
 	"math/big"
@@ -64,7 +63,7 @@ func TestShrinkPV(t *testing.T) {
 	max192, _ := big.NewInt(0).SetString("2ffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	rat256 := big.NewFloat(1).SetInt(max256)
 	rat192 := big.NewFloat(1).SetInt(max192)
-	t.Log(math.MaxBig256, max256)
+	//t.Log(math.MaxBig256, max256)
 
 	f, _ := rat256.Float64()
 	t.Log(f)
