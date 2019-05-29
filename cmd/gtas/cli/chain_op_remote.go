@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/astaxie/beego/httplib"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
@@ -48,7 +51,6 @@ func (ca *RemoteChainOpImpl) request(method string, params ...interface{}) *Resu
 	if ca.base == "" {
 		return opError(ErrUnConnected)
 	}
-	req := httplib.Post(ca.base)
 
 	param := RPCReqObj{
 		Method:  "GTAS_" + method,
@@ -64,14 +66,19 @@ func (ca *RemoteChainOpImpl) request(method string, params ...interface{}) *Resu
 		fmt.Println("==================================================================================")
 	}
 
-	req, err := req.JSONBody(param)
+	paramBytes, err := json.Marshal(param)
 	if err != nil {
 		return opError(err)
 	}
-	ret := &RPCResObj{}
-	err = req.ToJSON(ret)
 
+	resp, err := http.Post(ca.base, "application/json", bytes.NewReader(paramBytes))
+	defer resp.Body.Close()
 	if err != nil {
+		return opError(err)
+	}
+	responseBytes, err := ioutil.ReadAll(resp.Body)
+	ret := &RPCResObj{}
+	if err := json.Unmarshal(responseBytes, ret); err != nil {
 		return opError(err)
 	}
 	if ret.Error != nil {

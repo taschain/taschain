@@ -1,3 +1,6 @@
 [submodule "tvm/ctvm"]
 	path = tvm/ctvm
 	url = https://github.com/taschain/tvm.git
+[submodule "network/p2p"]
+	path = network/p2p
+	url = https://github.com/taschain/p2p_core.git
