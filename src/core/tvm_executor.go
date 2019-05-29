@@ -106,7 +106,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 		}
 
 	}
-	accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().ProposalBonus())
+	//accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().ProposalBonus())
 
 	state = accountdb.IntermediateRoot(true)
 	return state, evictedTxs, transactions, receipts, nil
