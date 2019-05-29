@@ -8,6 +8,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/vm"
 )
+
 var HasLoadPyLibPath = false
 
 type ControllerTransactionInterface interface {
@@ -19,22 +20,21 @@ type ControllerTransactionInterface interface {
 	GetHash() common.Hash
 }
 
-
 type Controller struct {
 	BlockHeader *types.BlockHeader
 	Transaction ControllerTransactionInterface
 	AccountDB   vm.AccountDB
 	Reader      vm.ChainReader
-	Vm          *Tvm
+	VM          *Tvm
 	LibPath     string
-	VmStack     []*Tvm
+	VMStack     []*Tvm
 	GasLeft     uint64
 	mm          MinerManager
-	gcm 		GroupChainManager
+	gcm         GroupChainManager
 }
 
 type MinerManager interface {
-	GetMinerById(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner
+	GetMinerByID(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner
 	GetLatestCancelStakeHeight(from []byte, miner *types.Miner, accountdb vm.AccountDB) uint64
 	RefundStake(from []byte, miner *types.Miner, accountdb vm.AccountDB) (uint64, bool)
 	CancelStake(from []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB, height uint64) bool
@@ -61,33 +61,33 @@ func NewController(accountDB vm.AccountDB,
 	controller.Transaction = transaction
 	controller.AccountDB = accountDB
 	controller.Reader = chainReader
-	controller.Vm = nil
+	controller.VM = nil
 	controller.LibPath = libPath
-	controller.VmStack = make([]*Tvm, 0)
+	controller.VMStack = make([]*Tvm, 0)
 	controller.GasLeft = transaction.GetGasLimit() - gasUsed
 	controller.mm = manager
 	controller.gcm = chainManager
 	return controller
 }
 
-func (con *Controller) Deploy(contract *Contract) (int,string) {
-	con.Vm = NewTvm(con.Transaction.GetSource(), contract, con.LibPath)
+func (con *Controller) Deploy(contract *Contract) (int, string) {
+	con.VM = NewTvm(con.Transaction.GetSource(), contract, con.LibPath)
 	defer func() {
-		con.Vm.DelTvm()
+		con.VM.DelTvm()
 	}()
-	con.Vm.SetGas(int(con.GasLeft))
+	con.VM.SetGas(int(con.GasLeft))
 	msg := Msg{Data: []byte{}, Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().GetHexString()}
-	errorCodeDeploy,errorDeployMsg:= con.Vm.Deploy(msg)
+	errorCodeDeploy, errorDeployMsg := con.VM.Deploy(msg)
 
 	if errorCodeDeploy != 0 {
-		return errorCodeDeploy,errorDeployMsg
+		return errorCodeDeploy, errorDeployMsg
 	}
-	errorCodeStore,errorStoreMsg := con.Vm.StoreData()
+	errorCodeStore, errorStoreMsg := con.VM.StoreData()
 	if errorCodeStore != 0 {
-		return errorCodeStore,errorStoreMsg
+		return errorCodeStore, errorStoreMsg
 	}
-	con.GasLeft = uint64(con.Vm.Gas())
-	return 0,""
+	con.GasLeft = uint64(con.VM.Gas())
+	return 0, ""
 }
 
 func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
@@ -99,12 +99,12 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
-func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJson string) (bool,[]*types.Log,*types.TransactionError) {
-	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.GasLeft))
+func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJSON string) (bool, []*types.Log, *types.TransactionError) {
+	con.VM = NewTvm(sender, contract, con.LibPath)
+	con.VM.SetGas(int(con.GasLeft))
 	defer func() {
-		con.Vm.DelTvm()
-		con.GasLeft = uint64(con.Vm.Gas())
+		con.VM.DelTvm()
+		con.GasLeft = uint64(con.VM.Gas())
 	}()
 	//先转账
 	if con.Transaction.GetValue() > 0 {
@@ -112,41 +112,41 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		if CanTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.GetTarget(), amount)
 		} else {
-			return false,nil,types.TxErrorBalanceNotEnough
+			return false, nil, types.TxErrorBalanceNotEnough
 		}
 	}
 	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().GetHexString()}
-	errorCode,errorMsg,libLen := con.Vm.CreateContractInstance(msg)
-	if errorCode != 0{
-		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	errorCode, errorMsg, libLen := con.VM.CreateContractInstance(msg)
+	if errorCode != 0 {
+		return false, nil, types.NewTransactionError(errorCode, errorMsg)
 	}
 	abi := ABI{}
-	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
-	if abiJsonError!= nil{
-		return false,nil,types.TxErrorAbiJson
+	abiJSONError := json.Unmarshal([]byte(abiJSON), &abi)
+	if abiJSONError != nil {
+		return false, nil, types.TxErrorABIJSON
 	}
-	errorCode,errorMsg = con.Vm.checkABI(abi)//checkABI
-	if errorCode != 0{
-		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	errorCode, errorMsg = con.VM.checkABI(abi) //checkABI
+	if errorCode != 0 {
+		return false, nil, types.NewTransactionError(errorCode, errorMsg)
 	}
-	con.Vm.SetLibLine(libLen)
-	errorCode,errorMsg = con.Vm.ExecutedAbiVmSucceed(abi)//execute
-	if errorCode != 0{
-		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	con.VM.SetLibLine(libLen)
+	errorCode, errorMsg = con.VM.ExecutedAbiVMSucceed(abi) //execute
+	if errorCode != 0 {
+		return false, nil, types.NewTransactionError(errorCode, errorMsg)
 	}
-	errorCode,errorMsg = con.Vm.StoreData()//store
-	if errorCode != 0{
-		return false,nil,types.NewTransactionError(errorCode,errorMsg)
+	errorCode, errorMsg = con.VM.StoreData() //store
+	if errorCode != 0 {
+		return false, nil, types.NewTransactionError(errorCode, errorMsg)
 	}
-	return true,con.Vm.Logs,nil
+	return true, con.VM.Logs, nil
 }
 
-func (con *Controller) ExecuteAbiEval(sender *common.Address, contract *Contract, abiJson string) *ExecuteResult {
-	con.Vm = NewTvm(sender, contract, con.LibPath)
-	con.Vm.SetGas(int(con.GasLeft))
+func (con *Controller) ExecuteAbiEval(sender *common.Address, contract *Contract, abiJSON string) *ExecuteResult {
+	con.VM = NewTvm(sender, contract, con.LibPath)
+	con.VM.SetGas(int(con.GasLeft))
 	defer func() {
-		con.Vm.DelTvm()
-		con.GasLeft = uint64(con.Vm.Gas())
+		con.VM.DelTvm()
+		con.GasLeft = uint64(con.VM.Gas())
 	}()
 	//先转账
 	if con.Transaction.GetValue() > 0 {
@@ -158,31 +158,31 @@ func (con *Controller) ExecuteAbiEval(sender *common.Address, contract *Contract
 		}
 	}
 	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: sender.GetHexString()}
-	errorCode,_,libLen := con.Vm.CreateContractInstance(msg)
-	if errorCode != 0{
+	errorCode, _, libLen := con.VM.CreateContractInstance(msg)
+	if errorCode != 0 {
 		return nil
 	}
 	abi := ABI{}
-	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
-	if abiJsonError!= nil{
+	abiJSONError := json.Unmarshal([]byte(abiJSON), &abi)
+	if abiJSONError != nil {
 		return nil
 	}
-	errorCode,_ = con.Vm.checkABI(abi)//checkABI
-	if errorCode != 0{
+	errorCode, _ = con.VM.checkABI(abi) //checkABI
+	if errorCode != 0 {
 		return nil
 	}
-	con.Vm.SetLibLine(libLen)
-	result := con.Vm.ExecuteABIKindEval(abi)//execute
-	if result.ResultType == 4/*C.RETURN_TYPE_EXCEPTION*/ {
+	con.VM.SetLibLine(libLen)
+	result := con.VM.ExecuteABIKindEval(abi) //execute
+	if result.ResultType == 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		return result
 	}
-	errorCode,_ = con.Vm.StoreData()//store
-	if errorCode != 0{
+	errorCode, _ = con.VM.StoreData() //store
+	if errorCode != 0 {
 		return nil
 	}
 	return result
 }
 
-func(con *Controller) GetGasLeft() uint64{
+func (con *Controller) GetGasLeft() uint64 {
 	return con.GasLeft
 }

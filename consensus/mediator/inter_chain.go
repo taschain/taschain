@@ -86,7 +86,7 @@ func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
 	if len(prove) == 0 {
 		return big.NewInt(0)
 	}
-	return base.VRF_proof2hash(base.VRFProve(prove)).Big()
+	return base.VRFProof2hash(base.VRFProve(prove)).Big()
 }
 
 func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
@@ -111,18 +111,18 @@ func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err erro
 }
 
 func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction) (ok bool, err error) {
-	sign_bytes := tx.Sign
-	if len(sign_bytes) < common.SignLength {
-		return false, fmt.Errorf("not enough bytes for bonus signature, sign =%v", sign_bytes)
+	signBytes := tx.Sign
+	if len(signBytes) < common.SignLength {
+		return false, fmt.Errorf("not enough bytes for bonus signature, sign =%v", signBytes)
 	}
 	groupID, _, _, _ := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
-	group := Proc.GroupChain.GetGroupById(groupID)
+	group := Proc.GroupChain.GetGroupByID(groupID)
 	if group == nil {
 		return false, common.ErrGroupNil
 	}
 	gpk := groupsig.DeserializePubkeyBytes(group.PubKey)
 	//AcceptRewardPiece Function store groupsig in common sign buff, here will recover the groupsig
-	gsign := groupsig.DeserializeSign(sign_bytes[0:33]) //size of groupsig == 33
+	gsign := groupsig.DeserializeSign(signBytes[0:33]) //size of groupsig == 33
 	if !groupsig.VerifySig(gpk, tx.Hash.Bytes(), *gsign) {
 		return false, fmt.Errorf("verify bonus sign fail, gsign=%v", gsign.GetHexString())
 	}

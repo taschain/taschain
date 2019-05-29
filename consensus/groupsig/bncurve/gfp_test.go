@@ -1,4 +1,4 @@
-package bn_curve
+package bncurve
 
 import (
 	"fmt"

@@ -291,7 +291,7 @@ func (prv *PrivateKey) Decrypt(rand io.Reader, c, s1, s2 []byte) (m []byte, err 
 
 	var (
 		rLen   int
-		hLen   int = hash.Size()
+		hLen   = hash.Size()
 		mStart int
 		mEnd   int
 	)

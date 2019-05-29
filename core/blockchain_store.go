@@ -29,7 +29,7 @@ func (chain *FullBlockChain) saveBlockState(b *types.Block, state *account.Accou
 }
 
 func (chain *FullBlockChain) saveCurrentBlock(hash common.Hash) error {
-	err := chain.blocks.AddKv(chain.batch, []byte(BLOCK_STATUS_KEY), hash.Bytes())
+	err := chain.blocks.AddKv(chain.batch, []byte(blockStatusKey), hash.Bytes())
 	if err != nil {
 		return err
 	}
@@ -235,7 +235,7 @@ func (chain *FullBlockChain) removeOrphan(block *types.Block) error {
 }
 
 func (chain *FullBlockChain) loadCurrentBlock() *types.BlockHeader {
-	bs, err := chain.blocks.Get([]byte(BLOCK_STATUS_KEY))
+	bs, err := chain.blocks.Get([]byte(blockStatusKey))
 	if err != nil {
 		return nil
 	}
@@ -274,9 +274,8 @@ func (chain *FullBlockChain) queryBlockHashCeil(height uint64) *common.Hash {
 	if iter.Seek(utility.UInt64ToByte(height)) {
 		hash := common.BytesToHash(iter.Value())
 		return &hash
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (chain *FullBlockChain) queryBlockHeaderBytesFloor(height uint64) (common.Hash, []byte) {
@@ -292,9 +291,8 @@ func (chain *FullBlockChain) queryBlockHeaderBytesFloor(height uint64) (common.H
 	if iter.Prev() {
 		hash := common.BytesToHash(iter.Value())
 		return hash, chain.queryBlockHeaderBytes(hash)
-	} else {
-		return common.Hash{}, nil
 	}
+	return common.Hash{}, nil
 }
 
 func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types.BlockHeader {
@@ -317,9 +315,8 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 	if iter.Prev() {
 		hash := common.BytesToHash(iter.Value())
 		return chain.queryBlockHeaderByHash(hash)
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (chain *FullBlockChain) queryBlockBodyBytes(hash common.Hash) []byte {
@@ -405,9 +402,8 @@ func (chain *FullBlockChain) queryBlockHeaderByHash(hash common.Hash) *types.Blo
 			return nil
 		}
 		return block
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (chain *FullBlockChain) addTopBlock(b *types.Block) {
@@ -452,8 +448,7 @@ func (chain *FullBlockChain) queryBlockTransactionsOptional(txIdx int, height ui
 	tx, err := decodeTransaction(txIdx, txHash, bs)
 	if tx != nil {
 		return tx
-	} else {
-		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.String(), err.Error())
-		return nil
 	}
+	Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.String(), err.Error())
+	return nil
 }

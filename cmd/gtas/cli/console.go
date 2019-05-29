@@ -436,7 +436,7 @@ func (c *sendTxCmd) parse(args []string) bool {
 //builtins.register = Register()
 //`
 //	fmt.Println(str)
-//	errorCode, errorMsg := vm.ExecutedScriptVmSucceed(str)
+//	errorCode, errorMsg := vm.ExecutedScriptVMSucceed(str)
 //	if errorCode == types.SUCCESS {
 //		result := vm.ExecutedScriptKindFile(c.contract.Code)
 //		fmt.Println(result.Abi)
@@ -495,7 +495,7 @@ func (c *minerAbortCmd) parse(args []string) bool {
 type minerRefundCmd struct {
 	gasBaseCmd
 	mtype int
-	addr string
+	addr  string
 }
 
 func genMinerRefundCmd() *minerRefundCmd {
@@ -519,7 +519,7 @@ func (c *minerRefundCmd) parse(args []string) bool {
 type minerStakeCmd struct {
 	gasBaseCmd
 	mtype int
-	addr string
+	addr  string
 	value uint64
 }
 
@@ -545,7 +545,7 @@ func (c *minerStakeCmd) parse(args []string) bool {
 type minerCancelStakeCmd struct {
 	gasBaseCmd
 	mtype int
-	addr string
+	addr  string
 	value uint64
 }
 
@@ -654,7 +654,7 @@ func Usage() {
 }
 
 func ConsoleInit(keystore, host string, port int, show bool, rpcport int) error {
-	aop, err := InitAccountManager(keystore, false)
+	aop, err := initAccountManager(keystore, false)
 	if err != nil {
 		return err
 	}
@@ -839,9 +839,8 @@ func loop(acm accountOp, chainOp chainOp) {
 				handleCmd(func() *Result {
 					if cmd.hash != "" {
 						return chainOp.BlockByHash(cmd.hash)
-					} else {
-						return chainOp.BlockByHeight(cmd.height)
 					}
+					return chainOp.BlockByHeight(cmd.height)
 				})
 			}
 		case cmdSendTx.name:

@@ -1,6 +1,6 @@
 // +build amd64,!generic arm64,!generic
 
-package bn_curve
+package bncurve
 
 import (
 	"golang.org/x/sys/cpu"

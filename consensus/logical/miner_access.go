@@ -32,7 +32,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		return nil
 	}
 	md := &model.MinerDO{
-		ID:          groupsig.DeserializeId(miner.Id),
+		ID:          groupsig.DeserializeID(miner.ID),
 		PK:          groupsig.DeserializePubkeyBytes(miner.PublicKey),
 		VrfPK:       base.VRFPublicKey(miner.VrfPublicKey),
 		Stake:       miner.Stake,
@@ -41,14 +41,14 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		AbortHeight: miner.AbortHeight,
 	}
 	if !md.ID.IsValid() {
-		stdLogger.Debugf("invalid id %v, %v", miner.Id, md.ID.GetHexString())
+		stdLogger.Debugf("invalid id %v, %v", miner.ID, md.ID.GetHexString())
 		panic("id not valid")
 	}
 	return md
 }
 
 func (access *MinerPoolReader) getLightMiner(id groupsig.ID) *model.MinerDO {
-	miner := access.minerPool.GetMinerById(id.Serialize(), types.MinerTypeLight, nil)
+	miner := access.minerPool.GetMinerByID(id.Serialize(), types.MinerTypeLight, nil)
 	if miner == nil {
 		//access.blog.log("getMinerById error id %v", id.ShortS())
 		return nil
@@ -57,7 +57,7 @@ func (access *MinerPoolReader) getLightMiner(id groupsig.ID) *model.MinerDO {
 }
 
 func (access *MinerPoolReader) getProposeMiner(id groupsig.ID) *model.MinerDO {
-	miner := access.minerPool.GetMinerById(id.Serialize(), types.MinerTypeHeavy, nil)
+	miner := access.minerPool.GetMinerByID(id.Serialize(), types.MinerTypeHeavy, nil)
 	if miner == nil {
 		//access.blog.log("getMinerById error id %v", id.ShortS())
 		return nil

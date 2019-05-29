@@ -98,10 +98,9 @@ func (t *TvmCli) init() {
 		if error != nil {
 			fmt.Println(error)
 			return
-		} else {
-			t.settings.SetString("root", "StateHash", hash.String())
-			fmt.Println(hash.String())
 		}
+		t.settings.SetString("root", "StateHash", hash.String())
+		fmt.Println(hash.String())
 	}
 }
 
@@ -131,9 +130,9 @@ func (t *TvmCli) Deploy(contractName string, contractCode string) string {
 	state.SetCode(contractAddress, jsonBytes)
 
 	contract.ContractAddress = &contractAddress
-	controller.Vm.SetGas(500000)
+	controller.VM.SetGas(500000)
 	controller.Deploy(&contract)
-	fmt.Println("gas: ", 500000-controller.Vm.Gas())
+	fmt.Println("gas: ", 500000-controller.VM.Gas())
 
 	hash, error := state.Commit(false)
 	t.database.TrieDB().Commit(hash, false)
@@ -145,25 +144,25 @@ func (t *TvmCli) Deploy(contractName string, contractCode string) string {
 	return contractAddress.String()
 }
 
-func (t *TvmCli) Call(contractAddress string, abiJson string) {
+func (t *TvmCli) Call(contractAddress string, abiJSON string) {
 	stateHash := t.settings.GetString("root", "StateHash", "")
 	state, _ := account.NewAccountDB(common.HexToHash(stateHash), t.database)
 
 	controller := tvm.NewController(state, nil, nil, Transaction{}, 0, "../py", nil, nil)
 
 	//abi := tvm.ABI{}
-	//abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
+	//abiJsonError := json.Unmarshal([]byte(abiJSON), &abi)
 	//if abiJsonError != nil{
-	//	fmt.Println(abiJson, " json.Unmarshal failed ", abiJsonError)
+	//	fmt.Println(abiJSON, " json.Unmarshal failed ", abiJsonError)
 	//	return
 	//}
 	_contractAddress := common.HexToAddress(contractAddress)
 	contract := tvm.LoadContract(_contractAddress)
 	//fmt.Println(contract.Code)
 	sender := common.HexToAddress(DefaultAccounts[0])
-	controller.Vm.SetGas(500000)
-	executeResult := controller.ExecuteAbiEval(&sender, contract, abiJson)
-	fmt.Println("gas: ", 500000-controller.Vm.Gas())
+	controller.VM.SetGas(500000)
+	executeResult := controller.ExecuteAbiEval(&sender, contract, abiJSON)
+	fmt.Println("gas: ", 500000-controller.VM.Gas())
 
 	//TODO 需不需要快照
 	if executeResult == nil {
@@ -224,8 +223,8 @@ import builtins
 builtins.register = Register()
 `
 
-	errorCode, errorMsg := vm.ExecutedScriptVmSucceed(str)
-	if errorCode == types.SUCCESS {
+	errorCode, errorMsg := vm.ExecutedScriptVMSucceed(str)
+	if errorCode == types.Success {
 		result := vm.ExecutedScriptKindFile(contractCode)
 		fmt.Println(result.Abi)
 	} else {

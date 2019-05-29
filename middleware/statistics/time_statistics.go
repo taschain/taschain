@@ -57,10 +57,10 @@ type BlockLogObject struct {
 	Size          int
 	TimeStamp     int64
 	Castor        string
-	GroupId       string
+	GroupID       string
 	InstanceIndex int
 	CastTime      int64
-	BootId        int
+	BootID        int
 }
 
 func NewLogObj(id string) *LogObj {
@@ -81,7 +81,7 @@ func AddLog(Hash string, Status int, Time int64, Castor string, Node string) {
 	}
 }
 
-func AddBlockLog(bootId int, code string, blockHeight uint64, qn uint64, txCount int, size int, timeStamp int64, castor string, groupId string, instanceIndex int, castTime int64) {
+func AddBlockLog(bootID int, code string, blockHeight uint64, qn uint64, txCount int, size int, timeStamp int64, castor string, groupID string, instanceIndex int, castTime int64) {
 	if enable {
 		var cn uint8
 		switch code {
@@ -98,7 +98,7 @@ func AddBlockLog(bootId int, code string, blockHeight uint64, qn uint64, txCount
 		case BroadBlock:
 			cn = 6
 		}
-		log := &BlockLogObject{Code: code, CodeNum: cn, BlockHeight: blockHeight, Qn: qn, TxCount: txCount, Size: size, TimeStamp: timeStamp, Castor: castor, GroupId: groupId, InstanceIndex: instanceIndex, CastTime: castTime, BootId: bootId}
+		log := &BlockLogObject{Code: code, CodeNum: cn, BlockHeight: blockHeight, Qn: qn, TxCount: txCount, Size: size, TimeStamp: timeStamp, Castor: castor, GroupID: groupID, InstanceIndex: instanceIndex, CastTime: castTime, BootID: bootID}
 		PutBlockLog(log)
 	}
 }
@@ -141,9 +141,8 @@ func HasInit() bool {
 	Lock.Lock()
 	if IsInit {
 		return true
-	} else {
-		IsInit = true
 	}
+	IsInit = true
 	defer Lock.Unlock()
 	return false
 }

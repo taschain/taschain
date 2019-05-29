@@ -26,7 +26,7 @@ import (
 	"sync"
 )
 
-type STATIC_GROUP_STATUS int
+type StaticGroupStatus int
 
 //静态组结构（组创建成功后加入到GlobalGroups）
 type StaticGroupInfo struct {
@@ -37,7 +37,7 @@ type StaticGroupInfo struct {
 	GInfo *model.ConsensusGroupInitInfo
 	//WorkHeight    uint64                          //组开始参与铸块的高度
 	//DismissHeight uint64                          //组解散的高度
-	ParentId    groupsig.ID
+	ParentID    groupsig.ID
 	PrevGroupID groupsig.ID //前一块组id
 	//Signature     groupsig.Signature
 	//Authority     uint64      //权限相关数据（父亲组赋予）
@@ -51,7 +51,7 @@ func NewSGIFromStaticGroupSummary(gid groupsig.ID, gpk groupsig.Pubkey, group *I
 		GroupID:     gid,
 		GroupPK:     gpk,
 		GInfo:       gInfo,
-		ParentId:    gInfo.GI.ParentID(),
+		ParentID:    gInfo.GI.ParentID(),
 		PrevGroupID: gInfo.GI.PreGroupID(),
 	}
 	sgi.buildMemberIndex()
@@ -66,17 +66,17 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 	}
 	mems := make([]groupsig.ID, len(coreGroup.Members))
 	for i, mem := range coreGroup.Members {
-		mems[i] = groupsig.DeserializeId(mem)
+		mems[i] = groupsig.DeserializeID(mem)
 	}
 	gInfo := &model.ConsensusGroupInitInfo{
 		GI:   gis,
 		Mems: mems,
 	}
 	sgi := &StaticGroupInfo{
-		GroupID:     groupsig.DeserializeId(coreGroup.Id),
+		GroupID:     groupsig.DeserializeID(coreGroup.ID),
 		GroupPK:     groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
-		ParentId:    groupsig.DeserializeId(gh.Parent),
-		PrevGroupID: groupsig.DeserializeId(gh.PreGroup),
+		ParentID:    groupsig.DeserializeID(gh.Parent),
+		PrevGroupID: groupsig.DeserializeID(gh.PreGroup),
 		GInfo:       gInfo,
 	}
 
@@ -268,9 +268,8 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 				result += "but not linked"
 			}
 			return true
-		} else {
-			result = "can't find insert pos"
 		}
+		result = "can't find insert pos"
 	} else {
 		result = "already exist this group, ignored"
 	}
@@ -316,12 +315,11 @@ func (gg *GlobalGroups) getGroupFromCache(id groupsig.ID) (g *StaticGroupInfo, e
 func (gg *GlobalGroups) GetGroupByID(id groupsig.ID) (g *StaticGroupInfo, err error) {
 	if g, err = gg.getGroupFromCache(id); err != nil {
 		return
-	} else {
-		if g == nil {
-			chainGroup := gg.chain.GetGroupById(id.Serialize())
-			if chainGroup != nil {
-				g = NewSGIFromCoreGroup(chainGroup)
-			}
+	}
+	if g == nil {
+		chainGroup := gg.chain.GetGroupByID(id.Serialize())
+		if chainGroup != nil {
+			g = NewSGIFromCoreGroup(chainGroup)
 		}
 	}
 	if g == nil && stdLogger != nil {
@@ -356,9 +354,8 @@ func (gg *GlobalGroups) SelectNextGroupFromCache(h common.Hash, height uint64) (
 		ga = qualifiedGS[index].GroupID
 		stdLogger.Debugf("height %v SelectNextGroupFromCache qualified groups %v, index %v\n", height, gids, index)
 		return ga, nil
-	} else {
-		return ga, fmt.Errorf("selectNextGroupFromCache failed, hash %v, qualified group %v", h.ShortS(), gids)
 	}
+	return ga, fmt.Errorf("selectNextGroupFromCache failed, hash %v, qualified group %v", h.ShortS(), gids)
 }
 
 func (gg *GlobalGroups) getCastQualifiedGroupFromChains(height uint64) []*types.Group {
@@ -385,18 +382,17 @@ func (gg *GlobalGroups) SelectNextGroupFromChain(h common.Hash, height uint64) (
 	quaulifiedGS := gg.getCastQualifiedGroupFromChains(height)
 	idshort := make([]string, len(quaulifiedGS))
 	for idx, g := range quaulifiedGS {
-		idshort[idx] = groupsig.DeserializeId(g.Id).ShortS()
+		idshort[idx] = groupsig.DeserializeID(g.ID).ShortS()
 	}
 
 	var ga groupsig.ID
 	if h.Big().BitLen() > 0 && len(quaulifiedGS) > 0 {
 		index := gg.selectIndex(len(quaulifiedGS), h)
-		ga = groupsig.DeserializeId(quaulifiedGS[index].Id)
+		ga = groupsig.DeserializeID(quaulifiedGS[index].ID)
 		stdLogger.Debugf("height %v SelectNextGroupFromChain qualified groups %v, index %v\n", height, idshort, index)
 		return ga, nil
-	} else {
-		return ga, fmt.Errorf("SelectNextGroupFromChain failed, arg error")
 	}
+	return ga, fmt.Errorf("SelectNextGroupFromChain failed, arg error")
 }
 
 func (gg *GlobalGroups) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo {
@@ -455,16 +451,16 @@ func (gg *GlobalGroups) RemoveGroups(gids []groupsig.ID) {
 	if len(gids) == 0 {
 		return
 	}
-	removeIdMap := make(map[string]bool)
+	removeIDMap := make(map[string]bool)
 	for _, gid := range gids {
-		removeIdMap[gid.GetHexString()] = true
+		removeIDMap[gid.GetHexString()] = true
 	}
 	newGS := make([]*StaticGroupInfo, 0)
 	for _, g := range gg.groups {
 		if g == nil {
 			continue
 		}
-		if _, ok := removeIdMap[g.GroupID.GetHexString()]; !ok {
+		if _, ok := removeIDMap[g.GroupID.GetHexString()]; !ok {
 			newGS = append(newGS, g)
 		}
 	}

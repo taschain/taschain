@@ -40,8 +40,8 @@ func convertBlockHeader(b *types.Block) *Block {
 		PreHash: bh.PreHash,
 		CurTime: bh.CurTime.Local(),
 		PreTime: bh.PreTime().Local(),
-		Castor:  groupsig.DeserializeId(bh.Castor),
-		GroupID: groupsig.DeserializeId(bh.GroupId),
+		Castor:  groupsig.DeserializeID(bh.Castor),
+		GroupID: groupsig.DeserializeID(bh.GroupID),
 		Prove:   common.ToHex(bh.ProveValue),
 		TotalQN: bh.TotalQN,
 		TxNum:   uint64(len(b.Transactions)),
@@ -63,12 +63,12 @@ func convertBonusTransaction(tx *types.Transaction) *BonusTransaction {
 
 	targets := make([]groupsig.ID, len(ids))
 	for i, id := range ids {
-		targets[i] = groupsig.DeserializeId(id)
+		targets[i] = groupsig.DeserializeID(id)
 	}
 	return &BonusTransaction{
 		Hash:      tx.Hash,
 		BlockHash: bhash,
-		GroupID:   groupsig.DeserializeId(gid),
+		GroupID:   groupsig.DeserializeID(gid),
 		TargetIDs: targets,
 		Value:     value,
 	}
@@ -93,7 +93,7 @@ func genMinerBalance(id groupsig.ID, bh *types.BlockHeader) *MinerBonusBalance {
 	return mb
 }
 
-func IdFromSign(sign string) []byte {
+func IDFromSign(sign string) []byte {
 	return []byte{}
 }
 

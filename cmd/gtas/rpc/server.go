@@ -28,7 +28,7 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
-const MetadataApi = "rpc"
+const MetadataAPI = "rpc"
 
 type CodecOption int
 
@@ -46,7 +46,7 @@ func NewServer() *Server {
 	}
 
 	rpcService := &RPCService{server}
-	server.RegisterName(MetadataApi, rpcService)
+	server.RegisterName(MetadataAPI, rpcService)
 
 	return server
 }

@@ -45,11 +45,11 @@ type stateNode struct {
 type StateMsg struct {
 	Code uint32
 	Data interface{}
-	Id   string
+	ID   string
 }
 
 type StateMachine struct {
-	Id      string
+	ID      string
 	Current *stateNode
 	//Current atomic.Value
 	Head *stateNode
@@ -94,7 +94,7 @@ func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
 	return &StateMsg{
 		Code: code,
 		Data: data,
-		Id:   id,
+		ID:   id,
 	}
 }
 
@@ -110,7 +110,7 @@ func newStateNode(st uint32, lr, mr int, h stateHandleFunc) *stateNode {
 
 func newStateMachine(id string) *StateMachine {
 	return &StateMachine{
-		Id:   id,
+		ID:   id,
 		Time: time.Now(),
 	}
 }
@@ -129,7 +129,7 @@ func (n *stateNode) dataIndex(id string) int32 {
 	//n.lock.RLock()
 	//defer n.lock.RUnlock()
 	for idx, d := range n.queue {
-		if d.Id == id {
+		if d.ID == id {
 			return int32(idx)
 		}
 	}
@@ -137,7 +137,7 @@ func (n *stateNode) dataIndex(id string) int32 {
 }
 
 func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
-	idx := n.dataIndex(stateMsg.Id)
+	idx := n.dataIndex(stateMsg.ID)
 	if idx >= 0 {
 		return idx, false
 	}
@@ -226,7 +226,7 @@ func (m *StateMachine) transform() {
 		node.queue[node.currentIdx].Data = true //释放内存
 		node.currentIdx++
 		node.execNum++
-		logger.Debugf("machine %v handling exec state %v, from %v", m.Id, node.state(), msg.Id)
+		logger.Debugf("machine %v handling exec state %v, from %v", m.ID, node.state(), msg.ID)
 	default:
 		wg := sync.WaitGroup{}
 		for node.currentIdx < qs {
@@ -239,7 +239,7 @@ func (m *StateMachine) transform() {
 			}()
 			node.currentIdx++
 			node.execNum++
-			logger.Debugf("machine %v handling exec state %v in parallel, from %v", m.Id, node.state(), msg.Id)
+			logger.Debugf("machine %v handling exec state %v in parallel, from %v", m.ID, node.state(), msg.ID)
 		}
 		wg.Wait()
 	}
@@ -260,9 +260,9 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 	defer func() {
 		if !m.finish() {
 			curr := m.currentNode()
-			logger.Debugf("machine %v waiting state %v[%v/%v]", m.Id, curr.code, curr.currentIdx, curr.leastRepeat)
+			logger.Debugf("machine %v waiting state %v[%v/%v]", m.ID, curr.code, curr.currentIdx, curr.leastRepeat)
 		} else {
-			logger.Debugf("machine %v finished", m.Id)
+			logger.Debugf("machine %v finished", m.ID)
 		}
 	}()
 	node := m.findNode(msg.Code)
@@ -270,16 +270,16 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 		return false
 	}
 	if node.code < m.currentNode().code {
-		logger.Debugf("machine %v handle pre state %v, exec state %v", m.Id, node.code, m.currentNode().state())
+		logger.Debugf("machine %v handle pre state %v, exec state %v", m.ID, node.code, m.currentNode().state())
 		node.handler(msg.Data)
 		node.execNum++
 	} else if node.code > m.currentNode().code {
-		logger.Debugf("machine %v cache future state %v from %v, current state %v", m.Id, node.code, msg.Id, m.currentNode().state())
+		logger.Debugf("machine %v cache future state %v from %v, current state %v", m.ID, node.code, msg.ID, m.currentNode().state())
 		node.addData(msg)
 	} else {
 		_, add := node.addData(msg)
 		if !add {
-			logger.Debugf("machine %v ignore redundant state %v, current state %v", m.Id, node.code, m.currentNode().state())
+			logger.Debugf("machine %v ignore redundant state %v, current state %v", m.ID, node.code, m.currentNode().state())
 			return false
 		}
 		m.transform()
@@ -337,12 +337,12 @@ func (stm *StateMachines) cleanRoutine() bool {
 		}
 		m := value.(*StateMachine)
 		if m.allFinished() {
-			logger.Infof("%v state machine allFinished, id=%v", stm.name, m.Id)
-			stm.machines.Remove(m.Id)
+			logger.Infof("%v state machine allFinished, id=%v", stm.name, m.ID)
+			stm.machines.Remove(m.ID)
 		}
 		if m.expire() {
-			logger.Infof("%v state machine expire, id=%v", stm.name, m.Id)
-			stm.machines.Remove(m.Id)
+			logger.Infof("%v state machine expire, id=%v", stm.name, m.ID)
+			stm.machines.Remove(m.ID)
 		}
 	}
 	return true
@@ -351,17 +351,14 @@ func (stm *StateMachines) cleanRoutine() bool {
 func (stm *StateMachines) GetMachine(id string, cnt int) *StateMachine {
 	if v, ok := stm.machines.Get(id); ok {
 		return v.(*StateMachine)
-	} else {
-		m := stm.generator.Generate(id, cnt)
-		contains, _ := stm.machines.ContainsOrAdd(id, m)
-		if !contains {
-			return m
-		} else {
-			if v, ok := stm.machines.Get(id); ok {
-				return v.(*StateMachine)
-			} else {
-				panic("get machine fail, id " + id)
-			}
-		}
 	}
+	m := stm.generator.Generate(id, cnt)
+	contains, _ := stm.machines.ContainsOrAdd(id, m)
+	if !contains {
+		return m
+	}
+	if v, ok := stm.machines.Get(id); ok {
+		return v.(*StateMachine)
+	}
+	panic("get machine fail, id " + id)
 }

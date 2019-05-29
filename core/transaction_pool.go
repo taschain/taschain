@@ -109,13 +109,12 @@ func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from txSource) (boo
 		//Logger.Debugf("Tx verify sig error:%s, txRaw from %v, type:%d, txRaw %+v", err.Error(), from, txRaw.Type, txRaw)
 		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
 		return false, err
-	} else {
-		b, err := pool.tryAdd(tx)
-		if err != nil {
-			Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.String(), tx.Type, err)
-		}
-		return b, err
 	}
+	b, err := pool.tryAdd(tx)
+	if err != nil {
+		Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.String(), tx.Type, err)
+	}
+	return b, err
 }
 
 func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
@@ -215,7 +214,7 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) error {
 		return fmt.Errorf("tx sign nil")
 	}
 
-	var source *common.Address = nil
+	var source *common.Address
 	if tx.Type == types.TransactionTypeBonus {
 		if ok, err := BlockChainImpl.GetConsensusHelper().VerifyBonusTransaction(tx); !ok {
 			return err

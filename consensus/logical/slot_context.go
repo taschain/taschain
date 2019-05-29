@@ -71,7 +71,7 @@ func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	return &SlotContext{
 		BH: bh,
 		//vrfValue:       bh.ProveValue,
-		castor:         groupsig.DeserializeId(bh.Castor),
+		castor:         groupsig.DeserializeID(bh.Castor),
 		slotStatus:     slWaiting,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
 		rSignGenerator: model.NewGroupSignGenerator(threshold),
@@ -204,19 +204,19 @@ func (sc *SlotContext) AcceptVerifyPiece(signer groupsig.ID, sign groupsig.Signa
 
 	add, generate = sc.gSignGenerator.AddWitness(signer, sign)
 
-	if !add { //已经收到过该成员的验签
+	//已经收到过该成员的验签
+	if !add {
 		//忽略
 		return pieceFail, fmt.Errorf("CBMR_IGNORE_REPEAT")
-	} else { //没有收到过该用户的签名
-		radd, rgen := sc.rSignGenerator.AddWitness(signer, randomSign)
-
-		if radd && generate && rgen { //达到组签名条件
-			sc.setSlotStatus(slRecoverd)
-			return pieceThreshold, nil
-		} else {
-			return pieceNormal, nil
-		}
 	}
+
+	//没有收到过该用户的签名
+	radd, rgen := sc.rSignGenerator.AddWitness(signer, randomSign)
+	if radd && generate && rgen { //达到组签名条件
+		sc.setSlotStatus(slRecoverd)
+		return pieceThreshold, nil
+	}
+	return pieceNormal, nil
 }
 
 func (sc *SlotContext) IsValid() bool {
@@ -253,10 +253,10 @@ func (sc *SlotContext) AcceptRewardPiece(sd *model.SignData) (accept, recover bo
 	if accept && recover {
 		//铸块分红交易使用组签名
 		if sc.rewardTrans.Sign == nil {
-			sign_bytes := sc.rewardGSignGen.GetGroupSign().Serialize()
+			signBytes := sc.rewardGSignGen.GetGroupSign().Serialize()
 			tmpBytes := make([]byte, common.SignLength)
 			//group signature length = 33, common signature length = 65.  VerifyBonusTransaction() will recover common sig to groupsig
-			copy(tmpBytes[0:len(sign_bytes)], sign_bytes)
+			copy(tmpBytes[0:len(signBytes)], signBytes)
 			sign := common.BytesToSign(tmpBytes)
 			sc.rewardTrans.Sign = sign.Bytes()
 			//fmt.Printf("Bonus sign 1: hash=%v , gsign=%v\n", sd.DataHash.Hex(), sc.rewardGSignGen.GetGroupSign().GetHexString())

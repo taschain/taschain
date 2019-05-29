@@ -304,31 +304,31 @@ func CallContract(_contractAddr string, funcName string, params string) *Execute
 	contract := LoadContract(conAddr)
 	if contract.Code == "" {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
-		result.ErrorCode = types.NO_CODE_ERROR
-		result.Content = fmt.Sprint(types.NO_CODE_ERROR_MSG, conAddr)
+		result.ErrorCode = types.NoCodeErr
+		result.Content = fmt.Sprint(types.NoCodeErrorMsg, conAddr)
 		return result
 	}
-	oneVm := &Tvm{contract, controller.Vm.ContractAddress, nil}
+	oneVM := &Tvm{contract, controller.VM.ContractAddress, nil}
 
 	//准备vm的环境
-	controller.Vm.CreateContext()
-	finished := controller.StoreVmContext(oneVm)
+	controller.VM.CreateContext()
+	finished := controller.StoreVMContext(oneVM)
 	defer func() {
 		//恢复vm的环境
 		if finished {
-			controller.Vm.RemoveContext()
+			controller.VM.RemoveContext()
 		}
 	}()
 	if !finished {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
-		result.ErrorCode = types.CALL_MAX_DEEP_ERROR
-		result.Content = types.CALL_MAX_DEEP_ERROR_MSG
+		result.ErrorCode = types.CallMaxDeepError
+		result.Content = types.CallMaxDeepErrorMsg
 		return result
 	}
 
 	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
-	errorCode, errorMsg, _ := controller.Vm.CreateContractInstance(msg)
+	errorCode, errorMsg, _ := controller.VM.CreateContractInstance(msg)
 	if errorCode != 0 {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
 		result.ErrorCode = errorCode
@@ -343,15 +343,15 @@ func CallContract(_contractAddr string, funcName string, params string) *Execute
 		params = "[false]"
 	}
 	abi := ABI{}
-	abiJson := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
-	abiJsonError := json.Unmarshal([]byte(abiJson), &abi)
-	if abiJsonError != nil {
+	abiJSON := fmt.Sprintf(`{"FuncName": "%s", "Args": %s}`, funcName, params)
+	abiJSONError := json.Unmarshal([]byte(abiJSON), &abi)
+	if abiJSONError != nil {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
-		result.ErrorCode = types.ABI_JSON_ERROR
-		result.Content = types.ABI_JSON_ERROR_MSG
+		result.ErrorCode = types.ABIJSONError
+		result.Content = types.ABIJSONErrorMsg
 		return result
 	}
-	errorCode, errorMsg = controller.Vm.checkABI(abi)
+	errorCode, errorMsg = controller.VM.checkABI(abi)
 	if errorCode != 0 {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
 		result.ErrorCode = errorCode
@@ -359,14 +359,14 @@ func CallContract(_contractAddr string, funcName string, params string) *Execute
 		return result
 	}
 	//返回结果：支持正常、异常；正常包含各种类型以及None返回
-	return controller.Vm.ExecuteABIKindEval(abi)
+	return controller.VM.ExecuteABIKindEval(abi)
 }
 
 func RunByteCode(code *C.char, len C.int) {
 	C.runbytecode(code, len)
 }
 
-func bridge_init() {
+func bridgeInit() {
 	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
 	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
 	//C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
@@ -446,7 +446,7 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 		HasLoadPyLibPath = true
 	}
 	C.tvm_set_gas(1000000)
-	bridge_init()
+	bridgeInit()
 	return tvm
 }
 
@@ -476,9 +476,9 @@ func (tvm *Tvm) DelTvm() {
 
 func (tvm *Tvm) checkABI(abi ABI) (int, string) {
 	script := PycodeCheckAbi(abi)
-	errorCode, errorMsg := tvm.ExecutedScriptVmSucceed(script)
+	errorCode, errorMsg := tvm.ExecutedScriptVMSucceed(script)
 	if errorCode != 0 {
-		errorCode = types.Sys_Check_Abi_Error
+		errorCode = types.SysCheckABIError
 		errorMsg = fmt.Sprintf(`
 			checkABI failed. abi:%s,msg=%s
 		`, abi.FuncName, errorMsg)
@@ -488,7 +488,7 @@ func (tvm *Tvm) checkABI(abi ABI) (int, string) {
 
 func (tvm *Tvm) StoreData() (int, string) {
 	script := PycodeStoreContractData()
-	return tvm.ExecutedScriptVmSucceed(script)
+	return tvm.ExecutedScriptVMSucceed(script)
 }
 
 func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader) *Tvm {
@@ -500,7 +500,7 @@ func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader) *Tvm {
 	//
 	//C.tvm_start()
 	//C.tvm_set_lib_path(C.CString("/Users/guangyujing/workspace/tas/src/tvm/py"))
-	//bridge_init()
+	//bridgeInit()
 	//
 	//return tvmObj
 	return nil
@@ -522,7 +522,7 @@ func (tvm *Tvm) CreateContractInstance(msg Msg) (int, string, int) {
 		return errorCode, errorMsg, 0
 	}
 	script, codeLen := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
-	errorCode, errorMsg = tvm.ExecutedScriptVmSucceed(script)
+	errorCode, errorMsg = tvm.ExecutedScriptVMSucceed(script)
 	return errorCode, errorMsg, codeLen
 }
 
@@ -547,15 +547,14 @@ func (tvm *Tvm) aBItoScript(res ABI) string {
 	return bufStr
 }
 
-func (tvm *Tvm) ExecutedAbiVmSucceed(res ABI) (int, string) {
+func (tvm *Tvm) ExecutedAbiVMSucceed(res ABI) (int, string) {
 	script := tvm.aBItoScript(res)
 	result := tvm.executedPycode(script, C.PARSE_KIND_FILE)
 	if result.ResultType == C.RETURN_TYPE_EXCEPTION {
 		fmt.Printf("execute error,code=%d,msg=%s \n", result.ErrorCode, result.Content)
 		return result.ErrorCode, result.Content
-	} else {
-		return types.SUCCESS, ""
 	}
+	return types.Success, ""
 }
 
 // `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
@@ -598,14 +597,13 @@ func (tvm *Tvm) ExecuteABIKindEval(res ABI) *ExecuteResult {
 	return tvm.executedPycode(bufStr, C.PARSE_KIND_EVAL)
 }
 
-func (tvm *Tvm) ExecutedScriptVmSucceed(script string) (int, string) {
+func (tvm *Tvm) ExecutedScriptVMSucceed(script string) (int, string) {
 	result := tvm.executedPycode(script, C.PARSE_KIND_FILE)
 	if result.ResultType == C.RETURN_TYPE_EXCEPTION {
 		fmt.Printf("execute error,code=%d,msg=%s \n", result.ErrorCode, result.Content)
 		return result.ErrorCode, result.Content
-	} else {
-		return types.SUCCESS, ""
 	}
+	return types.Success, ""
 }
 
 func (tvm *Tvm) ExecutedScriptKindEval(script string) *ExecuteResult {
@@ -617,35 +615,35 @@ func (tvm *Tvm) ExecutedScriptKindFile(script string) *ExecuteResult {
 }
 
 func (tvm *Tvm) executedPycode(code string, parseKind C.tvm_parse_kind_t) *ExecuteResult {
-	c_result := &C.ExecuteResult{}
-	C.initResult((*C.ExecuteResult)(unsafe.Pointer(c_result)))
+	cResult := &C.ExecuteResult{}
+	C.initResult((*C.ExecuteResult)(unsafe.Pointer(cResult)))
 	var param = C.CString(code)
-	var contract_name = C.CString(tvm.ContractName)
+	var contractName = C.CString(tvm.ContractName)
 
 	//fmt.Println("-----------------code start-------------------")
 	//fmt.Println(code)
 	//fmt.Println("-----------------code end---------------------")
-	C.tvm_execute(param, contract_name, parseKind, (*C.ExecuteResult)(unsafe.Pointer(c_result)))
+	C.tvm_execute(param, contractName, parseKind, (*C.ExecuteResult)(unsafe.Pointer(cResult)))
 	C.free(unsafe.Pointer(param))
-	C.free(unsafe.Pointer(contract_name))
+	C.free(unsafe.Pointer(contractName))
 
 	result := &ExecuteResult{}
-	result.ResultType = int(c_result.resultType)
-	result.ErrorCode = int(c_result.errorCode)
-	if c_result.content != nil {
-		result.Content = C.GoString(c_result.content)
+	result.ResultType = int(cResult.resultType)
+	result.ErrorCode = int(cResult.errorCode)
+	if cResult.content != nil {
+		result.Content = C.GoString(cResult.content)
 	}
-	if c_result.abi != nil {
-		result.Abi = C.GoString(c_result.abi)
+	if cResult.abi != nil {
+		result.Abi = C.GoString(cResult.abi)
 	}
-	//C.printResult((*C.ExecuteResult)(unsafe.Pointer(c_result)))
-	C.deinitResult((*C.ExecuteResult)(unsafe.Pointer(c_result)))
+	//C.printResult((*C.ExecuteResult)(unsafe.Pointer(cResult)))
+	C.deinitResult((*C.ExecuteResult)(unsafe.Pointer(cResult)))
 	return result
 }
 
 func (tvm *Tvm) loadMsg(msg Msg) (int, string) {
 	script := PycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
-	return tvm.ExecutedScriptVmSucceed(script)
+	return tvm.ExecutedScriptVMSucceed(script)
 }
 
 func (tvm *Tvm) Deploy(msg Msg) (int, string) {
@@ -655,7 +653,7 @@ func (tvm *Tvm) Deploy(msg Msg) (int, string) {
 	}
 	script, libLen := PycodeContractDeploy(tvm.Code, tvm.ContractName)
 	tvm.SetLibLine(libLen)
-	errorCode, errorMsg = tvm.ExecutedScriptVmSucceed(script)
+	errorCode, errorMsg = tvm.ExecutedScriptVMSucceed(script)
 	return errorCode, errorMsg
 }
 

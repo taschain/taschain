@@ -72,9 +72,9 @@ type PubKeyInfo struct {
 }
 
 type ConnInfo struct {
-	Id      string `json:"id"`
-	Ip      string `json:"ip"`
-	TcpPort string `json:"tcp_port"`
+	ID      string `json:"id"`
+	IP      string `json:"ip"`
+	TCPPort string `json:"tcp_port"`
 }
 
 type GroupStat struct {
@@ -176,9 +176,9 @@ type ExplorerBlockDetail struct {
 
 type Group struct {
 	Height        uint64      `json:"height"`
-	Id            groupsig.ID `json:"id"`
-	PreId         groupsig.ID `json:"pre_id"`
-	ParentId      groupsig.ID `json:"parent_id"`
+	ID            groupsig.ID `json:"id"`
+	PreID         groupsig.ID `json:"pre_id"`
+	ParentID      groupsig.ID `json:"parent_id"`
 	BeginHeight   uint64      `json:"begin_height"`
 	DismissHeight uint64      `json:"dismiss_height"`
 	Members       []string    `json:"members"`
@@ -234,7 +234,7 @@ type Dashboard struct {
 //	BlockHeight uint64      `json:"block_height"`
 //	BlockHash   common.Hash `json:"block_hash"`
 //	BonusTxHash common.Hash `json:"bonus_tx_hash"`
-//	GroupId     string      `json:"group_id"`
+//	GroupID     string      `json:"group_id"`
 //	CasterId    string      `json:"caster_id"`
 //	GroupIdW     string      `json:"group_id_w"`
 //	CasterIdW    string      `json:"caster_id_W"`
@@ -272,7 +272,7 @@ type ExplorerAccount struct {
 }
 
 type ExploreBlockBonus struct {
-	ProposalId    string           `json:"proposal_id"`
+	ProposalID    string           `json:"proposal_id"`
 	ProposalBonus uint64           `json:"proposal_bonus"`
 	VerifierBonus BonusTransaction `json:"verifier_bonus"`
 }

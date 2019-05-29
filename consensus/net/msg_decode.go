@@ -25,7 +25,7 @@ func pbToGroupInfo(gi *tas_middleware_pb.ConsensusGroupInitInfo) *model.Consensu
 	gis := pbToConsensusGroupInitSummary(gi.GI)
 	mems := make([]groupsig.ID, len(gi.Mems))
 	for idx, mem := range gi.Mems {
-		mems[idx] = groupsig.DeserializeId(mem)
+		mems[idx] = groupsig.DeserializeID(mem)
 	}
 	return &model.ConsensusGroupInitInfo{
 		GI:   *gis,
@@ -58,7 +58,7 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*model.ConsensusSharePieceMe
 
 	gHash := common.BytesToHash(m.GHash)
 
-	dest := groupsig.DeserializeId(m.Dest)
+	dest := groupsig.DeserializeID(m.Dest)
 
 	share := pbToSharePiece(m.SharePiece)
 	message := model.ConsensusSharePieceMessage{
@@ -86,7 +86,7 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*model.ConsensusSignPubKeyMe
 	message := model.ConsensusSignPubKeyMessage{
 		GHash:             gisHash,
 		SignPK:            pk,
-		GroupID:           groupsig.DeserializeId(m.GroupID),
+		GroupID:           groupsig.DeserializeID(m.GroupID),
 		BaseSignedMessage: *base,
 		MemCnt:            *m.MemCnt,
 	}
@@ -111,7 +111,7 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*model.ConsensusGroupInited
 	}
 	message := model.ConsensusGroupInitedMessage{
 		GHash:             common.BytesToHash(m.GHash),
-		GroupID:           groupsig.DeserializeId(m.GroupID),
+		GroupID:           groupsig.DeserializeID(m.GroupID),
 		GroupPK:           groupsig.DeserializePubkeyBytes(m.GroupPK),
 		CreateHeight:      ch,
 		ParentSign:        sign,
@@ -130,7 +130,7 @@ func unMarshalConsensusSignPKReqMessage(b []byte) (*model.ConsensusSignPubkeyReq
 		return nil, e
 	}
 	message := &model.ConsensusSignPubkeyReqMessage{
-		GroupID:           groupsig.DeserializeId(m.GroupID),
+		GroupID:           groupsig.DeserializeID(m.GroupID),
 		BaseSignedMessage: *baseMessage(m.SignData),
 	}
 	return message, nil
@@ -324,7 +324,7 @@ func pbToBonus(b *tas_middleware_pb.Bonus) *types.Bonus {
 		TxHash:     common.BytesToHash(b.TxHash),
 		TargetIds:  b.TargetIds,
 		BlockHash:  common.BytesToHash(b.BlockHash),
-		GroupId:    b.GroupId,
+		GroupID:    b.GroupId,
 		Sign:       b.Sign,
 		TotalValue: *b.TotalValue,
 	}
@@ -387,7 +387,7 @@ func unMarshalCreateGroupPingMessage(b []byte) (*model.CreateGroupPingMessage, e
 
 	m := &model.CreateGroupPingMessage{
 		BaseSignedMessage: base,
-		FromGroupID:       groupsig.DeserializeId(message.FromGroupID),
+		FromGroupID:       groupsig.DeserializeID(message.FromGroupID),
 		PingID:            *message.PingID,
 		BaseHeight:        *message.BaseHeight,
 	}

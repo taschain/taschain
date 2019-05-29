@@ -20,14 +20,14 @@ import (
 	"github.com/taschain/taschain/common"
 	//"fmt"
 	"bytes"
-	"github.com/taschain/taschain/consensus/groupsig/bn_curve"
+	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 	"golang.org/x/crypto/sha3"
 	"log"
 )
 
 //用户公钥
 type Pubkey struct {
-	value bn_curve.G2
+	value bncurve.G2
 }
 
 type PubkeyMap map[string]Pubkey
@@ -60,7 +60,7 @@ func (pub Pubkey) MarshalJSON() ([]byte, error) {
 func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	str := string(data[:])
 	if len(str) < 2 {
-		return fmt.Errorf("data size less than min.")
+		return fmt.Errorf("data size less than min")
 	}
 	str = str[1 : len(str)-1]
 	return pub.SetHexString(str)
@@ -121,8 +121,8 @@ func TrivialPubkey() *Pubkey {
 }
 
 func (pub *Pubkey) Add(rhs *Pubkey) error {
-	pa := &bn_curve.G2{}
-	pb := &bn_curve.G2{}
+	pa := &bncurve.G2{}
+	pb := &bncurve.G2{}
 
 	pa.Set(&pub.value)
 	pb.Set(&rhs.value)

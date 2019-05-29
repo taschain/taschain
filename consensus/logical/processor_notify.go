@@ -51,7 +51,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	tlog := newMsgTraceLog("OnBlockAddSuccess", bh.Hash.ShortS(), "")
 	tlog.log("preHash=%v, height=%v", bh.PreHash.ShortS(), bh.Height)
 
-	gid := groupsig.DeserializeId(bh.GroupId)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	if p.IsMinerGroup(gid) {
 		p.blockContexts.addCastedHeight(bh.Height, bh.PreHash)
 		vctx := p.blockContexts.getVctxByHeight(bh.Height)
@@ -65,7 +65,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		}
 	}
 
-	vrf := p.GetVrfWorker()
+	vrf := p.getVrfWorker()
 	if vrf != nil && vrf.baseBH.Hash == bh.PreHash && vrf.castHeight == bh.Height {
 		vrf.markSuccess()
 	}
@@ -81,8 +81,8 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(*types.Group)
-	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeId(group.Id).GetHexString(), group.Header.WorkHeight)
-	if group.Id == nil || len(group.Id) == 0 {
+	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeID(group.ID).GetHexString(), group.Header.WorkHeight)
+	if group.ID == nil || len(group.ID) == 0 {
 		return
 	}
 	sgi := NewSGIFromCoreGroup(group)
@@ -111,7 +111,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 				panic(fmt.Sprintf("pre error:bh %v, prehash %v, height %v, real pre hash %v height %v", bh.Hash.String(), bh.PreHash.String(), bh.Height, pre.Hash.String(), pre.Height))
 			}
 			gid := p.CalcVerifyGroupFromChain(pre, bh.Height)
-			if !bytes.Equal(gid.Serialize(), bh.GroupId) {
+			if !bytes.Equal(gid.Serialize(), bh.GroupID) {
 				old := p.MainChain.QueryTopBlock()
 				stdLogger.Errorf("adjust top block: old %v %v %v, new %v %v %v", old.Hash.String(), old.PreHash.String(), old.Height, pre.Hash.String(), pre.PreHash.String(), pre.Height)
 				p.MainChain.ResetTop(pre)

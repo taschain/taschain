@@ -92,7 +92,7 @@ func newAccountOp(ks string) (*AccountManager, error) {
 	}, nil
 }
 
-func InitAccountManager(keystore string, readyOnly bool) (accountOp, error) {
+func initAccountManager(keystore string, readyOnly bool) (accountOp, error) {
 	//内部批量部署时，指定自动创建账号（只需创建一次）
 	if readyOnly && !dirExists(keystore) {
 		aop, err := newAccountOp(keystore)
@@ -120,12 +120,11 @@ func InitAccountManager(keystore string, readyOnly bool) (accountOp, error) {
 	//	}
 	//}
 
-	if aop, err := newAccountOp(keystore); err != nil {
+	aop, err := newAccountOp(keystore)
+	if err != nil {
 		return nil, err
-	} else {
-		return aop, nil
 	}
-
+	return aop, nil
 }
 
 func (am *AccountManager) loadAccount(addr string) (*Account, error) {

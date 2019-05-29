@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	INIT_NOTFOUND = -2
-	INIT_FAIL     = -1
-	INITING       = 0
-	INIT_SUCCESS  = 1 //初始化成功, 组公钥生成
+	InitNotfound = -2
+	InitFail     = -1
+	Initing      = 0
+	InitSuccess  = 1 //初始化成功, 组公钥生成
 )
 
 //
@@ -36,7 +36,7 @@ func createInitedGroup(gInfo *model.ConsensusGroupInitInfo) *InitedGroup {
 	threshold := model.Param.GetGroupK(len(gInfo.Mems))
 	return &InitedGroup{
 		receivedGPKs: make(map[string]groupsig.Pubkey),
-		status:       INITING,
+		status:       Initing,
 		threshold:    threshold,
 		gInfo:        gInfo,
 	}
@@ -44,7 +44,7 @@ func createInitedGroup(gInfo *model.ConsensusGroupInitInfo) *InitedGroup {
 
 func (ig *InitedGroup) receive(id groupsig.ID, pk groupsig.Pubkey) int32 {
 	status := atomic.LoadInt32(&ig.status)
-	if status != INITING {
+	if status != Initing {
 		return status
 	}
 
@@ -106,7 +106,7 @@ func (ig *InitedGroup) convergence() bool {
 		}
 	}
 
-	if maxCnt >= ig.threshold && atomic.CompareAndSwapInt32(&ig.status, INITING, INIT_SUCCESS) {
+	if maxCnt >= ig.threshold && atomic.CompareAndSwapInt32(&ig.status, Initing, InitSuccess) {
 		stdLogger.Debug("found max maxCnt gpk=%v, maxCnt=%v.\n", gpk.ShortS(), maxCnt)
 		ig.gpk = gpk
 		return true
@@ -310,18 +310,18 @@ func NewJoiningGroups() *JoiningGroups {
 
 func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessage, candidates []groupsig.ID, mi *model.SelfMinerDO) *GroupContext {
 	gHash := grm.GInfo.GroupHash()
-	if v := jgs.GetGroup(gHash); v != nil {
+	v := jgs.GetGroup(gHash)
+	if v != nil {
 		gs := v.GetGroupStatus()
-		stdLogger.Debug("found initing group info BY RAW, status=%v...\n", gs)
-		return v
-	} else {
-		stdLogger.Debug("create new initing group info by RAW...\n")
-		v = CreateGroupContextWithRawMessage(grm, candidates, mi)
-		if v != nil {
-			jgs.groups.Add(gHash.Hex(), v)
-		}
+		stdLogger.Debug("found Initing group info BY RAW, status=%v...\n", gs)
 		return v
 	}
+	stdLogger.Debug("create new Initing group info by RAW...\n")
+	v = CreateGroupContextWithRawMessage(grm, candidates, mi)
+	if v != nil {
+		jgs.groups.Add(gHash.Hex(), v)
+	}
+	return v
 }
 
 //gid : group dummy id

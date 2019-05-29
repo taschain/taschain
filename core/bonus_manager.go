@@ -12,6 +12,7 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -45,18 +46,18 @@ func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.
 	return transaction
 }
 
-func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, groupId []byte, totalValue uint64) (*types.Bonus, *types.Transaction) {
-	group := GroupChainImpl.getGroupById(groupId)
+func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, groupID []byte, totalValue uint64) (*types.Bonus, *types.Transaction) {
+	group := GroupChainImpl.getGroupByID(groupID)
 	buffer := &bytes.Buffer{}
-	buffer.Write(groupId)
-	//Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupId).GetHexString())
+	buffer.Write(groupID)
+	//Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupID).GetHexString())
 	if len(targetIds) == 0 {
 		panic("GenerateBonus targetIds size 0")
 	}
 	for i := 0; i < len(targetIds); i++ {
 		index := targetIds[i]
 		buffer.Write(group.Members[index])
-		//Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].Id).GetHexString())
+		//Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].ID).GetHexString())
 	}
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()
@@ -68,15 +69,15 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	transaction.Type = types.TransactionTypeBonus
 	transaction.GasPrice = common.MaxUint64
 	transaction.Hash = transaction.GenHash()
-	return &types.Bonus{TxHash: transaction.Hash, TargetIds: targetIds, BlockHash: blockHash, GroupId: groupId, TotalValue: totalValue}, transaction
+	return &types.Bonus{TxHash: transaction.Hash, TargetIds: targetIds, BlockHash: blockHash, GroupID: groupID, TotalValue: totalValue}, transaction
 }
 
 func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([]byte, [][]byte, common.Hash, uint64) {
 	reader := bytes.NewReader(transaction.ExtraData)
-	groupId := make([]byte, common.GroupIdLength)
+	groupID := make([]byte, common.GroupIDLength)
 	addr := make([]byte, common.AddressLength)
-	if n, _ := reader.Read(groupId); n != common.GroupIdLength {
-		panic("ParseBonusTransaction Read GroupId Fail")
+	if n, _ := reader.Read(groupID); n != common.GroupIDLength {
+		panic("ParseBonusTransaction Read GroupID Fail")
 	}
 	ids := make([][]byte, 0)
 	for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
@@ -89,7 +90,7 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([
 		addr = make([]byte, common.AddressLength)
 	}
 	blockHash := bm.parseBonusBlockHash(transaction)
-	return groupId, ids, blockHash, transaction.Value
+	return groupID, ids, blockHash, transaction.Value
 }
 
 func (bm *BonusManager) parseBonusBlockHash(tx *types.Transaction) common.Hash {

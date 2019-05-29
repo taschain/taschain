@@ -107,7 +107,7 @@ func (bs *blockSyncer) onGroupAddSuccess(msg notify.Message) {
 
 	//当前块高已经超过生效高度了,组可能有点问题
 	if beginHeight < topHeight {
-		s := fmt.Sprintf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", common.Bytes2Hex(g.Id), g.GroupHeight, beginHeight, topHeight)
+		s := fmt.Sprintf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", common.Bytes2Hex(g.ID), g.GroupHeight, beginHeight, topHeight)
 		panic(s)
 	}
 }
@@ -124,9 +124,9 @@ func (bs *blockSyncer) isSyncing() bool {
 	return candTop.Height > localHeight+50
 }
 
-func (bs *blockSyncer) getBestCandidate(candidateId string) (string, *TopBlockInfo) {
-	if candidateId == "" {
-		for id, _ := range bs.candidatePool {
+func (bs *blockSyncer) getBestCandidate(candidateID string) (string, *TopBlockInfo) {
+	if candidateID == "" {
+		for id := range bs.candidatePool {
 			if PeerManager.isEvil(id) {
 				bs.logger.Debugf("peer meter evil id:%+v", PeerManager.getOrAddPeer(id))
 				delete(bs.candidatePool, id)
@@ -141,17 +141,17 @@ func (bs *blockSyncer) getBestCandidate(candidateId string) (string, *TopBlockIn
 		for id, top := range bs.candidatePool {
 			if maxWeightBlock == nil || top.MoreWeight(&maxWeightBlock.BlockWeight) {
 				maxWeightBlock = top
-				candidateId = id
+				candidateID = id
 			}
 		}
 
 	}
-	maxTop := bs.candidatePool[candidateId]
+	maxTop := bs.candidatePool[candidateID]
 	if maxTop == nil {
 		return "", nil
 	}
 
-	return candidateId, maxTop
+	return candidateID, maxTop
 }
 
 func (bs *blockSyncer) getPeerTopBlock(id string) *TopBlockInfo {
@@ -209,9 +209,9 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 		return false
 	}
 
-	for syncId, h := range bs.syncingPeers {
+	for syncID, h := range bs.syncingPeers {
 		if h == beginHeight {
-			bs.logger.Debugf("height %v in syncing from %v", beginHeight, syncId)
+			bs.logger.Debugf("height %v in syncing from %v", beginHeight, syncID)
 			return false
 		}
 	}
@@ -410,13 +410,13 @@ func (bs *blockSyncer) blockReqHandler(msg notify.Message) {
 	responseBlocks(m.Source(), blocks)
 }
 
-func responseBlocks(targetId string, blocks []*types.Block) {
+func responseBlocks(targetID string, blocks []*types.Block) {
 	body, e := marshalBlockMsgResponse(&BlockResponseMessage{Blocks: blocks})
 	if e != nil {
 		return
 	}
 	message := network.Message{Code: network.BlockResponseMsg, Body: body}
-	network.GetNetInstance().Send(targetId, message)
+	network.GetNetInstance().Send(targetID, message)
 }
 
 func marshalBlockMsgResponse(bmr *BlockResponseMessage) ([]byte, error) {

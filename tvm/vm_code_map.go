@@ -28,7 +28,7 @@ func PycodeContractImports() string {
 	newCode := fmt.Sprintf(`
 %s
 %s
-%s`, TasJson(), TasCollectionStorageCode(), TasBaseStorageCode())
+%s`, TasJSON(), TasCollectionStorageCode(), TasBaseStorageCode())
 	return newCode
 }
 
@@ -186,10 +186,10 @@ else:
 
 	return str
 }
-func TasJson() string {
+func TasJSON() string {
 	code := `
 import ujson
-class TasJson:
+class TasJSON:
     mapFieldName = ""
     mapKey=""
     TypeInt = type(1)
@@ -202,25 +202,25 @@ class TasJson:
 
     @staticmethod
     def setVisitMapField(key):
-        TasJson.mapFieldName=key
-        TasJson.clearMapKey()
+        TasJSON.mapFieldName=key
+        TasJSON.clearMapKey()
 
     @staticmethod
     def setVisitMapKey(key):
-        if TasJson.mapKey != "":
-            TasJson.mapKey = TasJson.mapKey + "@" + key
+        if TasJSON.mapKey != "":
+            TasJSON.mapKey = TasJSON.mapKey + "@" + key
         else:
-            TasJson.mapKey = key
+            TasJSON.mapKey = key
 
     @staticmethod
     def clearMapKey():
-        TasJson.mapKey = ""
+        TasJSON.mapKey = ""
 
     @staticmethod
     def getDbKey():
-        if TasJson.mapKey != "":
-            return TasJson.mapFieldName +"@"+ TasJson.mapKey
-        return TasJson.mapFieldName
+        if TasJSON.mapKey != "":
+            return TasJSON.mapFieldName +"@"+ TasJSON.mapKey
+        return TasJSON.mapFieldName
 
     def decodeValue(self,value):
         if value.startswith('0'):
@@ -245,30 +245,30 @@ class TasJson:
         if currentDeep > 5:
             raise LibException("map can not be more than nested 5",3)
         valueType = type(value)
-        TasJson.checkValueIsInBase(valueType)
-        if valueType == TasJson.TypeList:
-            TasJson.checkListValue(value, currentDeep)
-        elif valueType == TasJson.TypeDict:
-            TasJson.checkDictValue(value, currentDeep)
+        TasJSON.checkValueIsInBase(valueType)
+        if valueType == TasJSON.TypeList:
+            TasJSON.checkListValue(value, currentDeep)
+        elif valueType == TasJSON.TypeDict:
+            TasJSON.checkDictValue(value, currentDeep)
 
     @staticmethod
     def checkDictValue(value, currentDeep):
         for key,data in value.items():
-            TasJson.checkBaseValue(data, currentDeep + 1)
+            TasJSON.checkBaseValue(data, currentDeep + 1)
 
     @staticmethod
     def checkListValue(value, currentDeep):
         for data in value:
-            TasJson.checkBaseValue(data, currentDeep + 1)
+            TasJSON.checkBaseValue(data, currentDeep + 1)
 
     @staticmethod
     def checkValueIsInBase(valueType):
-        if valueType not in TasJson.supportType:
+        if valueType not in TasJSON.supportType:
             raise LibException("value must be int,bool,string. type is " + str(valueType),5)
 
     @staticmethod
     def checkKey(key):
-        if type(key) != TasJson.TypeStr:
+        if type(key) != TasJSON.TypeStr:
             raise LibException("key must be string",3)
         x = bytes(key, "utf-8")
         #if len(x) > 66:
@@ -276,7 +276,7 @@ class TasJson:
 
     @staticmethod
     def checkMapKey(key):
-        if type(key) != TasJson.TypeStr:
+        if type(key) != TasJSON.TypeStr:
             raise LibException("key must be string",3)
         x = bytes(key, "utf-8")
         #if len(x) > 66:
@@ -291,7 +291,7 @@ import account
 class TasBaseStorage:
     readData = {} #only get,not flush to db
     writeData={}  #write to db
-    tasJson=TasJson()
+    tasJson=TasJSON()
     currentViterKey=""
     TypeTasMap=type(TasCollectionStorage())
     tasMapFieldList = {}
@@ -351,13 +351,13 @@ class TasBaseStorage:
 
     def getAttrHook(self, key):
         if key in TasBaseStorage.tasMapFieldList:
-            TasJson.setVisitMapField(key)
+            TasJSON.setVisitMapField(key)
             return TasBaseStorage.tasMapFieldList[key]
         else:
             return TasBaseStorage.getValue(key)
 
     def setAttrHook(self, key, value):
-        TasJson.checkKey(key)
+        TasJSON.checkKey(key)
         if value is None:
             TasBaseStorage.removeData(key)
         else:
@@ -372,7 +372,7 @@ class TasBaseStorage:
 
     @staticmethod
     def checkValue(value):
-        TasJson.checkBaseValue(value,1)
+        TasJSON.checkBaseValue(value,1)
 
 
     @staticmethod
@@ -387,7 +387,7 @@ class TasBaseStorage:
             else:#put db data into memory
                 tp,value = TasBaseStorage.tasJson.decodeValue(value)
                 if tp == 0:
-                    TasJson.setVisitMapField(key)
+                    TasJSON.setVisitMapField(key)
                     mapInstance = TasCollectionStorage()
                     TasBaseStorage.tasMapFieldList[key] = mapInstance
                     return mapInstance
@@ -413,7 +413,7 @@ func TasCollectionStorageCode() string {
 	code := `
 import account
 class TasCollectionStorage:
-    tasJson = TasJson()
+    tasJson = TasJSON()
 
     def __init__(self,nestin =  1):
         self.readData = {}  # only get,not flush to db
@@ -421,7 +421,7 @@ class TasCollectionStorage:
         self.nestIn = nestin  #max nestin map
 
     def __setitem__(self, key, value):
-        TasJson.checkMapKey(key)
+        TasJSON.checkMapKey(key)
         if value is None:
             self.removeData(key)
         else:
@@ -448,7 +448,7 @@ class TasCollectionStorage:
             self.checkValueCanDel(value)
             inWriteData = True
 
-        dbKey = TasJson.getDbKey() + "@" + key
+        dbKey = TasJSON.getDbKey() + "@" + key
         tp, dbValue = self.getDataFromDB(dbKey)
         if tp == -1:  # db is null,
             pass
@@ -466,7 +466,7 @@ class TasCollectionStorage:
         if inWriteData:
             del self.writeData[key]
         if inDb:
-            dbKey = TasJson.getDbKey() + "@" + key
+            dbKey = TasJSON.getDbKey() + "@" + key
             account.remove_data(dbKey)
 
     def __delitem__(self, key):
@@ -476,8 +476,8 @@ class TasCollectionStorage:
         return None
 
     def __getitem__(self, key):
-        TasJson.checkMapKey(key)
-        TasJson.setVisitMapKey(key)
+        TasJSON.checkMapKey(key)
+        TasJSON.setVisitMapKey(key)
         return self.getValue(key)
 
     def getDataFromDB(self,key):
@@ -491,7 +491,7 @@ class TasCollectionStorage:
         if key in self.readData:
             return self.readData[key]
         else:#get value from db
-            dbKey = TasJson.getDbKey()
+            dbKey = TasJSON.getDbKey()
             tp, value = self.getDataFromDB(dbKey)
             if tp == -1:
                 return None
@@ -509,7 +509,7 @@ class TasCollectionStorage:
             value.nestIn = self.nestIn
             pass
         else:
-            TasJson.checkBaseValue(value,1)
+            TasJSON.checkBaseValue(value,1)
 
 
     def flushData(self,fieldName):

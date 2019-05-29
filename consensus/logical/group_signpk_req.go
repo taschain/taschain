@@ -14,7 +14,7 @@ import (
 
 type signPKReqRecord struct {
 	reqTime time.Time
-	reqUid  groupsig.ID
+	reqUID  groupsig.ID
 }
 
 func (r *signPKReqRecord) reqTimeout() bool {
@@ -26,7 +26,7 @@ var recordMap sync.Map //idHex -> signPKReqRecord
 func addSignPkReq(id groupsig.ID) bool {
 	r := &signPKReqRecord{
 		reqTime: time.Now(),
-		reqUid:  id,
+		reqUID:  id,
 	}
 	_, load := recordMap.LoadOrStore(id.GetHexString(), r)
 	return !load

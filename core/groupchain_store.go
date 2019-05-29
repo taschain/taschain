@@ -22,9 +22,9 @@ import (
 )
 
 func (chain *GroupChain) getGroupByHeight(height uint64) *types.Group {
-	groupId, _ := chain.groupsHeight.Get(utility.UInt64ToByte(height))
-	if nil != groupId {
-		return chain.getGroupById(groupId)
+	groupID, _ := chain.groupsHeight.Get(utility.UInt64ToByte(height))
+	if nil != groupID {
+		return chain.getGroupByID(groupID)
 	}
 
 	return nil
@@ -35,7 +35,7 @@ func (chain *GroupChain) hasGroup(id []byte) bool {
 	return ok
 }
 
-func (chain *GroupChain) getGroupById(id []byte) *types.Group {
+func (chain *GroupChain) getGroupByID(id []byte) *types.Group {
 	data, _ := chain.groups.Get(id)
 	if nil == data || 0 == len(data) {
 		return nil
@@ -60,7 +60,7 @@ func (chain *GroupChain) getGroupsAfterHeight(height uint64, limit int) []*types
 
 	for limit > 0 {
 		gid := iter.Value()
-		g := chain.getGroupById(gid)
+		g := chain.getGroupByID(gid)
 		if g != nil {
 			result = append(result, g)
 			limit--
@@ -73,11 +73,11 @@ func (chain *GroupChain) getGroupsAfterHeight(height uint64, limit int) []*types
 }
 
 func (chain *GroupChain) loadLastGroup() *types.Group {
-	gid, err := chain.groups.Get([]byte(GROUP_STATUS_KEY))
+	gid, err := chain.groups.Get([]byte(groupStatusKey))
 	if err != nil {
 		return nil
 	}
-	return chain.getGroupById(gid)
+	return chain.getGroupByID(gid)
 }
 
 func (chain *GroupChain) commitGroup(group *types.Group) error {
@@ -89,13 +89,13 @@ func (chain *GroupChain) commitGroup(group *types.Group) error {
 	batch := chain.groups.CreateLDBBatch()
 	defer batch.Reset()
 
-	if err := chain.groups.AddKv(batch, group.Id, data); err != nil {
+	if err := chain.groups.AddKv(batch, group.ID, data); err != nil {
 		return err
 	}
-	if err := chain.groupsHeight.AddKv(batch, utility.UInt64ToByte(group.GroupHeight), group.Id); err != nil {
+	if err := chain.groupsHeight.AddKv(batch, utility.UInt64ToByte(group.GroupHeight), group.ID); err != nil {
 		return err
 	}
-	if err := chain.groups.AddKv(batch, []byte(GROUP_STATUS_KEY), group.Id); err != nil {
+	if err := chain.groups.AddKv(batch, []byte(groupStatusKey), group.ID); err != nil {
 		return err
 	}
 	if err := batch.Write(); err != nil {

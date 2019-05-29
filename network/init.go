@@ -24,15 +24,15 @@ import (
 )
 
 const (
-	seedIdKey = "seed_id"
+	seedIDKey = "seed_id"
 
-	seedIpKey = "seed_ip"
+	seedIPKey = "seed_ip"
 
 	seedPortKey = "seed_port"
 
-	seedDefaultId = "0x10b94f335f1842befc329f996b9bee0d3f4fe034306842bb301023ca38711779"
+	seedDefaultID = "0x10b94f335f1842befc329f996b9bee0d3f4fe034306842bb301023ca38711779"
 
-	seedDefaultIp = "47.105.51.161"
+	seedDefaultIP = "47.105.51.161"
 
 	seedDefaultPort = 1122
 )
@@ -40,11 +40,11 @@ const (
 //网络配置
 type NetworkConfig struct {
 	NodeIDHex       string
-	NatIp           string
+	NatIP           string
 	NatPort         uint16
-	SeedIp          string
-	SeedId          string
-	ChainId         uint16 //链id
+	SeedIP          string
+	SeedID          string
+	ChainID         uint16 //链id
 	ProtocolVersion uint16 //协议id
 	TestMode        bool
 	IsSuper         bool
@@ -68,44 +68,44 @@ func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig 
 	//test
 
 	//if index == "4" {
-	//	networkConfig.ChainId = 2
+	//	networkConfig.ChainID = 2
 	//	networkConfig.ProtocolVersion = 2
 	//} else {
-	//	networkConfig.ChainId = 1
+	//	networkConfig.ChainID = 1
 	//	networkConfig.ProtocolVersion = 1
 	//}
 
-	if networkConfig.SeedIp == "" {
-		networkConfig.SeedIp = seedDefaultIp
+	if networkConfig.SeedIP == "" {
+		networkConfig.SeedIP = seedDefaultIP
 	}
-	if networkConfig.SeedId == "" {
-		networkConfig.SeedId = seedDefaultId
+	if networkConfig.SeedID == "" {
+		networkConfig.SeedID = seedDefaultID
 	}
 
 	_, _, seedPort := getSeedInfo(config)
 
 	seeds := make([]*Node, 0, 16)
 
-	bnNode := NewNode(NewNodeID(networkConfig.SeedId), nnet.ParseIP(networkConfig.SeedIp), seedPort)
+	bnNode := NewNode(NewNodeID(networkConfig.SeedID), nnet.ParseIP(networkConfig.SeedIP), seedPort)
 
-	if bnNode.Id != self.Id && !networkConfig.IsSuper {
+	if bnNode.ID != self.ID && !networkConfig.IsSuper {
 		seeds = append(seeds, bnNode)
 	}
-	listenAddr := nnet.UDPAddr{IP: self.Ip, Port: self.Port}
+	listenAddr := nnet.UDPAddr{IP: self.IP, Port: self.Port}
 
 	var natEnable bool
 	if networkConfig.TestMode {
 		natEnable = false
-		listenAddr = nnet.UDPAddr{IP: nnet.ParseIP(networkConfig.SeedIp), Port: self.Port}
+		listenAddr = nnet.UDPAddr{IP: nnet.ParseIP(networkConfig.SeedIP), Port: self.Port}
 	} else {
 		natEnable = true
 	}
-	netConfig := NetCoreConfig{Id: self.Id,
+	netConfig := NetCoreConfig{ID: self.ID,
 		ListenAddr: &listenAddr, Seeds: seeds,
 		NatTraversalEnable: natEnable,
-		NatIp:              networkConfig.NatIp,
+		NatIP:              networkConfig.NatIP,
 		NatPort:            networkConfig.NatPort,
-		ChainId:            networkConfig.ChainId,
+		ChainID:            networkConfig.ChainID,
 		ProtocolVersion:    networkConfig.ProtocolVersion}
 
 	var netcore NetCore
@@ -120,9 +120,9 @@ func GetNetInstance() Network {
 }
 
 func getSeedInfo(config common.ConfManager) (id string, ip string, port int) {
-	id = config.GetString(BASE_SECTION, seedIdKey, seedDefaultId)
-	ip = config.GetString(BASE_SECTION, seedIpKey, seedDefaultIp)
-	port = config.GetInt(BASE_SECTION, seedPortKey, seedDefaultPort)
+	id = config.GetString(BaseSection, seedIDKey, seedDefaultID)
+	ip = config.GetString(BaseSection, seedIPKey, seedDefaultIP)
+	port = config.GetInt(BaseSection, seedPortKey, seedDefaultPort)
 
 	return
 }

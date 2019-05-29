@@ -42,7 +42,7 @@ func (s *Server) Send(id string, msg Message) error {
 	if err != nil {
 		return err
 	}
-	if id == s.Self.Id.GetHexString() {
+	if id == s.Self.ID.GetHexString() {
 		s.sendSelf(bytes)
 		return nil
 	}
@@ -51,42 +51,42 @@ func (s *Server) Send(id string, msg Message) error {
 	return nil
 }
 
-func (s *Server) SendWithGroupRelay(id string, groupId string, msg Message) error {
+func (s *Server) SendWithGroupRelay(id string, groupID string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	s.netCore.SendGroupMember(groupId, bytes, msg.Code, NewNodeID(id))
+	s.netCore.SendGroupMember(groupID, bytes, msg.Code, NewNodeID(id))
 	return nil
 }
 
-func (s *Server) RandomSpreadInGroup(groupId string, msg Message) error {
+func (s *Server) RandomSpreadInGroup(groupID string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	s.netCore.SendGroup(groupId, bytes, msg.Code, true, 1)
+	s.netCore.SendGroup(groupID, bytes, msg.Code, true, 1)
 
 	return nil
 }
 
-func (s *Server) SpreadAmongGroup(groupId string, msg Message) error {
+func (s *Server) SpreadAmongGroup(groupID string, msg Message) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	s.netCore.SendGroup(groupId, bytes, msg.Code, true, -1)
+	s.netCore.SendGroup(groupID, bytes, msg.Code, true, -1)
 
 	return nil
 }
 
-func (s *Server) SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error {
+func (s *Server) SpreadToRandomGroupMember(groupID string, groupMembers []string, msg Message) error {
 	if Logger == nil {
 		return nil
 	}
@@ -104,21 +104,21 @@ func (s *Server) SpreadToRandomGroupMember(groupId string, groupMembers []string
 	rand := mrand.New(mrand.NewSource(time.Now().Unix()))
 	entranceIndex := rand.Intn(len(groupMembers))
 	entranceNodes := groupMembers[entranceIndex:]
-	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d,index:%d", groupId, len(groupMembers), entranceIndex)
+	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d,index:%d", groupID, len(groupMembers), entranceIndex)
 
-	s.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, nil, entranceNodes, 1)
+	s.netCore.GroupBroadcastWithMembers(groupID, bytes, msg.Code, nil, entranceNodes, 1)
 	return nil
 }
 
-func (s *Server) SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error {
+func (s *Server) SpreadToGroup(groupID string, groupMembers []string, msg Message, digest MsgDigest) error {
 	bytes, err := marshalMessage(msg)
 	if err != nil {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
 
-	Logger.Debugf("SpreadToGroup :%s,code:%d,msg size:%d", groupId, msg.Code, len(msg.Body)+4)
-	s.netCore.GroupBroadcastWithMembers(groupId, bytes, msg.Code, digest, groupMembers, -1)
+	Logger.Debugf("SpreadToGroup :%s,code:%d,msg size:%d", groupID, msg.Code, len(msg.Body)+4)
+	s.netCore.GroupBroadcastWithMembers(groupID, bytes, msg.Code, digest, groupMembers, -1)
 
 	return nil
 }
@@ -162,32 +162,32 @@ func (s *Server) ConnInfo() []Conn {
 	result := make([]Conn, 0)
 	peers := s.netCore.peerManager.peers
 	for _, p := range peers {
-		if p.seesionId > 0 && p.Ip != nil && p.Port > 0 {
-			c := Conn{Id: p.Id.GetHexString(), Ip: p.Ip.String(), Port: strconv.Itoa(p.Port)}
+		if p.sessionID > 0 && p.IP != nil && p.Port > 0 {
+			c := Conn{ID: p.ID.GetHexString(), IP: p.IP.String(), Port: strconv.Itoa(p.Port)}
 			result = append(result, c)
 		}
 	}
 	return result
 }
 
-func (s *Server) BuildGroupNet(groupId string, members []string) {
+func (s *Server) BuildGroupNet(groupID string, members []string) {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, NewNodeID(id))
 	}
-	s.netCore.groupManager.buildGroup(groupId, nodes)
+	s.netCore.groupManager.buildGroup(groupID, nodes)
 }
 
-func (s *Server) DissolveGroupNet(groupId string) {
-	s.netCore.groupManager.removeGroup(groupId)
+func (s *Server) DissolveGroupNet(groupID string) {
+	s.netCore.groupManager.removeGroup(groupID)
 }
 
-func (s *Server) AddGroup(groupId string, members []string) *Group {
+func (s *Server) AddGroup(groupID string, members []string) *Group {
 	nodes := make([]NodeID, 0)
 	for _, id := range members {
 		nodes = append(nodes, NewNodeID(id))
 	}
-	return s.netCore.groupManager.buildGroup(groupId, nodes)
+	return s.netCore.groupManager.buildGroup(groupID, nodes)
 }
 
 func (s *Server) RemoveGroup(ID string) {
@@ -195,19 +195,19 @@ func (s *Server) RemoveGroup(ID string) {
 }
 
 func (s *Server) sendSelf(b []byte) {
-	s.handleMessage(b, s.Self.Id.GetHexString(), s.netCore.chainId, s.netCore.protocolVersion)
+	s.handleMessage(b, s.Self.ID.GetHexString(), s.netCore.chainID, s.netCore.protocolVersion)
 }
 
-func (s *Server) handleMessage(b []byte, from string, chaidId uint16, protocolVersion uint16) {
+func (s *Server) handleMessage(b []byte, from string, chainID uint16, protocolVersion uint16) {
 
 	message, error := unMarshalMessage(b)
 	if error != nil {
 		Logger.Errorf("Proto unmarshal error:%s", error.Error())
 		return
 	}
-	message.ChainId = chaidId
+	message.ChainID = chainID
 	message.ProtocolVersion = protocolVersion
-	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s, chainId:%v,protocolVersion:%v", from, message.Code, len(b), message.Hash(), chaidId, protocolVersion)
+	Logger.Debugf("Receive message from %s,code:%d,msg size:%d,hash:%s, chainID:%v,protocolVersion:%v", from, message.Code, len(b), message.Hash(), chainID, protocolVersion)
 	statistics.AddCount("Server.handleMessage", message.Code, uint64(len(b)))
 	s.netCore.flowMeter.recv(int64(message.Code), int64(len(b)))
 
@@ -215,7 +215,7 @@ func (s *Server) handleMessage(b []byte, from string, chaidId uint16, protocolVe
 }
 
 func newNotifyMessage(message *Message, from string) *notify.DefaultMessage {
-	return notify.NewDefaultMessage(message.Body, from, message.ChainId, message.ProtocolVersion)
+	return notify.NewDefaultMessage(message.Body, from, message.ChainID, message.ProtocolVersion)
 }
 
 func (s *Server) handleMessageInner(message *Message, from string) {
@@ -228,36 +228,36 @@ func (s *Server) handleMessageInner(message *Message, from string) {
 	if code < 10000 {
 		s.consensusHandler.Handle(from, *message)
 	} else {
-		topicId := ""
+		topicID := ""
 		switch code {
 		case GroupChainCountMsg:
-			topicId = notify.GroupHeight
+			topicID = notify.GroupHeight
 		case ReqGroupMsg:
-			topicId = notify.GroupReq
+			topicID = notify.GroupReq
 		case GroupMsg:
-			topicId = notify.Group
+			topicID = notify.Group
 		case TxSyncNotify:
-			topicId = notify.TxSyncNotify
+			topicID = notify.TxSyncNotify
 		case TxSyncReq:
-			topicId = notify.TxSyncReq
+			topicID = notify.TxSyncReq
 		case TxSyncResponse:
-			topicId = notify.TxSyncResponse
+			topicID = notify.TxSyncResponse
 		case BlockInfoNotifyMsg:
-			topicId = notify.BlockInfoNotify
+			topicID = notify.BlockInfoNotify
 		case ReqBlock:
-			topicId = notify.BlockReq
+			topicID = notify.BlockReq
 		case BlockResponseMsg:
-			topicId = notify.BlockResponse
+			topicID = notify.BlockResponse
 		case NewBlockMsg:
-			topicId = notify.NewBlock
+			topicID = notify.NewBlock
 		case ReqChainPieceBlock:
-			topicId = notify.ChainPieceBlockReq
+			topicID = notify.ChainPieceBlockReq
 		case ChainPieceBlock:
-			topicId = notify.ChainPieceBlock
+			topicID = notify.ChainPieceBlock
 		}
-		if topicId != "" {
+		if topicID != "" {
 			msg := newNotifyMessage(message, from)
-			notify.BUS.Publish(topicId, msg)
+			notify.BUS.Publish(topicID, msg)
 		}
 	}
 

@@ -31,7 +31,7 @@ type ID struct {
 
 //判断2个ID是否相同
 func (id ID) IsEqual(rhs ID) bool {
-	// TODO : add IsEqual to bn_curve.ID
+	// TODO : add IsEqual to bncurve.ID
 	return id.value.IsEqual(&rhs.value)
 }
 
@@ -112,7 +112,7 @@ func (id ID) MarshalJSON() ([]byte, error) {
 func (id *ID) UnmarshalJSON(data []byte) error {
 	str := string(data[:])
 	if len(str) < 2 {
-		return fmt.Errorf("data size less than min.")
+		return fmt.Errorf("data size less than min")
 	}
 	str = str[1 : len(str)-1]
 	return id.SetHexString(str)
@@ -126,7 +126,7 @@ func (id ID) ShortS() string {
 //由big.Int创建ID
 func NewIDFromBigInt(b *big.Int) *ID {
 	id := new(ID)
-	err := id.value.SetDecString(b.Text(10)) //bn_curve C库函数
+	err := id.value.SetDecString(b.Text(10)) //bncurve C库函数
 	if err != nil {
 		log.Printf("NewIDFromBigInt %s\n", err)
 		return nil
@@ -145,7 +145,7 @@ func NewIDFromInt(i int) *ID {
 }
 
 //从TAS 160位地址创建（FP254曲线256位或FP382曲线384位的）ID
-//bn_curve.ID和common.Address不支持双向来回互转，因为两者的值域不一样（384位和160位），互转就会生成不同的值。
+//bncurve.ID和common.Address不支持双向来回互转，因为两者的值域不一样（384位和160位），互转就会生成不同的值。
 func NewIDFromAddress(addr common.Address) *ID {
 	return NewIDFromBigInt(addr.BigInteger())
 }
@@ -162,7 +162,7 @@ func NewIDFromString(s string) *ID {
 	bi := new(big.Int).SetBytes([]byte(s))
 	return NewIDFromBigInt(bi)
 }
-func DeserializeId(bs []byte) ID {
+func DeserializeID(bs []byte) ID {
 	var id ID
 	if err := id.Deserialize(bs); err != nil {
 		return ID{}

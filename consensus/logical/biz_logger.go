@@ -43,15 +43,15 @@ func newRtLog(key string) *rtLog {
 	}
 }
 
-const TIMESTAMP_LAYOUT = "2006-01-02/15:04:05.000"
+const TimestampLayout = "2006-01-02/15:04:05.000"
 
 func (r *rtLog) log(format string, p ...interface{}) {
 	cost := time.Since(r.start)
-	stdLogger.Debugf(fmt.Sprintf("%v:begin at %v, cost %v. %v", r.key, r.start.Format(TIMESTAMP_LAYOUT), cost.String(), fmt.Sprintf(format, p...)))
+	stdLogger.Debugf(fmt.Sprintf("%v:begin at %v, cost %v. %v", r.key, r.start.Format(TimestampLayout), cost.String(), fmt.Sprintf(format, p...)))
 }
 
 func (r *rtLog) end() {
-	stdLogger.Debugf(fmt.Sprintf("%v:%v cost ", time.Now().Format(TIMESTAMP_LAYOUT), r.key))
+	stdLogger.Debugf(fmt.Sprintf("%v:%v cost ", time.Now().Format(TimestampLayout), r.key))
 }
 
 //消息追踪日志，记录到文件

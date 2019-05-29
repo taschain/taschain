@@ -56,7 +56,7 @@ func Transfer(toAddressStr *C.char, value *C.char) {
 	if !ok {
 		// TODO error
 	}
-	contractAddr := controller.Vm.ContractAddress
+	contractAddr := controller.VM.ContractAddress
 	contractValue := controller.AccountDB.GetBalance(*contractAddr)
 	if contractValue.Cmp(transValue) < 0 {
 		return
@@ -153,14 +153,14 @@ func GetRefund() C.ulonglong {
 //export GetData
 func GetData(hashC *C.char) *C.char {
 	//hash := common.StringToHash(C.GoString(hashC))
-	address := *controller.Vm.ContractAddress
+	address := *controller.VM.ContractAddress
 	state := controller.AccountDB.GetData(address, C.GoString(hashC))
 	return C.CString(string(state))
 }
 
 //export SetData
 func SetData(keyC *C.char, data *C.char) {
-	address := *controller.Vm.ContractAddress
+	address := *controller.VM.ContractAddress
 	key := C.GoString(keyC)
 	state := []byte(C.GoString(data))
 	controller.AccountDB.SetData(address, key, state)
@@ -247,16 +247,16 @@ func TxGasLimit() C.ulonglong {
 }
 
 //export ContractCall
-func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char, c_result unsafe.Pointer) {
-	go_result := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
-	cc_result := (*C.struct__ExecuteResult)(c_result)
-	cc_result.resultType = C.int(go_result.ResultType)
-	cc_result.errorCode = C.int(go_result.ErrorCode)
-	if go_result.Content != "" {
-		cc_result.content = C.CString(go_result.Content)
+func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char, cResult unsafe.Pointer) {
+	goResult := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
+	ccResult := (*C.struct__ExecuteResult)(cResult)
+	ccResult.resultType = C.int(goResult.ResultType)
+	ccResult.errorCode = C.int(goResult.ErrorCode)
+	if goResult.Content != "" {
+		ccResult.content = C.CString(goResult.Content)
 	}
-	if go_result.Abi != "" {
-		cc_result.abi = C.CString(go_result.Abi)
+	if goResult.Abi != "" {
+		ccResult.abi = C.CString(goResult.Abi)
 	}
 }
 
@@ -274,12 +274,12 @@ func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char {
 		log.Data = append(log.Data, C.GoString(data)[i])
 	}
 	log.TxHash = controller.Transaction.GetHash()
-	log.Address = *controller.Vm.ContractAddress //*(controller.Transaction.Target)
+	log.Address = *controller.VM.ContractAddress //*(controller.Transaction.Target)
 	log.BlockNumber = controller.BlockHeader.Height
 	//block is running ,no blockhash this time
 	// log.BlockHash = controller.BlockHeader.Hash
 
-	controller.Vm.Logs = append(controller.Vm.Logs, &log)
+	controller.VM.Logs = append(controller.VM.Logs, &log)
 
 	return nil //C.CString(contractResult);
 }
@@ -293,14 +293,14 @@ func SetBytecode(code *C.char, len C.int) {
 
 //export DataIterator
 func DataIterator(prefix *C.char) C.ulonglong {
-	address := *controller.Vm.ContractAddress
+	address := *controller.VM.ContractAddress
 	iter := controller.AccountDB.DataIterator(address, C.GoString(prefix))
 	return C.ulonglong(uintptr(unsafe.Pointer(iter)))
 }
 
 //export RemoveData
 func RemoveData(key *C.char) {
-	address := *controller.Vm.ContractAddress
+	address := *controller.VM.ContractAddress
 	controller.AccountDB.RemoveData(address, C.GoString(key))
 }
 
@@ -316,19 +316,19 @@ func DataNext(cvalue *C.char) *C.char {
 }
 
 //export MinerStake
-func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
+func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
 	fmt.Println("VM MinerStake", _type)
 	ss := controller.AccountDB.Snapshot()
 	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
-	if !ok{
+	if !ok {
 		//TODO
 	}
-	source := controller.Vm.ContractAddress
+	source := controller.VM.ContractAddress
 	miner := common.HexStringToAddress(C.GoString(minerAddr))
 	if CanTransfer(controller.AccountDB, *source, value) {
-		mexist := controller.mm.GetMinerById(miner.Bytes(), byte(_type), controller.AccountDB)
+		mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 		if mexist != nil &&
-			controller.mm.AddStake(mexist.Id, mexist, value.Uint64(), controller.AccountDB) &&
+			controller.mm.AddStake(mexist.ID, mexist, value.Uint64(), controller.AccountDB) &&
 			controller.mm.AddStakeDetail(source.Bytes(), mexist, value.Uint64(), controller.AccountDB) {
 			controller.AccountDB.SubBalance(*source, value)
 			return true
@@ -339,19 +339,19 @@ func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
 }
 
 //export MinerCancelStake
-func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
+func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
 	fmt.Println("VM MinerCancelStake", _type)
 	ss := controller.AccountDB.Snapshot()
 	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
-	if !ok{
+	if !ok {
 		//TODO
 	}
-	source := controller.Vm.ContractAddress
+	source := controller.VM.ContractAddress
 	miner := common.HexStringToAddress(C.GoString(minerAddr))
-	mexist := controller.mm.GetMinerById(miner.Bytes(), byte(_type), controller.AccountDB)
+	mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 	if mexist != nil &&
 		controller.mm.CancelStake(source.Bytes(), mexist, value.Uint64(), controller.AccountDB, controller.BlockHeader.Height) &&
-		controller.mm.ReduceStake(mexist.Id, mexist, value.Uint64(), controller.AccountDB, controller.BlockHeader.Height) {
+		controller.mm.ReduceStake(mexist.ID, mexist, value.Uint64(), controller.AccountDB, controller.BlockHeader.Height) {
 		return true
 	}
 	controller.AccountDB.RevertToSnapshot(ss)
@@ -359,18 +359,18 @@ func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool{
 }
 
 //export MinerRefundStake
-func MinerRefundStake(minerAddr *C.char, _type int) bool{
+func MinerRefundStake(minerAddr *C.char, _type int) bool {
 	fmt.Println("VM MinerRefundStake", _type)
 	var success = false
 	ss := controller.AccountDB.Snapshot()
-	source := controller.Vm.ContractAddress
+	source := controller.VM.ContractAddress
 	miner := common.HexStringToAddress(C.GoString(minerAddr))
-	mexist := controller.mm.GetMinerById(miner.Bytes(), byte(_type), controller.AccountDB)
+	mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 	height := controller.BlockHeader.Height
 	if mexist != nil {
 		if mexist.Type == types.MinerTypeHeavy {
 			latestCancelPledgeHeight := controller.mm.GetLatestCancelStakeHeight(source.Bytes(), mexist, controller.AccountDB)
-			if height > latestCancelPledgeHeight+10 || (mexist.Status == types.MinerStatusAbort && height > mexist.AbortHeight + 10) {
+			if height > latestCancelPledgeHeight+10 || (mexist.Status == types.MinerStatusAbort && height > mexist.AbortHeight+10) {
 				value, ok := controller.mm.RefundStake(source.Bytes(), mexist, controller.AccountDB)
 				if ok {
 					refundValue := big.NewInt(0).SetUint64(value)

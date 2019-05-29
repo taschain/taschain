@@ -12,6 +12,7 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -244,15 +245,15 @@ func (fp *forkProcessor) chainPieceBlockReqHandler(msg notify.Message) {
 	fp.sendChainPieceBlock(source, response)
 }
 
-func (fp *forkProcessor) sendChainPieceBlock(targetId string, msg *ChainPieceBlockMsg) {
-	fp.logger.Debugf("Send chain piece blocks to:%s, findAncestor=%v, blockSize=%v", targetId, msg.FindAncestor, len(msg.Blocks))
+func (fp *forkProcessor) sendChainPieceBlock(targetID string, msg *ChainPieceBlockMsg) {
+	fp.logger.Debugf("Send chain piece blocks to:%s, findAncestor=%v, blockSize=%v", targetID, msg.FindAncestor, len(msg.Blocks))
 	body, e := marshalChainPieceBlockMsg(msg)
 	if e != nil {
 		fp.logger.Errorf("Marshal chain piece block msg error:%s", e.Error())
 		return
 	}
 	message := network.Message{Code: network.ChainPieceBlock, Body: body}
-	network.GetNetInstance().Send(targetId, message)
+	network.GetNetInstance().Send(targetID, message)
 }
 
 func (fp *forkProcessor) reqFinished(id string, reset bool) {
@@ -316,9 +317,8 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		if !sameFork {
 			fp.logger.Debugf("Unexpected chain piece block from %s, expect from %s, blocksize %v", source, ctx.target, len(blocks))
 			return
-		} else {
-			fp.logger.Debugf("upexpected target blocks, buf same fork!target=%v, expect=%v, blocksize %v", source, ctx.target, len(blocks))
 		}
+		fp.logger.Debugf("upexpected target blocks, buf same fork!target=%v, expect=%v, blocksize %v", source, ctx.target, len(blocks))
 	}
 	var reset = true
 	defer func() {

@@ -172,7 +172,7 @@ func (ptk *peerTxsKeys) hasKey(k uint64) bool {
 func (ptk *peerTxsKeys) forEach(f func(k uint64) bool) {
 	ptk.lock.RLock()
 	defer ptk.lock.RUnlock()
-	for k, _ := range ptk.txKeys {
+	for k := range ptk.txKeys {
 		if !f(k) {
 			break
 		}

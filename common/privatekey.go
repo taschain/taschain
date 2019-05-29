@@ -115,10 +115,10 @@ func BytesToSecKey(data []byte) (sk *PrivateKey) {
 		return nil
 	}
 	sk = new(PrivateKey)
-	buf_pub := data[:PubKeyLength]
-	buf_d := data[PubKeyLength:]
-	sk.PrivKey.PublicKey = BytesToPublicKey(buf_pub).PubKey
-	sk.PrivKey.D = new(big.Int).SetBytes(buf_d)
+	bufPub := data[:PubKeyLength]
+	bufD := data[PubKeyLength:]
+	sk.PrivKey.PublicKey = BytesToPublicKey(bufPub).PubKey
+	sk.PrivKey.D = new(big.Int).SetBytes(bufD)
 	if sk.PrivKey.X != nil && sk.PrivKey.Y != nil && sk.PrivKey.D != nil {
 		return sk
 	}

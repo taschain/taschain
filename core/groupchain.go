@@ -27,7 +27,7 @@ import (
 	"sync"
 )
 
-const GROUP_STATUS_KEY = "gcurrent"
+const groupStatusKey = "gcurrent"
 
 var (
 	errGroupExist = errors.New("group exist")
@@ -69,7 +69,7 @@ func (iterator *GroupIterator) Current() *types.Group {
 }
 
 func (iterator *GroupIterator) MovePre() *types.Group {
-	iterator.current = GroupChainImpl.GetGroupById(iterator.current.Header.PreGroup)
+	iterator.current = GroupChainImpl.GetGroupByID(iterator.current.Header.PreGroup)
 	return iterator.current
 }
 
@@ -95,7 +95,7 @@ func getGroupChainConfig() *GroupChainConfig {
 		return defaultConfig
 	}
 	return &GroupChainConfig{
-		dbfile:      common.GlobalConf.GetString(CONFIG_SEC, "db_groups", defaultConfig.dbfile) + common.GlobalConf.GetString("instance", "index", ""),
+		dbfile:      common.GlobalConf.GetString(configSec, "db_groups", defaultConfig.dbfile) + common.GlobalConf.GetString("instance", "index", ""),
 		group:       defaultConfig.group,
 		groupHeight: defaultConfig.groupHeight,
 	}
@@ -168,18 +168,18 @@ func (chain *GroupChain) GetGroupByHeight(height uint64) *types.Group {
 	return chain.getGroupByHeight(height)
 }
 
-func (chain *GroupChain) GetGroupById(id []byte) *types.Group {
+func (chain *GroupChain) GetGroupByID(id []byte) *types.Group {
 	if v, ok := chain.topGroups.Get(common.Bytes2Hex(id)); ok {
 		return v.(*types.Group)
 	}
-	return chain.getGroupById(id)
+	return chain.getGroupByID(id)
 }
 
 func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 	defer func() {
-		Logger.Debugf("add group id=%v, groupHeight=%v, err=%v", common.ToHex(group.Id), group.GroupHeight, err)
+		Logger.Debugf("add group id=%v, groupHeight=%v, err=%v", common.ToHex(group.ID), group.GroupHeight, err)
 	}()
-	if chain.hasGroup(group.Id) {
+	if chain.hasGroup(group.ID) {
 		//notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: group,})
 		return errGroupExist
 	}
@@ -196,7 +196,7 @@ func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 	chain.lock.Lock()
 	defer chain.lock.Unlock()
 
-	if !bytes.Equal(group.Header.PreGroup, chain.lastGroup.Id) {
+	if !bytes.Equal(group.Header.PreGroup, chain.lastGroup.ID) {
 		err = fmt.Errorf("preGroup not equal to lastGroup")
 		return
 	}
@@ -215,7 +215,7 @@ func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 		Logger.Errorf("commit Group fail ,err=%v, height=%v", err, group.GroupHeight)
 		return
 	}
-	chain.topGroups.Add(common.Bytes2Hex(group.Id), group)
+	chain.topGroups.Add(common.Bytes2Hex(group.ID), group)
 	notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: group})
 
 	return nil

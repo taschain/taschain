@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	CONFIG_SEC   = "chain"
-	DEFAULT_FILE = "database"
+	ConfigSec   = "chain"
+	DefaultFile = "database"
 )
 
 var (
@@ -58,7 +58,7 @@ func getInstance(file string) (*LDBDatabase, error) {
 	)
 
 	defaultConfig := &databaseConfig{
-		database: DEFAULT_FILE,
+		database: DefaultFile,
 		cache:    128,
 		handler:  1024,
 	}
@@ -66,7 +66,7 @@ func getInstance(file string) (*LDBDatabase, error) {
 	if nil == common.GlobalConf {
 		instanceInner, err = NewLDBDatabase(defaultConfig.database, defaultConfig.cache, defaultConfig.handler)
 	} else {
-		instanceInner, err = NewLDBDatabase(file, common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
+		instanceInner, err = NewLDBDatabase(file, common.GlobalConf.GetInt(ConfigSec, "cache", defaultConfig.cache), common.GlobalConf.GetInt(ConfigSec, "handler", defaultConfig.handler))
 	}
 
 	return instanceInner, err
@@ -130,9 +130,8 @@ func (db *PrefixedDatabase) NewBatch() Batch {
 func (db *PrefixedDatabase) AddKv(batch Batch, k, v []byte) error {
 	if v == nil {
 		return db.addDeleteToBatch(batch, k)
-	} else {
-		return db.addKVToBatch(batch, k, v)
 	}
+	return db.addKVToBatch(batch, k, v)
 }
 func (db *PrefixedDatabase) CreateLDBBatch() Batch {
 	return db.db.NewBatch()
@@ -210,7 +209,7 @@ type prefixBatch struct {
 
 func (b *prefixBatch) Delete(key []byte) error {
 	b.b.Delete(generateKey(key, b.prefix))
-	b.size += 1
+	b.size++
 	return nil
 }
 
@@ -317,34 +316,34 @@ func (ldb *LDBDatabase) Clear() error {
 }
 
 // Path returns the path to the database directory.
-func (db *LDBDatabase) Path() string {
-	return db.filename
+func (ldb *LDBDatabase) Path() string {
+	return ldb.filename
 }
 
 // Put puts the given key / value to the queue
-func (db *LDBDatabase) Put(key []byte, value []byte) error {
-	if !db.inited {
+func (ldb *LDBDatabase) Put(key []byte, value []byte) error {
+	if !ldb.inited {
 		return ErrLDBInit
 	}
 
-	return db.db.Put(key, value, nil)
+	return ldb.db.Put(key, value, nil)
 }
 
-func (db *LDBDatabase) Has(key []byte) (bool, error) {
-	if !db.inited {
+func (ldb *LDBDatabase) Has(key []byte) (bool, error) {
+	if !ldb.inited {
 		return false, ErrLDBInit
 	}
 
-	return db.db.Has(key, nil)
+	return ldb.db.Has(key, nil)
 }
 
 // Get returns the given key if it's present.
-func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
-	if !db.inited {
+func (ldb *LDBDatabase) Get(key []byte) ([]byte, error) {
+	if !ldb.inited {
 		return nil, ErrLDBInit
 	}
 
-	dat, err := db.db.Get(key, nil)
+	dat, err := ldb.db.Get(key, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -353,49 +352,49 @@ func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
 }
 
 // Delete deletes the key from the queue and database
-func (db *LDBDatabase) Delete(key []byte) error {
-	if !db.inited {
+func (ldb *LDBDatabase) Delete(key []byte) error {
+	if !ldb.inited {
 		return ErrLDBInit
 	}
-	return db.db.Delete(key, nil)
+	return ldb.db.Delete(key, nil)
 }
 
-func (db *LDBDatabase) NewIterator() iterator.Iterator {
-	if !db.inited {
+func (ldb *LDBDatabase) NewIterator() iterator.Iterator {
+	if !ldb.inited {
 		return nil
 	}
-	return db.db.NewIterator(nil, nil)
+	return ldb.db.NewIterator(nil, nil)
 }
 
 // NewIteratorWithPrefix returns a iterator to iterate over subset of database content with a particular prefix.
-func (db *LDBDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
-	return db.db.NewIterator(util.BytesPrefix(prefix), nil)
+func (ldb *LDBDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterator {
+	return ldb.db.NewIterator(util.BytesPrefix(prefix), nil)
 }
 
-func (db *LDBDatabase) Close() {
-	db.quitLock.Lock()
-	defer db.quitLock.Unlock()
+func (ldb *LDBDatabase) Close() {
+	ldb.quitLock.Lock()
+	defer ldb.quitLock.Unlock()
 
-	if db.quitChan != nil {
+	if ldb.quitChan != nil {
 		errc := make(chan error)
-		db.quitChan <- errc
+		ldb.quitChan <- errc
 		if err := <-errc; err != nil {
-			//db.log.Error("Metrics collection failed", "err", err)
+			//ldb.log.Error("Metrics collection failed", "err", err)
 		}
 	}
 
-	db.db.Close()
-	//err := db.db.Close()
+	ldb.db.Close()
+	//err := ldb.ldb.Close()
 	//if err == nil {
-	//	db.log.Info("Database closed")
+	//	ldb.log.Info("Database closed")
 	//} else {
-	//	db.log.Error("Failed to close database", "err", err)
+	//	ldb.log.Error("Failed to close database", "err", err)
 	//}
 }
 
-func (db *LDBDatabase) NewBatch() Batch {
-	return &ldbBatch{db: db.db, b: new(leveldb.Batch)}
-	//return db.batch
+func (ldb *LDBDatabase) NewBatch() Batch {
+	return &ldbBatch{db: ldb.db, b: new(leveldb.Batch)}
+	//return ldb.batch
 }
 
 type ldbBatch struct {
@@ -411,7 +410,7 @@ func (b *ldbBatch) Put(key, value []byte) error {
 }
 func (b *ldbBatch) Delete(key []byte) error {
 	b.b.Delete(key)
-	b.size += 1
+	b.size++
 	return nil
 }
 func (b *ldbBatch) Write() error {
@@ -522,7 +521,7 @@ func (b *memBatch) Put(key, value []byte) error {
 
 func (b *memBatch) Delete(key []byte) error {
 	b.writes = append(b.writes, kv{common.CopyBytes(key), nil, true})
-	b.size += 1
+	b.size++
 	return nil
 }
 
@@ -622,7 +621,7 @@ func (b *LruMemBatch) Put(key, value []byte) error {
 
 func (b *LruMemBatch) Delete(key []byte) error {
 	b.writes = append(b.writes, kv{common.CopyBytes(key), nil, true})
-	b.size += 1
+	b.size++
 	return nil
 }
 
