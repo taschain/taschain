@@ -3,6 +3,8 @@ package core
 import (
 	"common"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"math/rand"
 	"middleware/types"
 	"os"
@@ -21,8 +23,17 @@ var (
 )
 func init() {
 	executor = &TVMExecutor{}
-
-	ds, err := tasdb.NewDataSource("test_db")
+	options := &opt.Options{
+		OpenFilesCacheCapacity: 100,
+		BlockCacheCapacity:     16 * opt.MiB,
+		WriteBuffer:            32 * opt.MiB, // Two of these are used internally
+		Filter:                 filter.NewBloomFilter(10),
+		CompactionTableSize: 	4*opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+		CompactionTotalSize: 	16*opt.MiB,
+		BlockSize: 				2*opt.MiB,
+	}
+	ds, err := tasdb.NewDataSource("test_db", options)
 	if err != nil {
 		panic(err)
 	}
@@ -61,8 +72,17 @@ func genRandomTx() *types.Transaction {
 
 func TestTVMExecutor_Execute(t *testing.T) {
 	executor := &TVMExecutor{}
-
-	ds, err := tasdb.NewDataSource("test_db")
+	options := &opt.Options{
+		OpenFilesCacheCapacity: 100,
+		BlockCacheCapacity:     16 * opt.MiB,
+		WriteBuffer:            32 * opt.MiB, // Two of these are used internally
+		Filter:                 filter.NewBloomFilter(10),
+		CompactionTableSize: 	4*opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+		CompactionTotalSize: 	16*opt.MiB,
+		BlockSize: 				2*opt.MiB,
+	}
+	ds, err := tasdb.NewDataSource("test_db", options)
 	if err != nil {
 		t.Fatalf("new datasource error:%v", err)
 	}

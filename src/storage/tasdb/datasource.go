@@ -1,5 +1,7 @@
 package tasdb
 
+import "github.com/syndtr/goleveldb/leveldb/opt"
+
 /*
 **  Creator: pxf
 **  Date: 2019/3/18 上午10:21
@@ -10,8 +12,8 @@ type TasDataSource struct {
 	db *LDBDatabase
 }
 
-func NewDataSource(file string) (*TasDataSource, error) {
-	db, err := getInstance(file)
+func NewDataSource(file string, options *opt.Options) (*TasDataSource, error) {
+	db, err := getInstance(file, options)
 	if err != nil {
 		return nil, err
 	}

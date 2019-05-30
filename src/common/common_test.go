@@ -101,3 +101,19 @@ func TestBigMarshal(t *testing.T) {
 	bi=big.NewInt(1000)
 	t.Log(len(bi.Bytes()))
 }
+
+type aa struct {
+	v int
+}
+
+func (a *aa) getV() int {
+	if a == nil {
+		return 111
+	}
+    return a.v
+}
+
+func TestAA(t *testing.T) {
+	var a *aa
+	t.Log(a.getV())
+}
