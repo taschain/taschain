@@ -3,6 +3,8 @@ package core
 import (
 	"common"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"math/rand"
 	"middleware"
 	"middleware/ticker"
@@ -105,7 +107,17 @@ func newFullChain()*FullBlockChain{
 		verifiedBlocks: common.MustNewLRUCache(10),
 		topBlocks: 		common.MustNewLRUCache(20),
 	}
-	ds, err := tasdb.NewDataSource(chain.config.dbfile)
+	options := &opt.Options{
+		OpenFilesCacheCapacity: 100,
+		BlockCacheCapacity:     16 * opt.MiB,
+		WriteBuffer:            256 * opt.MiB, // Two of these are used internally
+		Filter:                 filter.NewBloomFilter(10),
+		CompactionTableSize: 	4*opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+		CompactionTotalSize: 	16*opt.MiB,
+		BlockSize: 				2*opt.MiB,
+	}
+	ds, err := tasdb.NewDataSource(chain.config.dbfile, options)
 	if err != nil {
 		fmt.Errorf("init db error")
 	}

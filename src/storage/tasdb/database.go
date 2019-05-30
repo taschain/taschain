@@ -16,17 +16,16 @@
 package tasdb
 
 import (
-	"sync"
-	"os"
+	"bytes"
+	"common"
+	"github.com/hashicorp/golang-lru"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"common"
-	"bytes"
-	"github.com/hashicorp/golang-lru"
+	"os"
+	"sync"
 )
 
 const (
@@ -52,7 +51,7 @@ type databaseConfig struct {
 	handler  int
 }
 
-func getInstance(file string) (*LDBDatabase, error) {
+func getInstance(file string, options *opt.Options) (*LDBDatabase, error) {
 	var (
 		instanceInner *LDBDatabase
 		err           error
@@ -65,9 +64,9 @@ func getInstance(file string) (*LDBDatabase, error) {
 	}
 
 	if nil == common.GlobalConf {
-		instanceInner, err = NewLDBDatabase(defaultConfig.database, defaultConfig.cache, defaultConfig.handler)
+		instanceInner, err = NewLDBDatabase(defaultConfig.database, options)
 	} else {
-		instanceInner, err = NewLDBDatabase(file, common.GlobalConf.GetInt(CONFIG_SEC, "cache", defaultConfig.cache), common.GlobalConf.GetInt(CONFIG_SEC, "handler", defaultConfig.handler))
+		instanceInner, err = NewLDBDatabase(file, options)
 	}
 
 	return instanceInner, err
@@ -250,22 +249,15 @@ type LDBDatabase struct {
 	quitChan chan chan error
 
 	filename      string
-	cacheConfig   int
-	handlesConfig int
+	//cacheConfig   int
+	//handlesConfig int
 
 	inited bool
 }
 
-func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
+func NewLDBDatabase(file string, options *opt.Options) (*LDBDatabase, error) {
 
-	if cache < 16 {
-		cache = 16
-	}
-	if handles < 16 {
-		handles = 16
-	}
-
-	db, err := newLevelDBInstance(file, cache, handles)
+	db, err := newLevelDBInstance(file, options)
 	if err != nil {
 		return nil, err
 	}
@@ -273,24 +265,16 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	ldb := &LDBDatabase{
 		filename:      file,
 		db:            db,
-		cacheConfig:   cache,
-		handlesConfig: handles,
+		//cacheConfig:   cache,
+		//handlesConfig: handles,
 		inited:        true,
 	}
 	return ldb, nil
 }
 
 // 生成leveldb实例
-func newLevelDBInstance(file string, cache int, handles int) (*leveldb.DB, error) {
-	db, err := leveldb.OpenFile(file, &opt.Options{
-		OpenFilesCacheCapacity: handles,
-		BlockCacheCapacity:     16 * opt.MiB,
-		WriteBuffer:            256 * opt.MiB, // Two of these are used internally
-		Filter:                 filter.NewBloomFilter(10),
-		CompactionTableSize: 	4*opt.MiB,
-		CompactionTableSizeMultiplier: 2,
-		CompactionTotalSize: 	16*opt.MiB,
-	})
+func newLevelDBInstance(file string, options *opt.Options) (*leveldb.DB, error) {
+	db, err := leveldb.OpenFile(file, options)
 
 	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
 		db, err = leveldb.RecoverFile(file, nil)
@@ -310,7 +294,7 @@ func (ldb *LDBDatabase) Clear() error {
 	// todo: 直接删除文件，是不是过于粗暴？
 	os.RemoveAll(ldb.Path())
 
-	db, err := newLevelDBInstance(ldb.Path(), ldb.cacheConfig, ldb.handlesConfig)
+	db, err := newLevelDBInstance(ldb.Path(), nil)
 	if err != nil {
 		return err
 	}
