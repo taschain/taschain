@@ -50,10 +50,10 @@ func TestTransactionsMarshalAndUnmarshal(t *testing.T) {
 		Nonce:  11,
 		Source: &src,
 		Type:   1,
-		Sign:   sign,
+		Sign:   sign.Bytes(),
 	}
 	tx.Hash = tx.GenHash()
-	t.Log("raw", tx, tx.Sign.GetHexString())
+	t.Log("raw", tx, common.Bytes2Hex(tx.Sign))
 	txs := make([]*Transaction, 0)
 	txs = append(txs, tx)
 	bs, err := MarshalTransactions(txs)
@@ -66,14 +66,15 @@ func TestTransactionsMarshalAndUnmarshal(t *testing.T) {
 		t.Fatal(err)
 	}
 	tx1 := txs1[0]
-	t.Log("after", tx1, tx1.Sign.GetHexString())
+	t.Log("after", tx1, common.Bytes2Hex(tx1.Sign))
 
 	hashByte := tx.Hash.Bytes()
-	pk, err := tx.Sign.RecoverPubkey(hashByte)
+	sign1 := common.BytesToSign(tx.Sign)
+	pk, err := sign1.RecoverPubkey(hashByte)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !pk.Verify(hashByte, tx.Sign) {
+	if !pk.Verify(hashByte, sign1) {
 	}
-	t.Log(tx.Sign.GetHexString())
+	t.Log(common.Bytes2Hex(tx.Sign))
 }
