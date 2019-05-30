@@ -1,16 +1,31 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package main
 
 import (
-	"net/http"
-	"fmt"
 	"bytes"
-	"io/ioutil"
 	"encoding/json"
-	"math/rand"
 	"flag"
-	"time"
-	"strings"
+	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"net/http"
 	"strconv"
+	"strings"
+	"time"
 )
 
 // Result rpc请求成功返回的可变参数部分
@@ -150,12 +165,12 @@ func mockSendTransaction(host string, port int, privateKey string, from, to stri
 
 // 通用的rpc的请求方法。
 func rpcPost(addr string, port int, method string, params ...interface{}) (*RPCResObj, error) {
-	obj := RPCReqObj{Method: method, Params: params, Jsonrpc: "2.0", ID: 1,}
+	obj := RPCReqObj{Method: method, Params: params, Jsonrpc: "2.0", ID: 1}
 	objBytes, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Post(fmt.Sprintf("http://%s:%d", addr, port), "application/json", bytes.NewReader(objBytes), )
+	resp, err := http.Post(fmt.Sprintf("http://%s:%d", addr, port), "application/json", bytes.NewReader(objBytes))
 	if err != nil {
 		return nil, err
 	}

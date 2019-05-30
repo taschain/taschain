@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package network
 
 /*
@@ -128,7 +143,7 @@ func P2PCacheSize() uint64 {
 func P2PSend(session uint32, data []byte) {
 
 	pendingSendBuffer := P2PSessionSendBufferCount(session)
-	const  maxSendBuffer = 10240
+	const maxSendBuffer = 10240
 
 	if pendingSendBuffer > maxSendBuffer {
 		Logger.Debugf("session kcp send queue over 10240 drop this message,session id:%v pendingSendBuffer:%v ", session, pendingSendBuffer)
