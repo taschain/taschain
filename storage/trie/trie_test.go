@@ -1,19 +1,3 @@
-// Copyright 2014 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
 package trie
 
 import (
@@ -21,9 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"io/ioutil"
-	"math/big"
 	"math/rand"
 	"os"
 	"reflect"
@@ -31,9 +13,7 @@ import (
 	"testing/quick"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/storage/rlp"
 	"github.com/taschain/taschain/storage/tasdb"
 )
 
@@ -559,40 +539,6 @@ func benchUpdate(b *testing.B, e binary.ByteOrder) *Trie {
 	return trie
 }
 
-// Benchmarks the trie hashing. Since the trie caches the result of any operation,
-// we cannot use b.N as the number of hashing rouns, since all rounds apart from
-// the first one will be NOOP. As such, we'll use b.N as the number of account to
-// insert into the trie before measuring the hashing.
-func BenchmarkHash(b *testing.B) {
-	// Make the random benchmark deterministic
-	random := rand.New(rand.NewSource(0))
-
-	// Create a realistic account trie to hash
-	addresses := make([][20]byte, b.N)
-	for i := 0; i < len(addresses); i++ {
-		for j := 0; j < len(addresses[i]); j++ {
-			addresses[i][j] = byte(random.Intn(256))
-		}
-	}
-	accounts := make([][]byte, len(addresses))
-	for i := 0; i < len(accounts); i++ {
-		var (
-			nonce   = uint64(random.Int63())
-			balance = new(big.Int).Rand(random, new(big.Int).Exp(common.Big2, common.Big256, nil))
-			root    = emptyRoot
-			code    = crypto.Keccak256(nil)
-		)
-		accounts[i], _ = rlp.EncodeToBytes([]interface{}{nonce, balance, root, code})
-	}
-	// Insert the accounts into the trie and hash it
-	trie := newEmpty()
-	for i := 0; i < len(addresses); i++ {
-		trie.Update(crypto.Keccak256(addresses[i][:]), accounts[i])
-	}
-	b.ResetTimer()
-	b.ReportAllocs()
-	trie.Hash()
-}
 
 func tempDB() (string, *NodeDatabase) {
 	dir, err := ioutil.TempDir("", "trie-bench")

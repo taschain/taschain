@@ -18,8 +18,8 @@ package account
 import (
 	"bytes"
 	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/storage/sha3"
 	"github.com/taschain/taschain/storage/tasdb"
-	"golang.org/x/crypto/sha3"
 	"math/big"
 	"testing"
 )
@@ -79,7 +79,7 @@ func TestSnapshot(t *testing.T) {
 // Keccak256Hash calculates and returns the Keccak256 hash of the input data,
 // converting it to an internal Hash data structure.
 func Keccak256Hash(data ...[]byte) (h common.Hash) {
-	d := sha3.NewLegacyKeccak256()
+	d := sha3.NewKeccak256()
 	for _, b := range data {
 		d.Write(b)
 	}
