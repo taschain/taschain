@@ -32,6 +32,7 @@ func TestRPC(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	common.GlobalConf.Del(Section, "miner")
 	host := "127.0.0.1"
 	senderAddr := common.HexStringToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 	nonce := core.BlockChainImpl.GetNonce(senderAddr)
