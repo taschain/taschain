@@ -38,11 +38,6 @@ func NewRand() (r Rand) {
 	return RandFromBytes(b)
 }
 
-//把多维字符串转换成多维字节数组后，进行SHA3哈希生成随机数
-func RandFromHex(s ...string) (r Rand) {
-	return RandFromBytes(MapHexToBytes(s)...)
-}
-
 //对字符串进行哈希后生成伪随机数
 func RandFromString(s string) (r Rand) {
 	return RandFromBytes([]byte(s))
@@ -95,16 +90,6 @@ func (r Rand) ModuloUint64(n uint64) uint64 {
 	return b.Uint64()
 }
 
-//从0到n-1区间中随机取k个数（以r为随机基），输出这个随机序列
-//func (r Rand) RandomPermUint64(n uint64, k int) []uint64 {
-//	l := make([]uint64, k)
-//
-//	for i := 0; i < k; i++ {
-//		j := r.Deri(i).ModuloUint64(n)
-//		l[i] = j
-//	}
-//	return l
-//}
 
 //从0到n-1区间中随机取k个数（以r为随机基），输出这个随机序列
 func (r Rand) RandomPerm(n int, k int) []int {
@@ -119,20 +104,3 @@ func (r Rand) RandomPerm(n int, k int) []int {
 	return l[:k]
 }
 
-func NewFromSeed(seed []byte) *big.Int {
-	_, err := rand.Read(seed)
-	if err != nil {
-		return nil
-	}
-	var bb = make([]byte, 32)
-	for i := 0; i < 32; i++ {
-		bb[i] = 0xff
-	}
-	max := new(big.Int)
-	max.SetBytes(bb)
-	n, err := rand.Int(rand.Reader, max)
-	if err != nil {
-		return nil
-	}
-	return n
-}
