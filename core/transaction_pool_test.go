@@ -15,102 +15,91 @@
 //
 package core
 
-//
-//import (
-//	"testing"
-//	"fmt"
-//	"common"
-//	"middleware/types"
-//	"math/rand"
-//)
-//
-//func TestCreatePool(t *testing.T) {
-//
-//	pool := NewTransactionPool()
-//
-//	fmt.Printf("received: %d transactions\n")
-//
-//	transaction := &types.Transaction{
-//		GasPrice: 1234,
-//	}
-//
-//	pool.AddTransaction(transaction)
-//	fmt.Printf("received: %d transactions\n")
-//
-//	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-//
-//	transaction = &types.Transaction{
-//		GasPrice: 12345,
-//		Hash:     h,
-//	}
-//
-//	pool.AddTransaction(transaction)
-//	fmt.Printf("received: %d transactions\n")
-//
-//	tGet, error := pool.GetTransaction(h)
-//	if nil == error {
-//		fmt.Printf("GasPrice: %d\n", tGet.GasPrice)
-//	}
-//
-//	casting := pool.GetTransactionsForCasting()
-//	fmt.Printf("length for casting: %d\n", len(casting))
-//
-//	fmt.Printf("%d\n", casting[0])
-//	//fmt.Printf("%d\n", casting[1])
-//	//fmt.Printf("%d\n", casting[2].gasprice)
-//	//fmt.Printf("%d\n", casting[3].gasprice)
-//
-//}
-//
-//func TestContainer(t *testing.T) {
-//	pool := NewTransactionPool()
-//	//pool.received.limit = 1
-//	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-//	e := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b42")
-//
-//	transaction := &types.Transaction{
-//		GasPrice: 1234,
-//		Hash:     e,
-//	}
-//
-//	pool.AddTransaction(transaction)
-//	fmt.Printf("received: %d transactions\n")
-//
-//	transaction = &types.Transaction{
-//		GasPrice: 12345,
-//		Hash:     h,
-//	}
-//
-//	pool.AddTransaction(transaction)
-//	fmt.Printf("received: %d transactions\n")
-//
-//	tGet, error := pool.GetTransaction(h)
-//	if nil == error {
-//		fmt.Printf("%d\n", tGet.GasPrice)
-//	}
-//
-//	tGet, _ = pool.GetTransaction(e)
-//	if nil != tGet {
-//		fmt.Printf("%d\n", tGet.GasPrice)
-//	} else {
-//		fmt.Printf("success %x\n", e)
-//	}
-//}
-//
-//func TestMaxTxsPerBlock(t *testing.T) {
-//	pool := NewTransactionPool()
-//	for i := 0; i < 100000; i++ {
-//		transaction := &types.Transaction{
-//			GasPrice: rand.Uint64(),
-//			Nonce:    rand.Uint64(),
-//		}
-//
-//		transaction.Hash = transaction.GenHash()
-//		pool.AddTransaction(transaction)
-//
-//		//fmt.Printf("%d\n", pool.received.Len())
-//	}
-//
-//	casting := pool.GetTransactionsForCasting()
-//	fmt.Printf("length for casting: %d\n", len(casting))
-//}
+import (
+	"fmt"
+	"github.com/taschain/taschain/common"
+	"testing"
+)
+
+func TestCreatePool(t *testing.T) {
+	initContext4Test()
+	pool := BlockChainImpl.GetTransactionPool()
+
+	fmt.Printf("received: %d transactions\n", len(pool.GetReceived()))
+
+	transaction := genTestTx( 123457, "1", "2", 0, 3)
+
+	_, err := pool.AddTransaction(transaction)
+	if err != nil {
+		t.Fatalf("fail to AddTransaction")
+	}
+	fmt.Printf("received: %d transactions\n",len(pool.GetReceived()))
+
+	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+
+	transaction = genTestTx( 12347, "1", "2", 1, 3)
+
+	_, err = pool.AddTransaction(transaction)
+	if err != nil {
+		t.Fatalf("fail to AddTransaction")
+	}
+
+	fmt.Printf("received: %d transactions\n",len(pool.GetReceived()))
+
+	tGet:= pool.GetTransaction(false,h)
+	println(tGet)
+
+	casting := pool.PackForCast()
+	if len(casting) != 2 {
+		t.Fatalf("casting length is wroing")
+	}
+}
+
+func TestContainer(t *testing.T) {
+	initContext4Test()
+	pool := BlockChainImpl.GetTransactionPool()
+
+	var gasePrice1 uint64 = 12347
+	var gasePrice2 uint64 = 12345
+
+	transaction1 := genTestTx( gasePrice1, "1", "2", 0, 3)
+	_,err := pool.AddTransaction(transaction1)
+	if err != nil {
+		t.Fatalf("fail to AddTransaction ")
+	}
+
+	transaction2 := genTestTx( gasePrice2, "1", "2", 1, 3)
+	_,err = pool.AddTransaction(transaction2)
+	if err != nil {
+		t.Fatalf("fail to AddTransaction ")
+	}
+
+	tGet := pool.GetTransaction(false,transaction1.Hash)
+	if tGet.GasPrice != gasePrice1 {
+		t.Fatalf("gas price is wroing")
+	}
+
+	tGet = pool.GetTransaction(false,transaction2.Hash)
+	if tGet.GasPrice != gasePrice2 {
+		t.Fatalf("gas price is wroing")
+	}
+
+}
+
+func TestMaxTxsPerBlock(t *testing.T) {
+	chain := newFullChain()
+	chain.latestStateDB = chain.getDB()
+	pool := chain.GetTransactionPool()
+
+	for i := 0; i < 100000; i++ {
+		transaction := genTestTx( 11, "1", "2", uint64(i+1), 3)
+		_,err := pool.AddTransaction(transaction)
+		if err != nil {
+			t.Fatalf("fail to AddTransaction ")
+		}
+	}
+
+	casting := pool.PackForCast()
+	//maxTxPoolSize
+	fmt.Printf("length for casting: %d\n", len(casting))
+}
