@@ -73,8 +73,8 @@ func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 
 //查询最高块
 func (chain *FullBlockChain) QueryTopBlock() *types.BlockHeader {
-	chain.rwLock.RLock()
-	defer chain.rwLock.RUnlock()
+	//chain.rwLock.RLock()
+	//defer chain.rwLock.RUnlock()
 
 	return chain.getLatestBlock()
 }
