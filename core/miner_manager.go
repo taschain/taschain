@@ -218,22 +218,22 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	return 1
 }
 
-func (mm *MinerManager) activateAndAddStakeMiner(miner *types.Miner, accountdb vm.AccountDB, height uint64) {
+func (mm *MinerManager) activateAndAddStakeMiner(miner *types.Miner, accountdb vm.AccountDB, height uint64) bool {
 	db := mm.getMinerDatabase(miner.Type)
 	minerData := accountdb.GetData(db, string(miner.ID))
 	if minerData == nil || len(minerData) == 0 {
-		return
+		return false
 	}
 	var dbMiner types.Miner
 	err := msgpack.Unmarshal(minerData, &dbMiner)
 	if err != nil {
 		Logger.Errorf("activateMiner: Unmarshal %d error, ", miner.ID)
-		return
-	}
-	if dbMiner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
-		return
+		return false
 	}
 	miner.Stake = dbMiner.Stake + miner.Stake
+	if miner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
+		return false
+	}
 	miner.Status = types.MinerStatusNormal
 	miner.ApplyHeight = height
 	data, _ := msgpack.Marshal(miner)
@@ -242,6 +242,7 @@ func (mm *MinerManager) activateAndAddStakeMiner(miner *types.Miner, accountdb v
 		mm.hasNewHeavyMiner = true
 	}
 	mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
+	return true
 }
 
 func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.AccountDB) {
