@@ -111,18 +111,3 @@ func genGenesisStaticGroupInfo(f string) *genesisGroup {
 	group.buildMemberIndex()
 	return genesis
 }
-
-func readGenesisJoinedGroup(file string, sgi *StaticGroupInfo) *JoinedGroup {
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		panic("read genesis joinedGroup file failed!err=" + err.Error())
-	}
-	var group = new(JoinedGroup)
-	err = json.Unmarshal(data, group)
-	if err != nil {
-		panic(err)
-	}
-	group.GroupPK = sgi.GroupPK
-	group.GroupID = sgi.GroupID
-	return group
-}

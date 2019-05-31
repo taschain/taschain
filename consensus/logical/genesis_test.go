@@ -1,6 +1,7 @@
 package logical
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/taschain/taschain/common"
@@ -14,46 +15,15 @@ import (
 	"testing"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/local_test`
-const ProcNum = 3
-
-func TestBelongGroups(t *testing.T) {
-	//groupsig.Init(1)
-	middleware.InitMiddleware()
-	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
-	InitConsensus()
-
-	cm := common.NewConfINIManager(CONF_PATH_PREFIX + "/tas1.ini")
-	proc := new(Processor)
-	addr := common.HexToAddress(cm.GetString("gtas", "miner", ""))
-
-	gstore := fmt.Sprintf("%v/groupstore%v", CONF_PATH_PREFIX, cm.GetString("instance", "index", ""))
-	cm.SetString(ConsensusConfSection, "groupstore", gstore)
-	jgFile := CONF_PATH_PREFIX + "/joined_group.config." + cm.GetString("instance", "index", "")
-	cm.SetString(ConsensusConfSection, "joined_group_store", jgFile)
-
-	proc.Init(model.NewSelfMinerDO(addr), cm)
-	proc.belongGroups.initStore()
-	gidstr := "0x15fc80b99d8904205b768e04ccea60b67756fd8176ce27e95f5db1da9e57735"
-	var gid groupsig.ID
-	gid.SetHexString(gidstr)
-	jg := proc.belongGroups.getJoinedGroup(gid)
-
-	t.Logf("%+v", jg.GroupID.GetHexString())
-	t.Logf("%+v", jg.GroupPK.GetHexString())
-	t.Logf("%+v", jg.SignKey.GetHexString())
-	for id, mem := range jg.Members {
-		t.Logf("%v: %v", id, mem.GetHexString())
-
-	}
-}
+const confPathPrefix = `/Users/pxf/workspace/tas_develop/tas/local_test`
+const procNum = 3
 
 func initProcessor(conf string) *Processor {
 	cm := common.NewConfINIManager(conf)
 	proc := new(Processor)
 	addr := common.HexToAddress(cm.GetString("gtas", "miner", ""))
 
-	gstore := fmt.Sprintf("%v/groupstore%v", CONF_PATH_PREFIX, cm.GetString("instance", "index", ""))
+	gstore := fmt.Sprintf("%v/groupstore%v", confPathPrefix, cm.GetString("instance", "index", ""))
 	cm.SetString("consensus", "groupstore", gstore)
 
 	proc.Init(model.NewSelfMinerDO(addr), cm)
@@ -62,12 +32,12 @@ func initProcessor(conf string) *Processor {
 }
 
 func processors() (map[string]*Processor, map[string]int) {
-	maxProcNum := ProcNum
+	maxProcNum := procNum
 	procs := make(map[string]*Processor, maxProcNum)
 	indexs := make(map[string]int, maxProcNum)
 
 	for i := 1; i <= maxProcNum; i++ {
-		proc := initProcessor(fmt.Sprintf("%v/tas%v.ini", CONF_PATH_PREFIX, i))
+		proc := initProcessor(fmt.Sprintf("%v/tas%v.ini", confPathPrefix, i))
 		//proc.belongGroups.storeFile = fmt.Sprintf("%v/joined_group.config.%v", CONF_PATH_PREFIX, i)
 		procs[proc.GetMinerID().GetHexString()] = proc
 		indexs[proc.getPrefix()] = i
@@ -76,28 +46,10 @@ func processors() (map[string]*Processor, map[string]int) {
 	return procs, indexs
 }
 
-func TestGenIdPubkey(t *testing.T) {
-	//groupsig.Init(1)
-	middleware.InitMiddleware()
-	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
-	InitConsensus()
-	procs, _ := processors()
-	idPubs := make([]model.PubKeyInfo, 0)
-	for _, p := range procs {
-		idPubs = append(idPubs, p.GetPubkeyInfo())
-	}
-
-	bs, err := json.Marshal(idPubs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Println(string(bs))
-}
-
 func TestGenesisGroup(t *testing.T) {
 	//groupsig.Init(1)
 	middleware.InitMiddleware()
-	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
+	common.InitConf(confPathPrefix + "/tas1.ini")
 
 	// block初始化
 	//err := core.InitCore(false, mediator.NewConsensusHelper(groupsig.ID{}))
@@ -269,7 +221,7 @@ func TestGenesisGroup(t *testing.T) {
 			log.Println("=======", id, "============")
 			sgiByte, _ := json.Marshal(genesis)
 
-			ioutil.WriteFile(fmt.Sprintf("%s/genesis_sgi.config", CONF_PATH_PREFIX), sgiByte, os.ModePerm)
+			ioutil.WriteFile(fmt.Sprintf("%s/genesis_sgi.config", confPathPrefix), sgiByte, os.ModePerm)
 
 			log.Println(string(sgiByte))
 			log.Println("-----------------------")
@@ -283,10 +235,26 @@ func TestGenesisGroup(t *testing.T) {
 
 }
 
-func TestLoadGenesisGroup(t *testing.T) {
-	file := CONF_PATH_PREFIX + "/genesis_sgi.config"
+func TestGetGenesisGroupInfo(t *testing.T) {
+	file := "genesis_sgi_test.config"
 	gg := genGenesisStaticGroupInfo(file)
 
-	json, _ := json.Marshal(gg)
-	t.Log(string(json))
+	if gg.Group.GroupID.GetHexString() != "0x15fc80b99d8904205b768e04ccea60b67756fd8176ce27e95f5db1da9e57735" {
+		t.Errorf("group id error")
+	}
+	if gg.Group.GroupPK.GetHexString() != "0x01367332311024aa875285ade328974e8645ebe2833de109c9960c81a97a333408d4f0b4f9876e80fead0f802a22507dc1b2ad5b75836d15e9ab55747c52107c02bd626518d6b03c6d4421d8f63768f8ed2cf511a1947a05402efae14c77e3db2b20e9182bd94ca4c90e330a8db6c27bd52ef44f86bf01afd25dae660592157d" {
+		t.Errorf("group pk error")
+	}
+
+	data, err := ioutil.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	json, err := json.Marshal(gg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, json) {
+		t.Errorf("data from file differ from json marshal")
+	}
 }

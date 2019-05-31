@@ -17,12 +17,6 @@ package common
 
 import "testing"
 
-/*
-**  Creator: pxf
-**  Date: 2018/4/11 上午9:13
-**  Description:
- */
-
 var (
 	PATH = "tas_test.ini"
 	cm   = NewConfINIManager(PATH)
@@ -96,7 +90,7 @@ func TestSectionConfFileManager(t *testing.T) {
 	}
 
 	sm.SetString("hello_del", "del value")
-	sm.Del("hello_del" )
+	sm.Del("hello_del")
 	s = sm.GetString("hello_del", "")
 	if s != "" {
 		t.Error("del value error")
