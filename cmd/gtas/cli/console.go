@@ -253,7 +253,7 @@ func (c *gasBaseCmd) parseGasPrice() bool {
 }
 
 func (c *gasBaseCmd) initBase() {
-	c.fs.Uint64Var(&c.gaslimit, "gaslimit", 100, "gas limit, default 100")
+	c.fs.Uint64Var(&c.gaslimit, "gaslimit", 1000, "gas limit, default 1000")
 	c.fs.StringVar(&c.gasPriceStr, "gasprice", "100RA", "gas price, default 100RA")
 }
 

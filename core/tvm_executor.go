@@ -290,11 +290,14 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 					Logger.Debugf("TVMExecutor Execute MinerApply Fail((mexist.Stake + miner.Stake) < common.VerifyStake) Source:%s Height:%d", transaction.Source.GetHexString(), height)
 					return
 				}
-				if MinerManagerImpl.AddStakeDetail(miner.ID, miner, miner.Stake, accountdb) {
-					MinerManagerImpl.activateAndAddStakeMiner(miner, accountdb, height)
+				snapshot := accountdb.Snapshot()
+				if MinerManagerImpl.activateAndAddStakeMiner(miner, accountdb, height) &&
+					MinerManagerImpl.AddStakeDetail(miner.ID, miner, miner.Stake, accountdb) {
 					accountdb.SubBalance(*transaction.Source, amount)
 					Logger.Debugf("TVMExecutor Execute MinerApply success(activate) Source %s", transaction.Source.GetHexString())
 					success = true
+				} else {
+					accountdb.RevertToSnapshot(snapshot)
 				}
 			} else {
 				Logger.Debugf("TVMExecutor Execute MinerApply Fail(Already Exist) Source %s", transaction.Source.GetHexString())
