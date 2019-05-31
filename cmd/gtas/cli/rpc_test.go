@@ -17,10 +17,14 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/core"
 	"github.com/taschain/taschain/taslog"
+	"io/ioutil"
 	"log"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -32,6 +36,7 @@ func TestRPC(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer resetDb("testkey")
 	common.GlobalConf.Del(Section, "miner")
 	host := "127.0.0.1"
 	senderAddr := common.HexStringToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
@@ -75,4 +80,35 @@ func TestRPC(t *testing.T) {
 		data, _ := json.Marshal(res.Result.Data)
 		log.Printf("%s response data: %s", test.method, data)
 	}
+}
+
+
+func resetDb(dbPath string) error {
+	core.BlockChainImpl.(*core.FullBlockChain).Close()
+	core.GroupChainImpl.Close()
+	core.TxSyncer.Close()
+	taslog.Close()
+	fmt.Println("---reset db---")
+	dir, err := ioutil.ReadDir(".")
+	if err != nil {
+		return err
+	}
+	for _, d := range dir {
+		if d.IsDir() && strings.HasPrefix(d.Name(),"d_"){
+			fmt.Printf("deleting folder: %s \n",d.Name())
+			err = os.RemoveAll(d.Name())
+			if err != nil {
+				return err
+			}
+		}
+		if d.IsDir() && strings.Compare(dbPath,d.Name()) == 0{
+			os.RemoveAll(d.Name())
+		}
+
+		if d.IsDir() && strings.Compare("logs",d.Name()) == 0{
+			os.RemoveAll(d.Name())
+		}
+	}
+
+	return nil
 }
