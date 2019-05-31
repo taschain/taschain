@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -181,9 +182,9 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 	bpk.SetHexString(aci.Miner.BPk)
 
 	st := uint64(0)
-	if mtype == types.MinerTypeLight {
-		fmt.Println("stake of applying verify node is hardened as 100 Tas")
-		st = common.VerifyStake
+	if mtype == types.MinerTypeLight && stake < common.VerifyStake {
+		fmt.Println("stake of applying verify node must > 100 Tas")
+		return opError(errors.New("stake value error!"))
 	} else {
 		st = common.TAS2RA(stake)
 	}
@@ -254,7 +255,7 @@ func (ca *RemoteChainOpImpl) RefundMiner(mtype int, addrStr string, gas, gaspric
 	return ca.SendRaw(tx)
 }
 
-func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, refundValue, gas, gasprice uint64) *Result {
+func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, stakeValue, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
 		return r
@@ -265,10 +266,10 @@ func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, refundValue, 
 	if addrStr == "" {
 		addrStr = aci.Address
 	}
-	refundValue = common.TAS2RA(refundValue)
+	stakeValue = common.TAS2RA(stakeValue)
 	addr := common.HexToAddress(addrStr)
 	data = append(data, addr.Bytes()...)
-	data = append(data, common.Uint64ToByte(refundValue)...)
+	data = append(data, common.Uint64ToByte(stakeValue)...)
 	tx := &txRawData{
 		Gas:       gas,
 		Gasprice:  gasprice,
@@ -280,7 +281,7 @@ func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, refundValue, 
 	return ca.SendRaw(tx)
 }
 
-func (ca *RemoteChainOpImpl) MinerCancelStake(mtype int, addrStr string, refundValue, gas, gasprice uint64) *Result {
+func (ca *RemoteChainOpImpl) MinerCancelStake(mtype int, addrStr string, cancelValue, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
 		return r
@@ -291,10 +292,10 @@ func (ca *RemoteChainOpImpl) MinerCancelStake(mtype int, addrStr string, refundV
 	if addrStr == "" {
 		addrStr = aci.Address
 	}
-	refundValue = common.TAS2RA(refundValue)
+	cancelValue = common.TAS2RA(cancelValue)
 	addr := common.HexToAddress(addrStr)
 	data = append(data, addr.Bytes()...)
-	data = append(data, common.Uint64ToByte(refundValue)...)
+	data = append(data, common.Uint64ToByte(cancelValue)...)
 	tx := &txRawData{
 		Gas:       gas,
 		Gasprice:  gasprice,
