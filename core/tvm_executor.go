@@ -292,6 +292,7 @@ func (executor *TVMExecutor) executeMinerApplyTx(accountdb *account.AccountDB, t
 				}
 				if MinerManagerImpl.AddStakeDetail(miner.ID, miner, miner.Stake, accountdb) {
 					MinerManagerImpl.activateAndAddStakeMiner(miner, accountdb, height)
+					accountdb.SubBalance(*transaction.Source, amount)
 					Logger.Debugf("TVMExecutor Execute MinerApply success(activate) Source %s", transaction.Source.GetHexString())
 					success = true
 				}
