@@ -23,6 +23,7 @@ import (
 
 func TestCreatePool(t *testing.T) {
 	initContext4Test()
+	defer clear()
 	pool := BlockChainImpl.GetTransactionPool()
 
 	fmt.Printf("received: %d transactions\n", len(pool.GetReceived()))
@@ -51,12 +52,13 @@ func TestCreatePool(t *testing.T) {
 
 	casting := pool.PackForCast()
 	if len(casting) != 2 {
-		t.Fatalf("casting length is wroing")
+		t.Fatalf("casting length is wrong")
 	}
 }
 
 func TestContainer(t *testing.T) {
 	initContext4Test()
+	defer clear()
 	pool := BlockChainImpl.GetTransactionPool()
 
 	var gasePrice1 uint64 = 12347
@@ -76,19 +78,23 @@ func TestContainer(t *testing.T) {
 
 	tGet := pool.GetTransaction(false,transaction1.Hash)
 	if tGet.GasPrice != gasePrice1 {
-		t.Fatalf("gas price is wroing")
+		t.Fatalf("gas price is wrong")
 	}
 
 	tGet = pool.GetTransaction(false,transaction2.Hash)
 	if tGet.GasPrice != gasePrice2 {
-		t.Fatalf("gas price is wroing")
+		t.Fatalf("gas price is wrong")
 	}
 
 }
 
 func TestMaxTxsPerBlock(t *testing.T) {
-	chain := newFullChain()
-	chain.latestStateDB = chain.getDB()
+	clear()
+	defer clear()
+	initContext4Test()
+	//chain := newFullChain()
+	chain := BlockChainImpl.(*FullBlockChain)
+	//chain.latestStateDB = chain.getDB()
 	pool := chain.GetTransactionPool()
 
 	for i := 0; i < 100000; i++ {

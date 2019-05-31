@@ -24,7 +24,7 @@ import (
 
 func TestGroupChain_Add(t *testing.T)  {
 	initContext4Test()
-
+	defer clear()
 
 	id1 := genHash("test1")
 	group1 := &types.Group{
