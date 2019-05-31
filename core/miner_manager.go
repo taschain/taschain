@@ -206,7 +206,7 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 		return -1
 	}
 	if miner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
-		miner.Status = types.MinerStatusAbort
+		return -1
 	} else {
 		mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
 	}
@@ -218,7 +218,7 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	return 1
 }
 
-func (mm *MinerManager) activateMiner(miner *types.Miner, accountdb vm.AccountDB) {
+func (mm *MinerManager) activateAndAddStakeMiner(miner *types.Miner, accountdb vm.AccountDB, height uint64) {
 	db := mm.getMinerDatabase(miner.Type)
 	minerData := accountdb.GetData(db, string(miner.ID))
 	if minerData == nil || len(minerData) == 0 {
@@ -233,8 +233,9 @@ func (mm *MinerManager) activateMiner(miner *types.Miner, accountdb vm.AccountDB
 	if dbMiner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
 		return
 	}
-	miner.Stake = dbMiner.Stake
+	miner.Stake = dbMiner.Stake + miner.Stake
 	miner.Status = types.MinerStatusNormal
+	miner.ApplyHeight = height
 	data, _ := msgpack.Marshal(miner)
 	accountdb.SetData(db, string(miner.ID), data)
 	if miner.Type == types.MinerTypeHeavy {
@@ -382,7 +383,6 @@ func (mm *MinerManager) CancelStake(from []byte, miner *types.Miner, amount uint
 	newStake = preStake - amount
 	newFrozen = preFrozen + amount
 	if preStake < amount || newFrozen < preFrozen {
-		//preStake: 200000000000, preFrozen: 0, newStake: 18446743973709551616, newFrozen: 300000000000
 		Logger.Debugf("MinerManager.CancelStake return false(overflow or not enough staked: preStake: %d, "+
 			"preFrozen: %d, newStake: %d, newFrozen: %d)", preStake, preFrozen, newStake, newFrozen)
 		return false
@@ -456,6 +456,7 @@ func (mm *MinerManager) ReduceStake(id []byte, miner *types.Miner, amount uint64
 			return false
 		}
 		miner.Status = types.MinerStatusAbort
+		miner.AbortHeight = height
 		mm.updateMinerCount(miner.Type, minerCountDecrease, accountdb)
 	}
 	data, _ := msgpack.Marshal(miner)

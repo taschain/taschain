@@ -528,9 +528,9 @@ func genMinerStakeCmd() *minerStakeCmd {
 		gasBaseCmd: *genGasBaseCmd("minerstake", "stake TAS to an address"),
 	}
 	c.initBase()
-	c.fs.IntVar(&c.mtype, "type", 0, "refund miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.StringVar(&c.addr, "addr", "", "refund miner addr, default self")
-	c.fs.Uint64Var(&c.value, "value", 0, "refund value, default 0TAS")
+	c.fs.IntVar(&c.mtype, "type", 0, "receiver's type staked to: 0=verify node, 1=proposal node, default 0")
+	c.fs.StringVar(&c.addr, "addr", "", "receiver's addr staked to, default self")
+	c.fs.Uint64Var(&c.value, "value", 0, "stake value, default 0TAS")
 	return c
 }
 
@@ -554,8 +554,8 @@ func genMinerCancelStakeCmd() *minerCancelStakeCmd {
 		gasBaseCmd: *genGasBaseCmd("minercancelstake", "cancel stake TAS of an address"),
 	}
 	c.initBase()
-	c.fs.IntVar(&c.mtype, "type", 0, "refund miner type: 0=verify node, 1=proposal node, default 0")
-	c.fs.StringVar(&c.addr, "addr", "", "refund miner addr, default self")
+	c.fs.IntVar(&c.mtype, "type", 0, "receiver's type: 0=verify node, 1=proposal node, default 0")
+	c.fs.StringVar(&c.addr, "addr", "", "receiver's addr, default self")
 	c.fs.Uint64Var(&c.value, "value", 0, "refund value, default 0TAS")
 	return c
 }
