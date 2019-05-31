@@ -61,7 +61,7 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 		return failResult(err.Error())
 	}
 
-	return successResult(trans.Hash.String())
+	return successResult(trans.Hash.Hex())
 }
 
 // Balance 查询余额接口
@@ -132,9 +132,9 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	transList := make([]Transactions, 0, len(transactions))
 	for _, v := range transactions {
 		transList = append(transList, Transactions{
-			Hash:   v.Hash.String(),
-			Source: v.Source.GetHexString(),
-			Target: v.Target.GetHexString(),
+			Hash:   v.Hash.Hex(),
+			Source: v.Source.Hex(),
+			Target: v.Target.Hex(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),
 		})
 	}
@@ -248,7 +248,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.Id != nil && len(g.Id) != 0 {
 		gmap["group_id"] = groupsig.DeserializeId(g.Id).GetHexString()
-		gmap["g_hash"] = g.Header.Hash.String()
+		gmap["g_hash"] = g.Header.Hash.Hex()
 	}
 	gmap["parent"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
 	gmap["pre"] = groupsig.DeserializeId(g.Header.PreGroup).GetHexString()
@@ -348,7 +348,7 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	if err != nil {
 		return &Result{Message: err.Error(), Data: nil}, err
 	}
-	return &Result{Message: address.GetHexString(), Data: string(js)}, nil
+	return &Result{Message: address.Hex(), Data: string(js)}, nil
 }
 
 //deprecated

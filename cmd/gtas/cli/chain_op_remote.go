@@ -98,13 +98,13 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		return r
 	}
 	aci := r.Data.(*Account)
-	privateKey := common.HexStringToSecKey(aci.Sk)
-	pubkey := common.HexStringToPubKey(aci.Pk)
-	if privateKey.GetPubKey().GetHexString() != pubkey.GetHexString() {
+	privateKey := common.HexToSecKey(aci.Sk)
+	pubkey := common.HexToPubKey(aci.Pk)
+	if privateKey.GetPubKey().Hex() != pubkey.Hex() {
 		return opError(fmt.Errorf("privatekey or pubkey error"))
 	}
 	source := pubkey.GetAddress()
-	if source.GetHexString() != aci.Address {
+	if source.Hex() != aci.Address {
 		return opError(fmt.Errorf("address error"))
 	}
 
@@ -117,7 +117,7 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		tranx.Hash = tranx.GenHash()
 		sign := privateKey.Sign(tranx.Hash.Bytes())
 		tranx.Sign = sign.Bytes()
-		tx.Sign = sign.GetHexString()
+		tx.Sign = sign.Hex()
 		//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
 		//fmt.Printf("%+v\n", tranx)
 

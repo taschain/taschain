@@ -32,8 +32,8 @@ func NewAccount(s string) (account AccountData) {
 	pubkey := seckey.GetPubKey()
 	addr := pubkey.GetAddress()
 
-	account.sk = seckey.ToBytes()
-	account.pk = pubkey.ToBytes()
+	account.sk = seckey.Bytes()
+	account.pk = pubkey.Bytes()
 	account.addr = addr.Bytes()
 	return account
 }
@@ -43,7 +43,7 @@ func GenAccountPubKey(sk []byte) (bytePk []byte) {
 	seckey := BytesToSecKey(sk)
 	if seckey != nil {
 		pubk := seckey.GetPubKey()
-		bytePk = pubk.ToBytes()
+		bytePk = pubk.Bytes()
 	}
 	return
 }

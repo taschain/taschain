@@ -20,11 +20,11 @@ type Transaction struct {
 func (Transaction) GetGasLimit() uint64 { return 500000 }
 func (Transaction) GetValue() uint64    { return 0 }
 func (Transaction) GetSource() *common.Address {
-	address := common.StringToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
+	address := common.HexToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 	return &address
 }
 func (Transaction) GetTarget() *common.Address {
-	address := common.StringToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
+	address := common.HexToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 	return &address
 }
 func (Transaction) GetData() []byte      { return nil }
@@ -90,7 +90,7 @@ func (t *TvmCli) init() {
 		t.settings = common.NewConfINIManager(currentPath + "/settings.ini")
 		state, _ := account.NewAccountDB(common.Hash{}, t.database)
 		for i := 0; i < len(DefaultAccounts); i++ {
-			accountAddress := common.StringToAddress(DefaultAccounts[i])
+			accountAddress := common.HexToAddress(DefaultAccounts[i])
 			state.SetBalance(accountAddress, big.NewInt(200))
 		}
 		hash, error := state.Commit(false)
@@ -99,8 +99,8 @@ func (t *TvmCli) init() {
 			fmt.Println(error)
 			return
 		} else {
-			t.settings.SetString("root", "StateHash", hash.String())
-			fmt.Println(hash.String())
+			t.settings.SetString("root", "StateHash", hash.Hex())
+			fmt.Println(hash.Hex())
 		}
 	}
 }
@@ -113,7 +113,7 @@ func (t *TvmCli) Deploy(contractName string, contractCode string) string {
 
 	nonce := state.GetNonce(*transaction.GetSource())
 	contractAddress := common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.GetSource()[:], common.Uint64ToByte(nonce))))
-	fmt.Println("contractAddress: ", contractAddress.String())
+	fmt.Println("contractAddress: ", contractAddress.Hex())
 	state.SetNonce(*transaction.GetSource(), nonce+1)
 
 	contract := tvm.Contract{
@@ -140,9 +140,9 @@ func (t *TvmCli) Deploy(contractName string, contractCode string) string {
 	if error != nil {
 		fmt.Println(error)
 	}
-	t.settings.SetString("root", "StateHash", hash.String())
-	fmt.Println(hash.String())
-	return contractAddress.String()
+	t.settings.SetString("root", "StateHash", hash.Hex())
+	fmt.Println(hash.Hex())
+	return contractAddress.Hex()
 }
 
 func (t *TvmCli) Call(contractAddress string, abiJson string) {
@@ -180,8 +180,8 @@ func (t *TvmCli) Call(contractAddress string, abiJson string) {
 	if error != nil {
 		fmt.Println(error)
 	}
-	t.settings.SetString("root", "StateHash", hash.String())
-	fmt.Println(hash.String())
+	t.settings.SetString("root", "StateHash", hash.Hex())
+	fmt.Println(hash.Hex())
 }
 
 func (t *TvmCli) ExportAbi(contractName string, contractCode string) {

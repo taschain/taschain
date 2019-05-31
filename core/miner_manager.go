@@ -161,7 +161,7 @@ func (mm *MinerManager) buildVirtualNetRoutine() bool {
 		for iterator.Next() {
 			miner, _ := iterator.Current()
 			gid := groupsig.DeserializeId(miner.Id)
-			array = append(array, gid.String())
+			array = append(array, gid.GetHexString())
 		}
 		mm.heavyMiners = array
 		network.GetNetInstance().BuildGroupNet(network.FULL_NODE_VIRTUAL_GROUP_ID, array)
@@ -207,7 +207,7 @@ func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			miner.Type = types.MinerTypeHeavy
 			data, _ := msgpack.Marshal(miner)
 			accountdb.SetData(dbh, string(miner.Id), data)
-			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeId(miner.Id).String())
+			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeId(miner.Id).GetHexString())
 			mm.updateMinerCount(types.MinerTypeHeavy, minerCountIncrease, accountdb)
 		}
 		if accountdb.GetData(dbl, string(miner.Id)) == nil {

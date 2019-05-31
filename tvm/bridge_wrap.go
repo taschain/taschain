@@ -285,7 +285,7 @@ func RunBinaryCode(buf *C.char, len C.int) {
 func CallContract(_contractAddr string, funcName string, params string) *ExecuteResult {
 	result := &ExecuteResult{}
 	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
-	conAddr := common.HexStringToAddress(_contractAddr)
+	conAddr := common.HexToAddress(_contractAddr)
 	contract := LoadContract(conAddr)
 	if contract.Code == "" {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
@@ -312,7 +312,7 @@ func CallContract(_contractAddr string, funcName string, params string) *Execute
 	}
 
 	//调用合约
-	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
+	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.Hex()}
 	errorCode, errorMsg, _ := controller.Vm.CreateContractInstance(msg)
 	if errorCode != 0 {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
@@ -626,7 +626,7 @@ func (tvm *Tvm) executedPycode(code string, parseKind C.tvm_parse_kind_t) *Execu
 }
 
 func (tvm *Tvm) loadMsg(msg Msg) (int, string) {
-	script := PycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
+	script := PycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.Hex())
 	return tvm.ExecutedScriptVmSucceed(script)
 }
 

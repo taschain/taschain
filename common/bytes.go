@@ -21,19 +21,21 @@ import (
 	"encoding/hex"
 )
 
+// ToHex converts the input byte array to a hex string
 func ToHex(b []byte) string {
 	hex := Bytes2Hex(b)
 	// Prefer output of "0x0" instead of "0x"
 	if len(hex) == 0 {
 		hex = "0"
 	}
-	return "0x" + hex
+	return PREFIX + hex
 }
 
+// FromHex converts the hex string to a byte array
 func FromHex(s string) []byte {
-	if len(s) > 1 {
-		if s[0:2] == "0x" || s[0:2] == "0X" {
-			s = s[2:]
+	if len(s) > len(PREFIX) {
+		if PREFIX == s[0:len(PREFIX)] {
+			s = s[len(PREFIX):]
 		}
 		if len(s)%2 == 1 {
 			s = "0" + s
@@ -43,9 +45,7 @@ func FromHex(s string) []byte {
 	return nil
 }
 
-// Copy bytes
-//
-// Returns an exact copy of the provided bytes
+// Copybytes returns an exact copy of the provided bytes
 func CopyBytes(b []byte) (copiedBytes []byte) {
 	if b == nil {
 		return nil
@@ -61,15 +61,18 @@ func HasHexPrefix(str string) bool {
 	return l >= 2 && str[0:2] == "0x"
 }
 
+// IsHex checks the input string is a hex string
 func IsHex(str string) bool {
 	l := len(str)
 	return l >= 4 && l%2 == 0 && str[0:2] == "0x"
 }
 
+// Bytes2Hex converts the input byte array to a hex string
 func Bytes2Hex(d []byte) string {
 	return hex.EncodeToString(d)
 }
 
+// Hex2Bytes converts the hex string to a byte array
 func Hex2Bytes(str string) []byte {
 	h, _ := hex.DecodeString(str)
 

@@ -203,7 +203,7 @@ func (p *Processor) releaseRoutine() bool {
 	//	gHash := gis.GetHash()
 	//	if gis.ReadyTimeout(topHeight) {
 	//		blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash %v", gHash.ShortS())
-	//		p.NetServer.ReleaseGroupNet(gHash.Hex())
+	//		p.NetServer.ReleaseGroupNet(gHash.String())
 	//		p.groupManager.creatingGroups.removeGroup(gHash)
 	//	}
 	//	return true
@@ -223,7 +223,7 @@ func (p *Processor) releaseRoutine() bool {
 		for _, msg := range arr {
 			b := msg.(*model.ConsensusCastMessage)
 			if b.BH.Height+200 < topHeight {
-				blog.debug("remove future verify msg, hash=%v", key.String())
+				blog.debug("remove future verify msg, hash=%v", key.Hex())
 				p.removeFutureVerifyMsgs(key)
 				break
 			}
@@ -236,7 +236,7 @@ func (p *Processor) releaseRoutine() bool {
 			b := msg.(*model.CastRewardTransSignReqMessage)
 			if time2.Now().After(b.ReceiveTime.Add(400 * time2.Second)) { //400s不能处理的，都删除
 				p.futureRewardReqs.remove(key)
-				blog.debug("remove future reward msg, hash=%v", key.String())
+				blog.debug("remove future reward msg, hash=%v", key.Hex())
 				break
 			}
 		}

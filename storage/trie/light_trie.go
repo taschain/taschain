@@ -49,7 +49,7 @@ func (t *LightTrie) Get(key []byte) []byte {
 	res, err := t.TryGet(key)
 	if err != nil {
 		common.DefaultLogger.Error(fmt.Sprintf("Unhandled trie error: %v", err))
-		panic("Light tri get key:" + common.BytesToAddress(key).GetHexString() + err.Error())
+		panic("Light tri get key:" + common.BytesToAddress(key).Hex() + err.Error())
 	}
 	return res
 }

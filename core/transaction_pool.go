@@ -107,12 +107,12 @@ func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase
 func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from txSource) (bool, error) {
 	if err := pool.RecoverAndValidateTx(tx); err != nil {
 		//Logger.Debugf("Tx verify sig error:%s, txRaw from %v, type:%d, txRaw %+v", err.Error(), from, txRaw.Type, txRaw)
-		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
+		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.Hex(), tx.HexSign())
 		return false, err
 	} else {
 		b, err := pool.tryAdd(tx)
 		if err != nil {
-			Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.String(), tx.Type, err)
+			Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.Hex(), tx.Type, err)
 		}
 		return b, err
 	}
@@ -346,7 +346,7 @@ func (pool *TxPool) BackToPool(txs []*types.Transaction) {
 		if txRaw.Type != types.TransactionTypeBonus && txRaw.Source == nil {
 			err := txRaw.RecoverSource()
 			if err != nil {
-				Logger.Errorf("backtopPool recover source fail:tx=%v", txRaw.Hash.String())
+				Logger.Errorf("backtopPool recover source fail:tx=%v", txRaw.Hash.Hex())
 				continue
 			}
 		}

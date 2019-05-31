@@ -25,7 +25,7 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	account := ExplorerAccount{}
 	account.Balance = accoundDb.GetBalance(address)
 	account.Nonce = accoundDb.GetNonce(address)
-	account.CodeHash = accoundDb.GetCodeHash(address).String()
+	account.CodeHash = accoundDb.GetCodeHash(address).Hex()
 	account.Code = string(accoundDb.GetCode(address)[:])
 	account.Type = 0
 	if len(account.Code) > 0 {

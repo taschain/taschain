@@ -294,5 +294,5 @@ func (m Message) Hash() string {
 	} else {
 		panic("Data2Hash failed, size error.")
 	}
-	return h.String()
+	return h.Hex()
 }

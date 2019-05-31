@@ -6,12 +6,61 @@ package bn_curve
 
 import (
 	"crypto/rand"
+	"runtime"
 	"testing"
+	"unsafe"
 
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/bitutil"
 	"github.com/stretchr/testify/require"
 )
+
+
+const wordSize = int(unsafe.Sizeof(uintptr(0)))
+const supportsUnaligned = runtime.GOARCH == "386" || runtime.GOARCH == "amd64" || runtime.GOARCH == "ppc64" || runtime.GOARCH == "ppc64le" || runtime.GOARCH == "s390x"
+
+// fastXORBytes xors in bulk. It only works on architectures that support
+// unaligned read/writes.
+func fastXORBytes(dst, a, b []byte) int {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	w := n / wordSize
+	if w > 0 {
+		dw := *(*[]uintptr)(unsafe.Pointer(&dst))
+		aw := *(*[]uintptr)(unsafe.Pointer(&a))
+		bw := *(*[]uintptr)(unsafe.Pointer(&b))
+		for i := 0; i < w; i++ {
+			dw[i] = aw[i] ^ bw[i]
+		}
+	}
+	for i := n - n%wordSize; i < n; i++ {
+		dst[i] = a[i] ^ b[i]
+	}
+	return n
+}
+
+// safeXORBytes xors one by one. It works on all architectures, independent if
+// it supports unaligned read/writes or not.
+func safeXORBytes(dst, a, b []byte) int {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	for i := 0; i < n; i++ {
+		dst[i] = a[i] ^ b[i]
+	}
+	return n
+}
+
+// XORBytes xors the bytes in a and b. The destination is assumed to have enough
+// space. Returns the number of bytes xor'd.
+func XORBytes(dst, a, b []byte) int {
+	if supportsUnaligned {
+		return fastXORBytes(dst, a, b)
+	}
+	return safeXORBytes(dst, a, b)
+}
 
 func TestExamplePair(t *testing.T) {
 	// This implements the tripartite Diffie-Hellman algorithm from "A One
@@ -77,7 +126,7 @@ func TestAggEncrypt(t *testing.T) {
 	S1 := &G1{}
 	S1.ScalarMult(P1, r1)
 	C1 := make([]byte, 32)
-	bitutil.XORBytes(C1, M, S1.Marshal())
+	XORBytes(C1, M, S1.Marshal())
 
 	//再次加密<C1, R1>， 得到<C2, R1, R2>
 	r2, _ := randomK(rand.Reader)
@@ -87,7 +136,7 @@ func TestAggEncrypt(t *testing.T) {
 	S2 := &G1{}
 	S2.ScalarMult(P2, r2)
 	C2 := make([]byte, 32)
-	bitutil.XORBytes(C2, C1, S2.Marshal())
+	XORBytes(C2, C1, S2.Marshal())
 
 	//------------3.解密-----------
 	SS1, SS2 := &G1{}, &G1{}
@@ -96,14 +145,14 @@ func TestAggEncrypt(t *testing.T) {
 
 	//A 先解密，B后解密
 	D1, D2 := make([]byte, 32), make([]byte, 32)
-	bitutil.XORBytes(D1, C2, SS1.Marshal()) //A计算出D1
-	bitutil.XORBytes(D2, D1, SS2.Marshal()) //B计算出D2
+	XORBytes(D1, C2, SS1.Marshal()) //A计算出D1
+	XORBytes(D2, D1, SS2.Marshal()) //B计算出D2
 	t.Log("D2:", D2)
 
 	//B先解密，A后解密
 	DD1, DD2 := make([]byte, 32), make([]byte, 32)
-	bitutil.XORBytes(DD1, C2, SS2.Marshal())
-	bitutil.XORBytes(DD2, DD1, SS1.Marshal())
+	XORBytes(DD1, C2, SS2.Marshal())
+	XORBytes(DD2, DD1, SS1.Marshal())
 	t.Log("DD2:", DD2)
 }
 
@@ -132,7 +181,7 @@ func TestAggBlindEncrypt(t *testing.T) {
 	S1 := &G1{}
 	S1.ScalarMult(P1, r1)
 	C1 := make([]byte, 32)
-	bitutil.XORBytes(C1, M, S1.Marshal())
+	XORBytes(C1, M, S1.Marshal())
 
 	//B 盲化R1得到K1=s2*R1
 	K1 := &G1{}
@@ -150,7 +199,7 @@ func TestAggBlindEncrypt(t *testing.T) {
 
 	//异或运算:
 	D1 := make([]byte, 32)
-	bitutil.XORBytes(D1, C1, T1.Marshal()) //A计算出D1
+	XORBytes(D1, C1, T1.Marshal()) //A计算出D1
 	t.Log("D1:", D1)
 }
 
@@ -174,11 +223,11 @@ func Bytes2Bits(data []byte) []int {
 func BenchmarkShortSig(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, g1, _ := RandomG1(rand.Reader)
-		px, _, isOdd := g1.GetXY()
+		px, _, isOdd := g1.getXY()
 
 		g2 := &G1{}
-		g2.SetX(px, isOdd)
-		ppx, ppy, _ := g2.GetXY()
+		g2.setX(px, isOdd)
+		ppx, ppy, _ := g2.getXY()
 
 		buf_xx := make([]byte, 32)
 		buf_yy := make([]byte, 32)
