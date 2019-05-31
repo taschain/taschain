@@ -1,16 +1,16 @@
 package main
 
 import (
-	"net/http"
-	"fmt"
 	"bytes"
-	"io/ioutil"
 	"encoding/json"
-	"math/rand"
 	"flag"
-	"time"
-	"strings"
+	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"net/http"
 	"strconv"
+	"strings"
+	"time"
 )
 
 // Result rpc请求成功返回的可变参数部分
@@ -61,7 +61,7 @@ func main() {
 	flag.Parse()
 
 	loadRichAccounts()
-	hosts = extractUrl(urlInput)
+	hosts = extractURL(urlInput)
 
 	rand.Seed(time.Now().UnixNano())
 	nonce := rand.Uint64()
@@ -70,7 +70,7 @@ func main() {
 		toAccount := getRandomToAccount()
 		url := getRandomHost()
 
-		nonce += 1
+		nonce++
 		var gasPrice uint64 = 1
 		var txType = 0
 		go mockSendTransaction(url.host, url.port, account.privateKey, account.address, toAccount, nonce, txType, gasPrice)
@@ -79,7 +79,7 @@ func main() {
 	}
 }
 
-func extractUrl(urlInput *string) []url {
+func extractURL(urlInput *string) []url {
 	urls := strings.Split(*urlInput, ",")
 	result := make([]url, len(urls))
 
@@ -150,12 +150,12 @@ func mockSendTransaction(host string, port int, privateKey string, from, to stri
 
 // 通用的rpc的请求方法。
 func rpcPost(addr string, port int, method string, params ...interface{}) (*RPCResObj, error) {
-	obj := RPCReqObj{Method: method, Params: params, Jsonrpc: "2.0", ID: 1,}
+	obj := RPCReqObj{Method: method, Params: params, Jsonrpc: "2.0", ID: 1}
 	objBytes, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Post(fmt.Sprintf("http://%s:%d", addr, port), "application/json", bytes.NewReader(objBytes), )
+	resp, err := http.Post(fmt.Sprintf("http://%s:%d", addr, port), "application/json", bytes.NewReader(objBytes))
 	if err != nil {
 		return nil, err
 	}
