@@ -59,7 +59,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	}
 	block.Header.Elapsed = int32(block.Header.CurTime.Since(latestBlock.CurTime))
 
-	if block.Header.Elapsed <= 0 {
+	if block.Header.Elapsed < 0 {
 		Logger.Error("cur time is before pre time:height=%v, curtime=%v, pretime=%v", height, block.Header.CurTime, latestBlock.CurTime)
 		return nil
 	}

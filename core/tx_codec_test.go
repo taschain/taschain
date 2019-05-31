@@ -126,7 +126,8 @@ func TestDecodeTransactionByHash(t *testing.T) {
 	t.Logf("block is %+v", b.Header)
 	var testHash common.Hash
 	var testIndex int
-	r := 11 //rand.Intn(len(b.Transactions))
+	r := rand.Intn(len(b.Transactions))
+
 	for i, tx := range b.Transactions {
 		if i == r {
 			testHash = tx.Hash
