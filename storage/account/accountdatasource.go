@@ -30,56 +30,81 @@ const (
 )
 
 type AccountDatabase interface {
+	// OpenTrie opens the main account trie.
 	OpenTrie(root common.Hash) (Trie, error)
 
+	// OpenStorageTrie opens the storage trie of an account.
 	OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
 
+	// CopyTrie returns an independent copy of the given trie.
 	CopyTrie(Trie) Trie
 
+	// ContractCode retrieves a particular contract's code.
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
 
+	// ContractCodeSize retrieves a particular contracts code's size.
 	ContractCodeSize(addrHash, codeHash common.Hash) (int, error)
 
+	// TrieDB retrieves the low level trie database used for data storage.
 	TrieDB() *trie.NodeDatabase
 }
 
 type Trie interface {
+	// TryGet returns the value for key stored in the trie. The value bytes must
+	// not be modified by the caller. If a node was not found in the database, a
+	// trie.MissingNodeError is returned.
 	TryGet(key []byte) ([]byte, error)
+
+	// TryUpdate associates key with value in the trie. If value has length zero, any
+	// existing value is deleted from the trie. The value bytes must not be modified
+	// by the caller while they are stored in the trie. If a node was not found in the
+	// database, a trie.MissingNodeError is returned.
 	TryUpdate(key, value []byte) error
+
+	// TryDelete removes any existing value for key from the trie. If a node was not
+	// found in the database, a trie.MissingNodeError is returned.
 	TryDelete(key []byte) error
+
+	// Commit writes all nodes to the trie's memory database, tracking the internal
+	// and external (for account tries) references.
 	Commit(onleaf trie.LeafCallback) (common.Hash, error)
+
+	// Hash returns the root hash of the trie. It does not write to the database and
+	// can be used even if the trie doesn't have one.
 	Hash() common.Hash
+
+	// NodeIterator returns an iterator that returns nodes of the trie. Iteration
+	// starts at the key after the given start key.
 	NodeIterator(startKey []byte) trie.NodeIterator
 }
 
+
+// NewDatabase creates a backing store for state. The returned database
+// is safe for concurrent use and retains a lot of collapsed RLP trie nodes in a
+// large memory cache.
 func NewDatabase(db tasdb.Database) AccountDatabase {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &storageDB{
-		publicStorageDB: publicStorageDB{
 			db:            trie.NewDatabase(db),
 			codeSizeCache: csc,
-		},
 	}
 }
 
 
-type publicStorageDB struct {
+type storageDB struct {
 	db *trie.NodeDatabase
 	mu sync.Mutex
 	codeSizeCache *lru.Cache
 }
 
-type storageDB struct {
-	publicStorageDB
-}
 
-
-
-func (db *publicStorageDB) TrieDB() *trie.NodeDatabase {
+// TrieDB retrieves the low level trie database used for data storage.
+func (db *storageDB) TrieDB() *trie.NodeDatabase {
 	return db.db
 }
 
-func (db *publicStorageDB) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
+// ContractCode retrieves a particular contract's code.
+func (db *storageDB) ContractCode(addrHash, codeHash common.Hash) ([]byte, error) {
 	code, err := db.db.Node(codeHash)
 	if err == nil {
 		db.codeSizeCache.Add(codeHash, len(code))
@@ -87,7 +112,8 @@ func (db *publicStorageDB) ContractCode(addrHash, codeHash common.Hash) ([]byte,
 	return code, err
 }
 
-func (db *publicStorageDB) ContractCodeSize(addrHash, codeHash common.Hash) (int, error) {
+// ContractCodeSize retrieves a particular contracts code's size.
+func (db *storageDB) ContractCodeSize(addrHash, codeHash common.Hash) (int, error) {
 	if cached, ok := db.codeSizeCache.Get(codeHash); ok {
 		return cached.(int), nil
 	}
@@ -98,15 +124,10 @@ func (db *publicStorageDB) ContractCodeSize(addrHash, codeHash common.Hash) (int
 	return len(code), err
 }
 
+// OpenTrie opens the main account trie.
 func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-
-	//for i := len(db.pastTries) - 1; i >= 0; i-- {
-	//	if db.pastTries[i].Hash() == root {
-	//		return db.pastTries[i].Copy(),nil
-	//	}
-	//}
 
 	tr, err := trie.NewTrie(root, db.db)
 	if err != nil {
@@ -115,10 +136,12 @@ func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	return tr, nil
 }
 
+// OpenStorageTrie opens the storage trie of an account.
 func (db *storageDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
 	return trie.NewTrie(root, db.db)
 }
 
+// CopyTrie returns an independent copy of the given trie.
 func (db *storageDB) CopyTrie(t Trie) Trie {
 	switch t := t.(type) {
 	case *trie.Trie:
