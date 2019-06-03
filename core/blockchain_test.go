@@ -444,7 +444,11 @@ func genHash(hash string) []byte {
 
 func clear() {
 	fmt.Println("---clear---")
-	BlockChainImpl = nil
+	if BlockChainImpl != nil {
+		BlockChainImpl.Close()
+		BlockChainImpl = nil
+	}
+
 	dir, err := ioutil.ReadDir(".")
 	if err != nil {
 		return
