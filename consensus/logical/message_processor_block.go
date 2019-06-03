@@ -39,17 +39,19 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	castor := groupsig.DeserializeId(bh.Castor)
 	groupId := groupsig.DeserializeId(bh.GroupId)
 
-	if ok {
-		go func() {
-			verifys := p.blockContexts.getVerifyMsgCache(bh.Hash)
-			if verifys != nil {
-				for _, vmsg := range verifys.verifyMsgs {
-					p.OnMessageVerify(vmsg)
+	defer func() {
+		if ok {
+			go func() {
+				verifys := p.blockContexts.getVerifyMsgCache(bh.Hash)
+				if verifys != nil {
+					for _, vmsg := range verifys.verifyMsgs {
+						p.OnMessageVerify(vmsg)
+					}
 				}
-			}
-			p.blockContexts.removeVerifyMsgCache(bh.Hash)
-		}()
-	}
+				p.blockContexts.removeVerifyMsgCache(bh.Hash)
+			}()
+		}
+	}()
 
 	if p.blockOnChain(bh.Hash) {
 		err = fmt.Errorf("block onchain already")
