@@ -39,16 +39,16 @@ func TestRPC(t *testing.T) {
 	defer resetDb("testkey")
 	common.GlobalConf.Del(Section, "miner")
 	host := "127.0.0.1"
-	senderAddr := common.HexStringToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
+	senderAddr := common.HexToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 	nonce := core.BlockChainImpl.GetNonce(senderAddr)
-	privateKey := common.HexStringToSecKey("0x045c8153e5a849eef465244c0f6f40a43feaaa6855495b62a400cc78f9a6d61c76c09c3aaef393aa54bd2adc5633426e9645dfc36723a75af485c5f5c9f2c94658562fcdfb24e943cf257e25b9575216c6647c4e75e264507d2d57b3c8bc00b361")
+	privateKey := common.HexToSecKey("0x045c8153e5a849eef465244c0f6f40a43feaaa6855495b62a400cc78f9a6d61c76c09c3aaef393aa54bd2adc5633426e9645dfc36723a75af485c5f5c9f2c94658562fcdfb24e943cf257e25b9575216c6647c4e75e264507d2d57b3c8bc00b361")
 
 	tx := &txRawData{Target:"0x8ad32757d4dbcea703ba4b982f6fd08dad84bfcb",Value:10,Gas:1000,Gasprice:10000,TxType:0,Nonce:nonce}
 	tranx := txRawToTransaction(tx)
 	tranx.Hash = tranx.GenHash()
 	sign := privateKey.Sign(tranx.Hash.Bytes())
 	tranx.Sign = sign.Bytes()
-	tx.Sign = sign.GetHexString()
+	tx.Sign = sign.Hex()
 
 	txdata,err:= json.Marshal(tx)
 	if err != nil{
