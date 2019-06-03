@@ -12,6 +12,7 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package base
 
 import (
@@ -90,7 +91,6 @@ func (r Rand) ModuloUint64(n uint64) uint64 {
 	return b.Uint64()
 }
 
-
 //从0到n-1区间中随机取k个数（以r为随机基），输出这个随机序列
 func (r Rand) RandomPerm(n int, k int) []int {
 	l := make([]int, n)
@@ -103,4 +103,3 @@ func (r Rand) RandomPerm(n int, k int) []int {
 	}
 	return l[:k]
 }
-

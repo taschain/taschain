@@ -215,7 +215,7 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) error {
 		return fmt.Errorf("tx sign nil")
 	}
 
-	var source *common.Address = nil
+	var source *common.Address
 	if tx.Type == types.TransactionTypeBonus {
 		if ok, err := BlockChainImpl.GetConsensusHelper().VerifyBonusTransaction(tx); !ok {
 			return err

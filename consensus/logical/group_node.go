@@ -40,10 +40,9 @@ func (gmd *GroupInitPool) ReceiveData(id groupsig.ID, piece model.SharePiece) in
 	if _, ok := gmd.pool[id.GetHexString()]; !ok {
 		gmd.pool[id.GetHexString()] = piece //没有收到过该成员消息
 		return 0
-	} else { //收到过
-		return -1
 	}
-	return 0
+	//收到过
+	return -1
 }
 
 func (gmd *GroupInitPool) GetSize() int {
@@ -188,9 +187,8 @@ func (n *GroupNode) SetInitPiece(id groupsig.ID, share *model.SharePiece) int {
 	if n.getAllPiece() { //已经收到所有组内成员发送的秘密共享
 		if n.beingValidMiner() {
 			return 1
-		} else {
-			return -1
 		}
+		return -1
 	}
 	return 0
 }

@@ -26,7 +26,6 @@ func (di *DataIterator) Next() bool {
 func (di *DataIterator) GetValue() []byte {
 	if v, ok := di.object.dirtyStorage[string(di.Key)]; ok {
 		return v
-	} else {
-		return di.Value
 	}
+	return di.Value
 }

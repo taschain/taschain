@@ -56,12 +56,11 @@ func buildTxSimpleIndexer() *txSimpleIndexer {
 	}
 }
 
-func (indexer *txSimpleIndexer) close()  {
-	if indexer.db  != nil{
+func (indexer *txSimpleIndexer) close() {
+	if indexer.db != nil {
 		indexer.db.Close()
 	}
 }
-
 
 func (indexer *txSimpleIndexer) cacheLen() int {
 	return indexer.cache.Len()
@@ -180,7 +179,7 @@ func (ptk *peerTxsKeys) hasKey(k uint64) bool {
 func (ptk *peerTxsKeys) forEach(f func(k uint64) bool) {
 	ptk.lock.RLock()
 	defer ptk.lock.RUnlock()
-	for k, _ := range ptk.txKeys {
+	for k := range ptk.txKeys {
 		if !f(k) {
 			break
 		}
@@ -452,8 +451,8 @@ func (ts *txSyncer) onTxReq(msg notify.Message) {
 	network.GetNetInstance().Send(nm.Source(), message)
 }
 
-func (ts *txSyncer) Close(){
-	if ts.indexer != nil{
+func (ts *txSyncer) Close() {
+	if ts.indexer != nil {
 		ts.indexer.close()
 	}
 }

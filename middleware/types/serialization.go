@@ -237,14 +237,14 @@ func PbToBlockHeader(h *tas_middleware_pb.BlockHeader) *BlockHeader {
 	//}
 	//log.Printf("PbToBlockHeader height:%d StateTree Hash:%s",*h.Height,common.Bytes2Hex(h.StateTree))
 	header := BlockHeader{Hash: common.BytesToHash(h.Hash), Height: *h.Height, PreHash: common.BytesToHash(h.PreHash), Elapsed: *h.Elapsed,
-		ProveValue: h.ProveValue, CurTime: time2.Int64ToTimeStamp(*h.CurTime), Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		ProveValue: h.ProveValue, CurTime: time2.Int64ToTimeStamp(*h.CurTime), Castor: h.Castor, GroupID: h.GroupId, Signature: h.Signature,
 		Nonce: *h.Nonce, TxTree: common.BytesToHash(h.TxTree), ReceiptTree: common.BytesToHash(h.ReceiptTree), StateTree: common.BytesToHash(h.StateTree),
 		ExtraData: h.ExtraData, TotalQN: *h.TotalQN, Random: h.Random}
 	return &header
 }
 
-func GroupRequestInfoToPB(CurrentTopGroupId []byte, ExistGroupIds [][]byte) *tas_middleware_pb.GroupRequestInfo {
-	return &tas_middleware_pb.GroupRequestInfo{CurrentTopGroupId: CurrentTopGroupId, ExistGroupIds: &tas_middleware_pb.GroupIdSlice{GroupIds: ExistGroupIds}}
+func GroupRequestInfoToPB(CurrentTopGroupID []byte, ExistGroupIds [][]byte) *tas_middleware_pb.GroupRequestInfo {
+	return &tas_middleware_pb.GroupRequestInfo{CurrentTopGroupId: CurrentTopGroupID, ExistGroupIds: &tas_middleware_pb.GroupIdSlice{GroupIds: ExistGroupIds}}
 }
 
 func PbToBlock(b *tas_middleware_pb.Block) *Block {
@@ -283,7 +283,7 @@ func PbToGroup(g *tas_middleware_pb.Group) *Group {
 	//}
 	group := Group{
 		Header:      PbToGroupHeader(g.Header),
-		Id:          g.Id,
+		ID:          g.Id,
 		Members:     g.Members,
 		PubKey:      g.PubKey,
 		Signature:   g.Signature,
@@ -301,7 +301,7 @@ func PbToGroups(g *tas_middleware_pb.GroupSlice) []*Group {
 }
 
 func pbToMember(m *tas_middleware_pb.Member) *Member {
-	member := Member{Id: m.Id, PubKey: m.PubKey}
+	member := Member{ID: m.Id, PubKey: m.PubKey}
 	return &member
 }
 
@@ -378,7 +378,7 @@ func BlockHeaderToPb(h *BlockHeader) *tas_middleware_pb.BlockHeader {
 	//}
 	ts := h.CurTime.Unix()
 	header := tas_middleware_pb.BlockHeader{Hash: h.Hash.Bytes(), Height: &h.Height, PreHash: h.PreHash.Bytes(), Elapsed: &h.Elapsed,
-		ProveValue: h.ProveValue, CurTime: &ts, Castor: h.Castor, GroupId: h.GroupId, Signature: h.Signature,
+		ProveValue: h.ProveValue, CurTime: &ts, Castor: h.Castor, GroupId: h.GroupID, Signature: h.Signature,
 		Nonce: &h.Nonce, TxTree: h.TxTree.Bytes(), ReceiptTree: h.ReceiptTree.Bytes(), StateTree: h.StateTree.Bytes(),
 		ExtraData: h.ExtraData, TotalQN: &h.TotalQN, Random: h.Random}
 	return &header
@@ -421,7 +421,7 @@ func GroupToPb(g *Group) *tas_middleware_pb.Group {
 	//}
 	group := tas_middleware_pb.Group{
 		Header:      GroupToPbHeader(g.Header),
-		Id:          g.Id,
+		Id:          g.ID,
 		Members:     g.Members,
 		PubKey:      g.PubKey,
 		Signature:   g.Signature,
@@ -431,6 +431,6 @@ func GroupToPb(g *Group) *tas_middleware_pb.Group {
 }
 
 func memberToPb(m *Member) *tas_middleware_pb.Member {
-	member := tas_middleware_pb.Member{Id: m.Id, PubKey: m.PubKey}
+	member := tas_middleware_pb.Member{Id: m.ID, PubKey: m.PubKey}
 	return &member
 }

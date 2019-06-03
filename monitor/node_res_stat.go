@@ -33,7 +33,7 @@ type NodeInfo struct {
 }
 
 type NodeResStat struct {
-	Cpu    float64
+	CPU    float64
 	Mem    float64
 	RcvBps float64
 	TxBps  float64
@@ -55,14 +55,14 @@ func (ns *NodeResStat) startStatLoop() {
 	for {
 		select {
 		case <-ns.cmTicker.C:
-			ns.statCpuAndMem()
+			ns.statCPUAndMEM()
 		case <-ns.flowTicker.C:
 			ns.statFlow()
 		}
 	}
 }
 
-func (s *NodeResStat) statCpuAndMem() {
+func (ns *NodeResStat) statCPUAndMEM() {
 	sess := sh.NewSession()
 	//sess.ShowCMD = true
 	bs, err := sess.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
@@ -86,15 +86,15 @@ func (s *NodeResStat) statCpuAndMem() {
 			f, _ := strconv.ParseFloat(mems, 64)
 			mem = f / 1000
 		}
-		s.Cpu = cpu
-		s.Mem = mem
+		ns.CPU = cpu
+		ns.Mem = mem
 	} else {
 
 	}
 	return
 }
 
-func (s *NodeResStat) statFlow() {
+func (ns *NodeResStat) statFlow() {
 	sess := sh.NewSession()
 	//sess.ShowCMD = true
 	bs, err := sess.Command("sar", "-n", "DEV", "1", "2").Command("grep", "eth").CombinedOutput()
@@ -109,8 +109,8 @@ func (s *NodeResStat) statFlow() {
 		if len(arrs) < 8 {
 			return
 		}
-		s.RcvBps, _ = strconv.ParseFloat(arrs[4], 64)
-		s.TxBps, _ = strconv.ParseFloat(arrs[5], 64)
+		ns.RcvBps, _ = strconv.ParseFloat(arrs[4], 64)
+		ns.TxBps, _ = strconv.ParseFloat(arrs[5], 64)
 	} else {
 	}
 	return

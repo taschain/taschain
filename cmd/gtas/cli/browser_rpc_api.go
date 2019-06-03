@@ -95,8 +95,8 @@ func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
 
 func explorerConvertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
-	if g.Id != nil && len(g.Id) != 0 {
-		gmap["id"] = groupsig.DeserializeId(g.Id).GetHexString()
+	if g.ID != nil && len(g.ID) != 0 {
+		gmap["id"] = groupsig.DeserializeId(g.ID).GetHexString()
 		gmap["hash"] = g.Header.Hash
 	}
 	gmap["parent_id"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
@@ -123,7 +123,7 @@ func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	bh := b.Header
 
 	ret := &ExploreBlockBonus{
-		ProposalId: groupsig.DeserializeId(bh.Castor).GetHexString(),
+		ProposalID: groupsig.DeserializeId(bh.Castor).GetHexString(),
 	}
 	bonusNum := uint64(0)
 	if b.Transactions != nil {

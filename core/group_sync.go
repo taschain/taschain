@@ -216,7 +216,7 @@ func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
 	localGroupHeight := gs.gchain.Height()
 	gs.logger.Debugf("Local group height:%d", localGroupHeight)
 
-	for id, _ := range gs.candidatePool {
+	for id := range gs.candidatePool {
 		if PeerManager.isEvil(id) {
 			gs.logger.Debugf("peer meter evil id:%+v", PeerManager.getOrAddPeer(id))
 			delete(gs.candidatePool, id)
@@ -224,16 +224,16 @@ func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
 	}
 	//gs.candidatePoolDump()
 
-	candidateId := ""
-	var candidateMaxHeight uint64 = 0
+	candidateID := ""
+	var candidateMaxHeight uint64
 	for id, height := range gs.candidatePool {
 		if height > candidateMaxHeight {
-			candidateId = id
+			candidateID = id
 			candidateMaxHeight = height
 		}
 	}
 
-	return candidateId, candidateMaxHeight
+	return candidateID, candidateMaxHeight
 }
 
 func (gs *groupSyncer) trySyncRoutine() bool {
@@ -322,19 +322,19 @@ func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 		return
 	}
 
-	sourceId := groupReqMsg.Source()
+	sourceID := groupReqMsg.Source()
 	reqHeight := gr.ReqHeight
-	gs.logger.Debugf("Rcv group req from:%s,height:%v, reqSize:%v\n", sourceId, reqHeight, gr.ReqSize)
+	gs.logger.Debugf("Rcv group req from:%s,height:%v, reqSize:%v\n", sourceID, reqHeight, gr.ReqSize)
 	groups := gs.gchain.GetGroupsAfterHeight(reqHeight, int(gr.ReqSize))
 
-	gs.sendGroups(sourceId, groups)
+	gs.sendGroups(sourceID, groups)
 }
 
-func (gs *groupSyncer) sendGroups(targetId string, groups []*types.Group) {
+func (gs *groupSyncer) sendGroups(targetID string, groups []*types.Group) {
 	if len(groups) == 0 {
-		gs.logger.Debugf("Send nil group to:%s", targetId)
+		gs.logger.Debugf("Send nil group to:%s", targetID)
 	} else {
-		gs.logger.Debugf("Send group to %s,size %v, groups:%d-%d", targetId, len(groups), groups[0].GroupHeight, groups[len(groups)-1].GroupHeight)
+		gs.logger.Debugf("Send group to %s,size %v, groups:%d-%d", targetID, len(groups), groups[0].GroupHeight, groups[len(groups)-1].GroupHeight)
 	}
 	body, e := marshalGroupInfo(groups)
 	if e != nil {
@@ -342,7 +342,7 @@ func (gs *groupSyncer) sendGroups(targetId string, groups []*types.Group) {
 		return
 	}
 	message := network.Message{Code: network.GroupMsg, Body: body}
-	network.GetNetInstance().Send(targetId, message)
+	network.GetNetInstance().Send(targetID, message)
 }
 
 func (gs *groupSyncer) getPeerHeight(id string) uint64 {
@@ -369,17 +369,17 @@ func (gs *groupSyncer) groupHandler(msg notify.Message) {
 		gs.logger.Errorf("Discard GROUP_MSG because of unmarshal error:%s", e.Error())
 		return
 	}
-	sourceId := groupInfoMsg.Source()
+	sourceID := groupInfoMsg.Source()
 
 	groups := groupInfo.Groups
 	rg := ""
 	if len(groups) > 0 {
 		rg = fmt.Sprintf("[%v-%v]", groups[0].GroupHeight, groups[len(groups)-1].GroupHeight)
 	}
-	gs.logger.Debugf("Rcv groups ,from:%s,groups len %d, %v", sourceId, len(groups), rg)
+	gs.logger.Debugf("Rcv groups ,from:%s,groups len %d, %v", sourceID, len(groups), rg)
 	allSuccess := gs.batchAddGroup(groups)
 
-	peerHeight := gs.getPeerHeight(sourceId)
+	peerHeight := gs.getPeerHeight(sourceID)
 	if allSuccess && gs.gchain.Height() < peerHeight {
 		gs.syncComplete(groupInfoMsg.Source(), false)
 		complete = true

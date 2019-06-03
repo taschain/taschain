@@ -121,7 +121,7 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 	nodes := network.GetNetInstance().ConnInfo()
 	conns := make([]ConnInfo, 0)
 	for _, n := range nodes {
-		conns = append(conns, ConnInfo{Id: n.Id, Ip: n.Ip, TcpPort: n.Port})
+		conns = append(conns, ConnInfo{ID: n.ID, IP: n.IP, TCPPort: n.Port})
 	}
 	return successResult(conns)
 }
@@ -227,7 +227,7 @@ func (api *GtasAPI) GetTopBlock() (*Result, error) {
 	blockDetail["total_qn"] = bh.TotalQN
 	blockDetail["cur_time"] = bh.CurTime.Local().Format("2006-01-02 15:04:05")
 	blockDetail["castor"] = hex.EncodeToString(bh.Castor)
-	blockDetail["group_id"] = hex.EncodeToString(bh.GroupId)
+	blockDetail["group_id"] = hex.EncodeToString(bh.GroupID)
 	blockDetail["signature"] = hex.EncodeToString(bh.Signature)
 	blockDetail["txs"] = len(b.Transactions)
 	blockDetail["elapsed"] = bh.Elapsed
@@ -246,8 +246,8 @@ func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
 
 func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
-	if g.Id != nil && len(g.Id) != 0 {
-		gmap["group_id"] = groupsig.DeserializeId(g.Id).GetHexString()
+	if g.ID != nil && len(g.ID) != 0 {
+		gmap["group_id"] = groupsig.DeserializeId(g.ID).GetHexString()
 		gmap["g_hash"] = g.Header.Hash.Hex()
 	}
 	gmap["parent"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
@@ -301,10 +301,10 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 
 //deprecated
 func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint64, mtype int32) (*Result, error) {
-	id := IdFromSign(sign)
+	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
 
-	info := core.MinerManagerImpl.GetMinerById(id, byte(mtype), nil)
+	info := core.MinerManagerImpl.GetMinerByID(id, byte(mtype), nil)
 	if info != nil {
 		return failResult("已经申请过该类型矿工")
 	}
@@ -314,7 +314,7 @@ func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint
 	pbkBytes := common.FromHex(bpk)
 
 	miner := &types.Miner{
-		Id:           id,
+		ID:           id,
 		PublicKey:    groupsig.DeserializePubkeyBytes(pbkBytes).Serialize(),
 		VrfPublicKey: common.FromHex(vrfpk),
 		Stake:        stake,
@@ -343,7 +343,7 @@ func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint
 func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	minerInfo := mediator.Proc.GetMinerInfo()
 	address := common.BytesToAddress(minerInfo.ID.Serialize())
-	miner := core.MinerManagerImpl.GetMinerById(address[:], byte(mtype), nil)
+	miner := core.MinerManagerImpl.GetMinerByID(address[:], byte(mtype), nil)
 	js, err := json.Marshal(miner)
 	if err != nil {
 		return &Result{Message: err.Error(), Data: nil}, err
@@ -353,7 +353,7 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 
 //deprecated
 func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
-	id := IdFromSign(sign)
+	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
 
 	nonce := time.Now().UnixNano()
@@ -374,7 +374,7 @@ func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
 
 //deprecated
 func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
-	id := IdFromSign(sign)
+	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
 
 	nonce := time.Now().UnixNano()
@@ -415,7 +415,7 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 		} else {
 			proposerStat[p] = 1
 		}
-		g := string(bh.GroupId)
+		g := string(bh.GroupID)
 		if v, ok := groupStat[g]; ok {
 			groupStat[g] = v + 1
 		} else {
@@ -442,11 +442,11 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 func (api *GtasAPI) MinerInfo(addr string) (*Result, error) {
 	morts := make([]MortGage, 0)
 	id := common.HexToAddress(addr).Bytes()
-	heavyInfo := core.MinerManagerImpl.GetMinerById(id, types.MinerTypeHeavy, nil)
+	heavyInfo := core.MinerManagerImpl.GetMinerByID(id, types.MinerTypeHeavy, nil)
 	if heavyInfo != nil {
 		morts = append(morts, *NewMortGageFromMiner(heavyInfo))
 	}
-	lightInfo := core.MinerManagerImpl.GetMinerById(id, types.MinerTypeLight, nil)
+	lightInfo := core.MinerManagerImpl.GetMinerByID(id, types.MinerTypeLight, nil)
 	if lightInfo != nil {
 		morts = append(morts, *NewMortGageFromMiner(lightInfo))
 	}
@@ -468,14 +468,14 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 		ni.Status = "运行中"
 		morts := make([]MortGage, 0)
 		t := "--"
-		heavyInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeHeavy, nil)
+		heavyInfo := core.MinerManagerImpl.GetMinerByID(p.GetMinerID().Serialize(), types.MinerTypeHeavy, nil)
 		if heavyInfo != nil {
 			morts = append(morts, *NewMortGageFromMiner(heavyInfo))
 			if heavyInfo.AbortHeight == 0 {
 				t = "重节点"
 			}
 		}
-		lightInfo := core.MinerManagerImpl.GetMinerById(p.GetMinerID().Serialize(), types.MinerTypeLight, nil)
+		lightInfo := core.MinerManagerImpl.GetMinerByID(p.GetMinerID().Serialize(), types.MinerTypeLight, nil)
 		if lightInfo != nil {
 			morts = append(morts, *NewMortGageFromMiner(lightInfo))
 			if lightInfo.AbortHeight == 0 {
@@ -559,9 +559,9 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 
 		group := &Group{
 			Height:        uint64(b + 1),
-			Id:            groupsig.DeserializeId(g.Id),
-			PreId:         groupsig.DeserializeId(g.Header.PreGroup),
-			ParentId:      groupsig.DeserializeId(g.Header.Parent),
+			ID:            groupsig.DeserializeId(g.ID),
+			PreID:         groupsig.DeserializeId(g.Header.PreGroup),
+			ParentID:      groupsig.DeserializeId(g.Header.Parent),
 			BeginHeight:   g.Header.WorkHeight,
 			DismissHeight: g.Header.DismissHeight,
 			Members:       mems,
@@ -751,7 +751,7 @@ func (api *GtasAPI) TxReceipt(h string) (*Result, error) {
 	return failResult("tx not exist")
 }
 
-func (api *GtasAPI) RpcSyncBlocks(height uint64, limit int, version int) (*Result, error) {
+func (api *GtasAPI) RPCSyncBlocks(height uint64, limit int, version int) (*Result, error) {
 	chain := core.BlockChainImpl
 	v := chain.Version()
 	if version != v {

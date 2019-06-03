@@ -52,7 +52,7 @@ type MessageProcessor interface {
 	OnMessageSharePieceReq(msg *model.ReqSharePieceMessage)
 	OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage)
 
-	OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourceId string)
+	OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourceID string)
 	OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock)
 }
 

@@ -147,9 +147,9 @@ func (g *Group) doRefresh() {
 			continue
 		}
 		node := netCore.kad.find(id)
-		if node != nil && node.Ip != nil && node.Port > 0 {
-			Logger.Debugf("Group doRefresh node found in KAD id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
-			go netCore.ping(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)})
+		if node != nil && node.IP != nil && node.Port > 0 {
+			Logger.Debugf("Group doRefresh node found in KAD id：%v ip: %v  port:%v", id.GetHexString(), node.IP, node.Port)
+			go netCore.ping(node.ID, &nnet.UDPAddr{IP: node.IP, Port: int(node.Port)})
 		} else {
 			go netCore.ping(id, nil)
 
@@ -179,12 +179,12 @@ func (g *Group) send(packet *bytes.Buffer, code uint32) {
 		}
 		p := netCore.peerManager.peerByID(id)
 		if p != nil {
-			netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.Ip, Port: int(p.Port)}, packet, code, false)
+			netCore.peerManager.write(id, &nnet.UDPAddr{IP: p.IP, Port: int(p.Port)}, packet, code, false)
 		} else {
 			node := netCore.kad.find(id)
-			if node != nil && node.Ip != nil && node.Port > 0 {
-				Logger.Debugf("SendGroup node not connected ,but in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.Ip, node.Port)
-				netCore.peerManager.write(node.Id, &nnet.UDPAddr{IP: node.Ip, Port: int(node.Port)}, packet, code, false)
+			if node != nil && node.IP != nil && node.Port > 0 {
+				Logger.Debugf("SendGroup node not connected ,but in KAD : id：%v ip: %v  port:%v", id.GetHexString(), node.IP, node.Port)
+				netCore.peerManager.write(node.ID, &nnet.UDPAddr{IP: node.IP, Port: int(node.Port)}, packet, code, false)
 			} else {
 				Logger.Debugf("SendGroup node not connected and not in KAD : id：%v", id.GetHexString())
 				netCore.peerManager.write(id, nil, packet, code, false)

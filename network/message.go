@@ -21,93 +21,93 @@ import (
 	"time"
 )
 
-const BizMessageIdLength = 32
+const BizMessageIDLength = 32
 
-type BizMessageId = [BizMessageIdLength]byte
+type BizMessageID = [BizMessageIDLength]byte
 
 //MessageManager 消息管理
 type MessageManager struct {
 	messages      map[uint64]time.Time
-	bizMessages   map[BizMessageId]time.Time
+	bizMessages   map[BizMessageID]time.Time
 	index         uint32
 	id            NodeID
-	forwardNodeId uint32
+	forwardNodeID uint32
 	mutex         sync.Mutex
 }
 
-func decodeMessageInfo(info uint32) (chaidId uint16, protocolVersion uint16) {
+func decodeMessageInfo(info uint32) (chainID uint16, protocolVersion uint16) {
 
-	chaidId = uint16(info >> 16)
+	chainID = uint16(info >> 16)
 	protocolVersion = uint16(info)
 
-	return chaidId, protocolVersion
+	return chainID, protocolVersion
 }
 
-func encodeMessageInfo(chaidId uint16, protocolVersion uint16) uint32 {
+func encodeMessageInfo(chainID uint16, protocolVersion uint16) uint32 {
 
-	return uint32(chaidId)<<16 | uint32(protocolVersion)
+	return uint32(chainID)<<16 | uint32(protocolVersion)
 }
 
 func newMessageManager(id NodeID) *MessageManager {
 
 	mm := &MessageManager{
 		messages:    make(map[uint64]time.Time),
-		bizMessages: make(map[BizMessageId]time.Time),
+		bizMessages: make(map[BizMessageID]time.Time),
 	}
 	mm.id = id
 	mm.index = 0
 	h := fnv.New32a()
 	h.Write(id[:])
-	mm.forwardNodeId = uint32(h.Sum32())
+	mm.forwardNodeID = uint32(h.Sum32())
 	return mm
 }
 
 //生成新的消息id
-func (mm *MessageManager) genMessageId() uint64 {
+func (mm *MessageManager) genMessageID() uint64 {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
 
-	mm.index += 1
-	messageId := uint64(mm.forwardNodeId)
-	messageId = messageId << 32
-	messageId = messageId | uint64(mm.index)
-	mm.messages[messageId] = time.Now()
-	return messageId
+	mm.index++
+	messageID := uint64(mm.forwardNodeID)
+	messageID = messageID << 32
+	messageID = messageID | uint64(mm.index)
+	mm.messages[messageID] = time.Now()
+	return messageID
 }
 
-func (mm *MessageManager) forward(messageId uint64) {
+func (mm *MessageManager) forward(messageID uint64) {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
 
-	mm.messages[messageId] = time.Now()
+	mm.messages[messageID] = time.Now()
 }
 
-func (mm *MessageManager) isForwarded(messageId uint64) bool {
+func (mm *MessageManager) isForwarded(messageID uint64) bool {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
 
-	_, ok := mm.messages[messageId]
+	_, ok := mm.messages[messageID]
 	return ok
 }
 
-func (mm *MessageManager) forwardBiz(messageId BizMessageId) {
+func (mm *MessageManager) forwardBiz(messageID BizMessageID) {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
 
-	mm.bizMessages[messageId] = time.Now()
+	mm.bizMessages[messageID] = time.Now()
 }
 
-func (mm *MessageManager) isForwardedBiz(messageId BizMessageId) bool {
+func (mm *MessageManager) isForwardedBiz(messageID BizMessageID) bool {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()
 
-	_, ok := mm.bizMessages[messageId]
+	_, ok := mm.bizMessages[messageID]
 	return ok
 }
 
-func (mm *MessageManager) ByteToBizId(bid []byte) BizMessageId {
-	var id [BizMessageIdLength]byte
-	for i := 0; i < len(bid) && i < BizMessageIdLength; i++ {
+func (mm *MessageManager) ByteToBizID(bid []byte) BizMessageID {
+	var id [BizMessageIDLength]byte
+	for i := 0; i < len(bid) && i < BizMessageIDLength; i++ {
 		id[i] = bid[i]
 	}
 	return id

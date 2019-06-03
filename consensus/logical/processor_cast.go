@@ -45,13 +45,13 @@ func (p *Processor) CalcVerifyGroupFromChain(preBH *types.BlockHeader, height ui
 }
 
 func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.GroupBrief {
-	nextId := p.CalcVerifyGroupFromCache(bh, height)
-	if nextId == nil {
+	nextID := p.CalcVerifyGroupFromCache(bh, height)
+	if nextID == nil {
 		return nil
 	}
-	group := p.GetGroup(*nextId)
+	group := p.GetGroup(*nextID)
 	g := &net.GroupBrief{
-		Gid:    *nextId,
+		Gid:    *nextID,
 		MemIds: group.GetMembers(),
 	}
 	return g
@@ -139,7 +139,7 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
-	gpk := p.getGroupPubKey(groupsig.DeserializeId(bh.GroupId))
+	gpk := p.getGroupPubKey(groupsig.DeserializeId(bh.GroupID))
 	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
 		blog.log("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
@@ -181,7 +181,7 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
-	worker := p.GetVrfWorker()
+	worker := p.getVrfWorker()
 	if worker.getBaseBH().Hash != top.Hash {
 		blog.log("vrf baseBH differ from top!")
 		return
@@ -295,10 +295,10 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		return
 	}
 
-	groupID := groupsig.DeserializeId(bh.GroupId)
+	groupID := groupsig.DeserializeId(bh.GroupID)
 	group := p.GetGroup(groupID)
 
-	targetIdIndexs := make([]int32, 0)
+	targetIDIndexs := make([]int32, 0)
 	signs := make([]groupsig.Signature, 0)
 	idHexs := make([]string, 0)
 
@@ -306,7 +306,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 	for idx, mem := range group.GetMembers() {
 		if sig, ok := slot.gSignGenerator.GetWitness(mem); ok {
 			signs = append(signs, sig)
-			targetIdIndexs = append(targetIdIndexs, int32(idx))
+			targetIDIndexs = append(targetIDIndexs, int32(idx))
 			idHexs = append(idHexs, mem.ShortS())
 			if len(signs) >= threshold {
 				break
@@ -314,7 +314,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		}
 	}
 
-	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIdIndexs, bh.Hash, bh.GroupId, model.Param.VerifyBonus)
+	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIDIndexs, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
 	blog.debug("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
 
 	tlog := newHashTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())

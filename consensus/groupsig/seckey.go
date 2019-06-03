@@ -19,14 +19,14 @@ import (
 	"fmt"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
-	"github.com/taschain/taschain/consensus/groupsig/bn_curve"
+	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 	"log"
 	"math/big"
 )
 
 // Curve and Field order
-var curveOrder = bn_curve.Order //曲线整数域
-var fieldOrder = bn_curve.P
+var curveOrder = bncurve.Order //曲线整数域
+var fieldOrder = bncurve.P
 var bitLength = curveOrder.BitLen()
 
 // Seckey -- represented by a big.Int modulo curveOrder
@@ -96,7 +96,7 @@ func (sec Seckey) MarshalJSON() ([]byte, error) {
 func (sec *Seckey) UnmarshalJSON(data []byte) error {
 	str := string(data[:])
 	if len(str) < 2 {
-		return fmt.Errorf("data size less than min.")
+		return fmt.Errorf("data size less than min")
 	}
 	str = str[1 : len(str)-1]
 	return sec.SetHexString(str)
@@ -197,17 +197,17 @@ func ShareSeckey(msec []Seckey, id ID) *Seckey {
 	// evaluate polynomial f(x) with coefficients c0, ..., ck
 	secret.Set(msec[k].GetBigInt()) //最后一个master key的big.Int值放到secret
 	x := id.GetBigInt()             //取得id的big.Int值
-	new_b := &big.Int{}
+	newB := &big.Int{}
 
 	for j := k - 1; j >= 0; j-- { //从master key切片的尾部-1往前遍历
-		new_b.Set(secret)
-		secret.Mul(new_b, x) //乘上id的big.Int值，每一遍都需要乘，所以是指数？
+		newB.Set(secret)
+		secret.Mul(newB, x) //乘上id的big.Int值，每一遍都需要乘，所以是指数？
 
-		new_b.Set(secret)
-		secret.Add(new_b, msec[j].GetBigInt()) //加法
+		newB.Set(secret)
+		secret.Add(newB, msec[j].GetBigInt()) //加法
 
-		new_b.Set(secret)
-		secret.Mod(new_b, curveOrder) //曲线域求模
+		newB.Set(secret)
+		secret.Mod(newB, curveOrder) //曲线域求模
 	}
 
 	return NewSeckeyFromBigInt(secret) //生成签名私钥

@@ -16,9 +16,9 @@ import (
 **  Description:
  */
 
-func (gm *GroupManager) selectParentGroup(baseBH *types.BlockHeader, preGroupId []byte) (*StaticGroupInfo, error) {
+func (gm *GroupManager) selectParentGroup(baseBH *types.BlockHeader, preGroupID []byte) (*StaticGroupInfo, error) {
 	//rand := baseBH.Random
-	//rand = append(rand, preGroupId...)
+	//rand = append(rand, preGroupID...)
 	//gid, err := gm.processor.globalGroups.SelectNextGroupFromChain(base.Data2CommonHash(rand), baseBH.Height)
 	//if err != nil {
 	//	return nil, err
@@ -36,7 +36,7 @@ func (gm *GroupManager) generateCreateGroupContext(baseHeight uint64) (*createGr
 	if baseBH == nil {
 		return nil, fmt.Errorf("base block is nil, height=%v", baseHeight)
 	}
-	sgi, err := gm.selectParentGroup(baseBH, lastGroup.Id)
+	sgi, err := gm.selectParentGroup(baseBH, lastGroup.ID)
 	if sgi == nil || err != nil {
 		return nil, fmt.Errorf("select parent group err %v", err)
 	}
@@ -162,11 +162,11 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 		return false
 	}
 
-	memIdStrs := make([]string, 0)
+	memIDStrs := make([]string, 0)
 	for _, mem := range gInfo.Mems {
-		memIdStrs = append(memIdStrs, mem.ShortS())
+		memIDStrs = append(memIDStrs, mem.ShortS())
 	}
-	newHashTraceLog("checkReqCreateGroupSign", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", ctx.parentInfo.GroupID.ShortS(), strings.Join(memIdStrs, ","))
+	newHashTraceLog("checkReqCreateGroupSign", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", ctx.parentInfo.GroupID.ShortS(), strings.Join(memIDStrs, ","))
 
 	//发送日志
 	le := &monitor.LogEntry{
@@ -201,11 +201,11 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 		return nil, false, common.ErrCreateBlockNil
 	}
 	//前一组，父亲组是否存在
-	preGroup := gm.groupChain.GetGroupById(gh.PreGroup)
+	preGroup := gm.groupChain.GetGroupByID(gh.PreGroup)
 	if preGroup == nil {
 		return nil, false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeId(gh.PreGroup).ShortS())
 	}
-	parentGroup := gm.groupChain.GetGroupById(gh.Parent)
+	parentGroup := gm.groupChain.GetGroupByID(gh.Parent)
 	if parentGroup == nil {
 		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
 	}
@@ -213,7 +213,7 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if err != nil {
 		return nil, false, fmt.Errorf("select parent group err %v", err)
 	}
-	pid := groupsig.DeserializeId(parentGroup.Id)
+	pid := groupsig.DeserializeId(parentGroup.ID)
 	if !sgi.GroupID.IsEqual(pid) {
 		return nil, false, fmt.Errorf("select parent group not equal, expect %v, recieve %v", sgi.GroupID.ShortS(), pid.ShortS())
 	}

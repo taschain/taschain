@@ -324,7 +324,7 @@ func pbToBonus(b *tas_middleware_pb.Bonus) *types.Bonus {
 		TxHash:     common.BytesToHash(b.TxHash),
 		TargetIds:  b.TargetIds,
 		BlockHash:  common.BytesToHash(b.BlockHash),
-		GroupId:    b.GroupId,
+		GroupID:    b.GroupId,
 		Sign:       b.Sign,
 		TotalValue: *b.TotalValue,
 	}

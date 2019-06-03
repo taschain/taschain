@@ -33,3 +33,4 @@ main
 
 venv/
 go.sum
+bin/

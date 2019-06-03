@@ -24,7 +24,7 @@ type Handler func(message Message)
 
 // 消息订阅
 type Topic struct {
-	Id       string
+	ID       string
 	handlers []Handler
 	lock     sync.RWMutex
 }

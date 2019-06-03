@@ -29,7 +29,7 @@ func ConvertStaticGroup2CoreGroup(sgi *StaticGroupInfo) *types.Group {
 	}
 	return &types.Group{
 		Header:    sgi.getGroupHeader(),
-		Id:        sgi.GroupID.Serialize(),
+		ID:        sgi.GroupID.Serialize(),
 		PubKey:    sgi.GroupPK.Serialize(),
 		Signature: sgi.GInfo.GI.Signature.Serialize(),
 		Members:   members,

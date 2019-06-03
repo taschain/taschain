@@ -28,11 +28,11 @@ import (
 const message = "This is TASchain achates' testing message"
 
 func DoTestECVRF(t *testing.T, pk PublicKey, sk PrivateKey, msg []byte, verbose bool) {
-	pi, err := ECVRF_prove(pk, sk, msg[:])
+	pi, err := ECVRFProve(pk, sk, msg[:])
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := ECVRF_verify(pk, pi, msg[:])
+	res, err := ECVRFVerify(pk, pi, msg[:])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,9 +46,9 @@ func DoTestECVRF(t *testing.T, pk PublicKey, sk PrivateKey, msg []byte, verbose 
 		fmt.Printf("x: %s\n", hex.EncodeToString(sk))
 		fmt.Printf("P: %s\n", hex.EncodeToString(pk))
 		fmt.Printf("pi: %s\n", hex.EncodeToString(pi))
-		fmt.Printf("vrf: %s\n", hex.EncodeToString(ECVRF_proof2hash(pi)))
+		fmt.Printf("vrf: %s\n", hex.EncodeToString(ECVRFProof2hash(pi)))
 
-		r, c, s, err := ECVRF_decode_proof(pi)
+		r, c, s, err := ECVRFDecodeProof(pi)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,7 +86,7 @@ func TestECVRFOnce(t *testing.T) {
 	m := []byte(message)
 	DoTestECVRF(t, pk, sk, m, true)
 
-	h := ECVRF_hash_to_curve(m, pk)
+	h := ECVRFHashToCurve(m, pk)
 	fmt.Printf("h: %s\n", hex.EncodeToString(ECP2OS(h)))
 }
 
@@ -98,7 +98,7 @@ func BenchmarkProve(b *testing.B) {
 	m := []byte(message)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ECVRF_prove(pk, sk, m)
+		ECVRFProve(pk, sk, m)
 	}
 }
 
@@ -108,9 +108,9 @@ func BenchmarkVRFVerify(b *testing.B) {
 		b.Fatal(err)
 	}
 	m := []byte(message)
-	pi, err := ECVRF_prove(pk, sk, m)
+	pi, err := ECVRFProve(pk, sk, m)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ECVRF_verify(pk, pi, m)
+		ECVRFVerify(pk, pi, m)
 	}
 }

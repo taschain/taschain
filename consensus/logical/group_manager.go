@@ -142,7 +142,7 @@ func (gm *GroupManager) AddGroupOnChain(sgi *StaticGroupInfo) {
 		newHashTraceLog("AddGroupOnChain", sgi.GInfo.GroupHash(), groupsig.ID{}).log("gid=%v, workHeight=%v, result %v", sgi.GroupID.ShortS(), group.Header.WorkHeight, s)
 	}()
 
-	if gm.groupChain.GetGroupById(group.Id) != nil {
+	if gm.groupChain.GetGroupByID(group.ID) != nil {
 		stdLogger.Debugf("group already onchain, accept, id=%v\n", sgi.GroupID.ShortS())
 		gm.processor.acceptGroup(sgi)
 		err = fmt.Errorf("group already onchain")

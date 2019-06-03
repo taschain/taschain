@@ -16,7 +16,7 @@
 package common
 
 var InstanceIndex int
-var BootId int
+var BootID int
 
 type AccountData struct {
 	sk   []byte //secure key

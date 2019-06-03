@@ -15,7 +15,7 @@
 
 package network
 
-const FULL_NODE_VIRTUAL_GROUP_ID = "full_node_virtual_group_id"
+const FullNodeVirtualGroupID = "full_node_virtual_group_id"
 
 const (
 	/********************** consensus message code ***********************
@@ -79,7 +79,7 @@ const (
 )
 
 type Message struct {
-	ChainId uint16
+	ChainID uint16
 
 	ProtocolVersion uint16
 
@@ -89,15 +89,15 @@ type Message struct {
 }
 
 type Conn struct {
-	Id   string
-	Ip   string
+	ID   string
+	IP   string
 	Port string
 }
 
 type MsgDigest []byte
 
 type MsgHandler interface {
-	Handle(sourceId string, msg Message) error
+	Handle(sourceID string, msg Message) error
 }
 
 type Network interface {
@@ -107,19 +107,19 @@ type Network interface {
 
 	//Send message to the node which id represents. If self doesn't connect to the node,
 	// send message to the guys which belongs to the same group with the node and they will rely the message to the node
-	SendWithGroupRelay(id string, groupId string, msg Message) error
+	SendWithGroupRelay(id string, groupID string, msg Message) error
 
 	//Random broadcast the message to parts nodes in the group which self belongs to
-	RandomSpreadInGroup(groupId string, msg Message) error
+	RandomSpreadInGroup(groupID string, msg Message) error
 
 	//Broadcast the message among the group which self belongs to
-	SpreadAmongGroup(groupId string, msg Message) error
+	SpreadAmongGroup(groupID string, msg Message) error
 
 	//send message to random memebers which in special group
-	SpreadToRandomGroupMember(groupId string, groupMembers []string, msg Message) error
+	SpreadToRandomGroupMember(groupID string, groupMembers []string, msg Message) error
 
 	//Broadcast the message to the group which self do not belong to
-	SpreadToGroup(groupId string, groupMembers []string, msg Message, digest MsgDigest) error
+	SpreadToGroup(groupID string, groupMembers []string, msg Message, digest MsgDigest) error
 
 	//Send message to neighbor nodes
 	TransmitToNeighbor(msg Message) error
@@ -133,7 +133,7 @@ type Network interface {
 	//Return all connections self has
 	ConnInfo() []Conn
 
-	BuildGroupNet(groupId string, members []string)
+	BuildGroupNet(groupID string, members []string)
 
-	DissolveGroupNet(groupId string)
+	DissolveGroupNet(groupID string)
 }

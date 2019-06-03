@@ -46,7 +46,7 @@ type PublicKey struct {
 
 // Export an ECIES public key as an ECDSA public key.
 func (pub *PublicKey) ExportECDSA() *ecdsa.PublicKey {
-	return &ecdsa.PublicKey{pub.Curve, pub.X, pub.Y}
+	return &ecdsa.PublicKey{Curve: pub.Curve, X: pub.X, Y: pub.Y}
 }
 
 // Import an ECDSA public key as an ECIES public key.
@@ -69,7 +69,7 @@ type PrivateKey struct {
 func (prv *PrivateKey) ExportECDSA() *ecdsa.PrivateKey {
 	pub := &prv.PublicKey
 	pubECDSA := pub.ExportECDSA()
-	return &ecdsa.PrivateKey{*pubECDSA, prv.D}
+	return &ecdsa.PrivateKey{PublicKey: *pubECDSA, D: prv.D}
 }
 
 // Import an ECDSA private key as an ECIES private key.
@@ -291,7 +291,7 @@ func (prv *PrivateKey) Decrypt(rand io.Reader, c, s1, s2 []byte) (m []byte, err 
 
 	var (
 		rLen   int
-		hLen   int = hash.Size()
+		hLen   = hash.Size()
 		mStart int
 		mEnd   int
 	)

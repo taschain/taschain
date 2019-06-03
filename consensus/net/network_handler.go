@@ -27,7 +27,7 @@ func (c *ConsensusHandler) ready() bool {
 	return c.processor != nil && c.processor.Ready()
 }
 
-func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
+func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 	code := msg.Code
 	body := msg.Body
 
@@ -59,30 +59,30 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 		//} else {
 		//	machines = &GroupOutsideMachines
 		//}
-		GroupInsideMachines.GetMachine(m.GInfo.GI.GetHash().Hex(), len(m.GInfo.Mems)).Transform(NewStateMsg(code, m, sourceId))
+		GroupInsideMachines.GetMachine(m.GInfo.GI.GetHash().Hex(), len(m.GInfo.Mems)).Transform(NewStateMsg(code, m, sourceID))
 	case network.KeyPieceMsg:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceId))
-		logger.Infof("SharepieceMsg receive from:%v, gHash:%v", sourceId, m.GHash.Hex())
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
+		logger.Infof("SharepieceMsg receive from:%v, gHash:%v", sourceID, m.GHash.Hex())
 	case network.SignPubkeyMsg:
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceId))
-		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v", sourceId, m.GHash.Hex(), m.GroupID.GetHexString())
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
+		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v", sourceID, m.GHash.Hex(), m.GroupID.GetHexString())
 	case network.GroupInitDoneMsg:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusGroupInitedMessage because of unmarshal error%s", e.Error())
 			return e
 		}
-		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s, groupId:%v", sourceId, m.GHash.Hex(), m.GroupID.GetHexString())
+		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s, groupId:%v", sourceID, m.GHash.Hex(), m.GroupID.GetHexString())
 
 		//belongGroup := c.processor.ExistInGroup(m.GHash)
 		//var machines *StateMachines
@@ -91,7 +91,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 		//} else {
 		//	machines = &GroupOutsideMachines
 		//}
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceId))
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
 
 	case network.CurrentGroupCastMsg:
 
@@ -197,7 +197,7 @@ func (c *ConsensusHandler) Handle(sourceId string, msg network.Message) error {
 			logger.Errorf("[handler]Discard unmarshalReqProposalBlockMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		c.processor.OnMessageReqProposalBlock(m, sourceId)
+		c.processor.OnMessageReqProposalBlock(m, sourceID)
 
 	case network.ResponseProposalBlock:
 		m, e := unmarshalResponseProposalBlockMessage(body)

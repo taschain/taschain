@@ -234,12 +234,12 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	}
 
 	var candidates []groupsig.ID
-	if cands, ok, err := p.groupManager.checkGroupInfo(&msg.GInfo); !ok {
+	cands, ok, err := p.groupManager.checkGroupInfo(&msg.GInfo)
+	if !ok {
 		blog.debug("group header illegal, err=%v", err)
 		return
-	} else {
-		candidates = cands
 	}
+	candidates = cands
 
 	//if p.globalGroups.AddInitingGroup(CreateInitingGroup(msg)) {
 	//	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
@@ -311,7 +311,7 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 		return
 	}
 	if gc.gInfo.GroupHash() != gHash {
-		err = fmt.Errorf("failed, gisHash diff.")
+		err = fmt.Errorf("failed, gisHash diff")
 		return
 	}
 
@@ -402,7 +402,7 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 				}
 			}
 		} else {
-			err = fmt.Errorf("Processor::%v failed, aggr key error.", mtype)
+			err = fmt.Errorf("Processor::%v failed, aggr key error", mtype)
 			return
 		}
 	}
@@ -532,7 +532,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	}
 
 	//此时组通过同步已上链了，但是后面的逻辑还是要执行，否则组数据状态有问题
-	g := p.GroupChain.GetGroupById(msg.GroupID.Serialize())
+	g := p.GroupChain.GetGroupByID(msg.GroupID.Serialize())
 	if g != nil {
 		blog.log("group already onchain")
 		p.globalGroups.removeInitedGroup(gHash)
@@ -567,8 +567,8 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		return
 	}
 
-	parentId := initedGroup.gInfo.GI.ParentID()
-	parentGroup := p.GetGroup(parentId)
+	parentID := initedGroup.gInfo.GI.ParentID()
+	parentGroup := p.GetGroup(parentID)
 
 	gpk := parentGroup.GroupPK
 	if !groupsig.VerifySig(gpk, msg.GHash.Bytes(), msg.ParentSign) {
@@ -596,7 +596,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	tlog.log("ret:%v,收到消息数量 %v, 需要消息数 %v, 缺少%v等", result, initedGroup.receiveSize(), initedGroup.threshold, waitIds)
 
 	switch result {
-	case INIT_SUCCESS: //收到组内相同消息>=阈值，可上链
+	case InitSuccess: //收到组内相同消息>=阈值，可上链
 		staticGroup := NewSGIFromStaticGroupSummary(msg.GroupID, msg.GroupPK, initedGroup)
 		gh := staticGroup.getGroupHeader()
 		blog.debug("SUCCESS accept a new group, gHash=%v, gid=%v, workHeight=%v, dismissHeight=%v.", gHash.ShortS(), msg.GroupID.ShortS(), gh.WorkHeight, gh.DismissHeight)
@@ -606,11 +606,11 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		p.globalGroups.removeInitedGroup(gHash)
 		p.joiningGroups.Clean(gHash)
 
-	case INIT_FAIL: //该组初始化异常，且无法恢复
+	case InitFail: //该组初始化异常，且无法恢复
 		tlog.log("初始化失败")
 		p.globalGroups.removeInitedGroup(gHash)
 
-	case INITING:
+	case Initing:
 		//继续等待下一包数据
 	}
 	//blog.log("proc(%v) end OMGIED, sender=%v...", p.getPrefix(), GetIDPrefix(msg.SI.GetID()))

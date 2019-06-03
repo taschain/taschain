@@ -12,18 +12,18 @@ import (
 //矿工ID信息
 type GroupMinerID struct {
 	Gid groupsig.ID //组ID
-	Uid groupsig.ID //成员ID
+	UID groupsig.ID //成员ID
 }
 
 func NewGroupMinerID(gid groupsig.ID, uid groupsig.ID) *GroupMinerID {
 	return &GroupMinerID{
 		Gid: gid,
-		Uid: uid,
+		UID: uid,
 	}
 }
 
 func (id GroupMinerID) IsValid() bool {
-	return id.Gid.IsValid() && id.Uid.IsValid()
+	return id.Gid.IsValid() && id.UID.IsValid()
 }
 
 //数据签名结构

@@ -32,12 +32,12 @@ const (
 //// Init --
 //func Init(curve int) {
 //	//fmt.Printf("\nbegin groupsig init, curve=%v.\n", curve)
-//	//err := bn_curve.Init(curve) //以特定的椭圆曲线初始化BLS C库
+//	//err := bncurve.Init(curve) //以特定的椭圆曲线初始化BLS C库
 //	//if err != nil {
 //	//	panic("groupsig.Init")
 //	//}
-//	//curveOrder.SetString(bn_curve.GetCurveOrder(), 10)
-//	//fieldOrder.SetString(bn_curve.GetFieldOrder(), 10)
+//	//curveOrder.SetString(bncurve.GetCurveOrder(), 10)
+//	//fieldOrder.SetString(bncurve.GetFieldOrder(), 10)
 //
 //	bitLength = curveOrder.BitLen()
 //	fmt.Printf("groupsig init success, curve_order=%v, field_order=%v, bitlen=%v.\n",

@@ -18,7 +18,7 @@ type innerItem struct {
 	size  uint64
 }
 
-var count_map = new(sync.Map)
+var countMap = new(sync.Map)
 var logger taslog.Logger
 var VrfLogger taslog.Logger
 
@@ -33,9 +33,8 @@ func newInnerItem(size uint64) *innerItem {
 func (item *countItem) get(code uint32) *innerItem {
 	if v, ok2 := item.Load(code); ok2 {
 		return v.(*innerItem)
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (item *innerItem) increase(size uint64) {
@@ -54,7 +53,7 @@ func (item *countItem) print() string {
 }
 
 func printAndRefresh() {
-	count_map.Range(func(name, item interface{}) bool {
+	countMap.Range(func(name, item interface{}) bool {
 		citem := item.(*countItem)
 		content := citem.print()
 		if logger != nil {
@@ -67,9 +66,9 @@ func printAndRefresh() {
 }
 
 func AddCount(name string, code uint32, size uint64) {
-	if item, ok := count_map.Load(name); ok {
+	if item, ok := countMap.Load(name); ok {
 		citem := item.(*countItem)
-		if item2, ok := count_map.Load(code); ok {
+		if item2, ok := countMap.Load(code); ok {
 			citem2 := item2.(*innerItem)
 			citem2.increase(size)
 		} else {
@@ -78,7 +77,7 @@ func AddCount(name string, code uint32, size uint64) {
 	} else {
 		citem := newCountItem()
 		citem.Store(code, newInnerItem(size))
-		count_map.Store(name, citem)
+		countMap.Store(name, citem)
 	}
 	//logger.Infof("%s %d",name,code)
 }

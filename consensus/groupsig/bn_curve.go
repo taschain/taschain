@@ -5,7 +5,7 @@ package groupsig
 import (
 	"fmt"
 	"github.com/taschain/taschain/consensus/base"
-	"github.com/taschain/taschain/consensus/groupsig/bn_curve"
+	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 	"math/big"
 )
 
@@ -25,8 +25,8 @@ func revertString(b string) string {
 	return string(buf)
 }
 
-func HashToG1(m string) *bn_curve.G1 {
-	g := &bn_curve.G1{}
+func HashToG1(m string) *bncurve.G1 {
+	g := &bncurve.G1{}
 	g.HashToPoint([]byte(m))
 	return g
 }
@@ -65,7 +65,7 @@ func (bi *BnInt) Mul(b *BnInt) error {
 }
 
 func (bi *BnInt) Mod() error {
-	bi.v.Mod(&bi.v, bn_curve.Order)
+	bi.v.Mod(&bi.v, bncurve.Order)
 	return nil
 }
 
@@ -113,11 +113,11 @@ func (bi *BnInt) Deserialize(b []byte) error {
 }
 
 type bnG2 struct {
-	v bn_curve.G2
+	v bncurve.G2
 }
 
-func (bi *bnG2) Deserialize(b []byte) error {
-	bi.v.Unmarshal(b)
+func (bg *bnG2) Deserialize(b []byte) error {
+	bg.v.Unmarshal(b)
 	return nil
 }
 

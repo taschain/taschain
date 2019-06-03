@@ -12,6 +12,7 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package base
 
 import (
@@ -35,9 +36,9 @@ func HashBytes(b ...[]byte) hash.Hash {
 //生成数据的256位common.Hash
 func Data2CommonHash(data []byte) common.Hash {
 	var h common.Hash
-	sha3_hash := sha3.Sum256(data)
-	if len(sha3_hash) == common.HashLength {
-		copy(h[:], sha3_hash[:])
+	sha3Hash := sha3.Sum256(data)
+	if len(sha3Hash) == common.HashLength {
+		copy(h[:], sha3Hash[:])
 	} else {
 		panic("Data2Hash failed, size error.")
 	}

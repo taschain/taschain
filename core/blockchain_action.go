@@ -50,7 +50,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 		Height:     height,
 		ProveValue: proveValue,
 		Castor:     castor,
-		GroupId:    groupid,
+		GroupID:    groupid,
 		TotalQN:    latestBlock.TotalQN + qn, //todo:latestBlock != nil?
 		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
 		//ProveRoot:  proveRoot,

@@ -73,19 +73,17 @@ func GetLoggerByName(name string) Logger {
 
 	if r != nil {
 		return r
-	} else {
-		var config string
-		if name == "" {
-			config = DefaultConfig
-			return GetLogger(config)
-		} else {
-			fileName := name + ".log"
-			config = strings.Replace(DefaultConfig, "default.log", fileName, 1)
-			l := newLoggerByConfig(config)
-			register(getKey(name), l)
-			return l
-		}
 	}
+	var config string
+	if name == "" {
+		config = DefaultConfig
+		return GetLogger(config)
+	}
+	fileName := name + ".log"
+	config = strings.Replace(DefaultConfig, "default.log", fileName, 1)
+	l := newLoggerByConfig(config)
+	register(getKey(name), l)
+	return l
 }
 
 func getKey(s string) string {

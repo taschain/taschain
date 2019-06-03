@@ -32,7 +32,7 @@ type Sign struct {
 type SignData struct {
 	DataHash Hash   //哈希值
 	DataSign Sign   //签名
-	Id       string //用户ID
+	ID       string //用户ID
 }
 
 //signature construct function
@@ -80,9 +80,8 @@ func BytesToSign(b []byte) *Sign {
 
 		recid := b[64]
 		return &Sign{r, s, recid}
-	} else {
-		panic("BytesToSign must input 65 bytes!")
 	}
+	panic("BytesToSign must input 65 bytes!")
 }
 
 //Export the signature into a hex string

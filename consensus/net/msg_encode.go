@@ -166,7 +166,7 @@ func bonusToPB(bonus *types.Bonus) *tas_middleware_pb.Bonus {
 		TxHash:     bonus.TxHash.Bytes(),
 		TargetIds:  bonus.TargetIds,
 		BlockHash:  bonus.BlockHash.Bytes(),
-		GroupId:    bonus.GroupId,
+		GroupId:    bonus.GroupID,
 		Sign:       bonus.Sign,
 		TotalValue: &bonus.TotalValue,
 	}

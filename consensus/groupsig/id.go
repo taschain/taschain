@@ -30,7 +30,7 @@ type ID struct {
 
 //check whether id is equal to rhs
 func (id ID) IsEqual(rhs ID) bool {
-	// TODO : add IsEqual to bn_curve.ID
+	// TODO : add IsEqual to bncurve.ID
 	return id.value.IsEqual(&rhs.value)
 }
 
@@ -105,7 +105,7 @@ func (id ID) MarshalJSON() ([]byte, error) {
 func (id *ID) UnmarshalJSON(data []byte) error {
 	str := string(data[:])
 	if len(str) < 2 {
-		return fmt.Errorf("data size less than min.")
+		return fmt.Errorf("data size less than min")
 	}
 	str = str[1 : len(str)-1]
 	return id.SetHexString(str)
@@ -149,7 +149,7 @@ func NewIDFromPubkey(pk Pubkey) *ID {
 }
 
 //Construct ID with the input hex string
-func  NewIDFromString(s string) *ID {
+func NewIDFromString(s string) *ID {
 	bi := new(big.Int).SetBytes(common.FromHex(s))
 	return NewIDFromBigInt(bi)
 }

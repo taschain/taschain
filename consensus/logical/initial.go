@@ -12,8 +12,8 @@ import (
 **  Description:
  */
 
-const NORMAL_FAILED int = -1
-const NORMAL_SUCCESS int = 0
+const NormalFailed int = -1
+const NormalSuccess int = 0
 
 //共识名词定义：
 //铸块组：轮到铸当前高度块的组。

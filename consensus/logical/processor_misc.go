@@ -48,7 +48,7 @@ func (p *Processor) prepareMiner() {
 	groups := make([]*StaticGroupInfo, 0)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre() {
 		stdLogger.Infof("get group from core, id=%+v", coreGroup.Header)
-		if coreGroup.Id == nil || len(coreGroup.Id) == 0 {
+		if coreGroup.ID == nil || len(coreGroup.ID) == 0 {
 			continue
 		}
 		needBreak := false
@@ -100,7 +100,7 @@ func (p *Processor) Finalize() {
 	}
 }
 
-func (p *Processor) GetVrfWorker() *vrfWorker {
+func (p *Processor) getVrfWorker() *vrfWorker {
 	if v := p.vrf.Load(); v != nil {
 		return v.(*vrfWorker)
 	}
@@ -302,7 +302,7 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	//if preBH == nil {
 	//	return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
 	//}
-	//gid := groupsig.DeserializeId(bh.GroupId)
+	//gid := groupsig.DeserializeId(bh.GroupID)
 	//
 	//slog.AddStage("getGroup")
 	//group := p.GetGroup(gid)

@@ -37,9 +37,8 @@ func (ws *WalletServer) Start() error {
 	if err == nil {
 		fmt.Printf("Wallet RPC serving on http://%s\n", host)
 		return nil
-	} else {
-		return err
 	}
+	return err
 }
 
 //func response(w http.ResponseWriter, ret *Result) {

@@ -31,7 +31,7 @@ import (
 	"sync/atomic"
 )
 
-var PROC_TEST_MODE bool
+var ProcTestMode bool
 
 //见证人处理器
 type Processor struct {
@@ -146,7 +146,7 @@ func (p Processor) GetMinerInfo() *model.MinerDO {
 //	b := &msg.Block
 //	bh := b.Header
 //	var gid groupsig.ID
-//	if gid.Deserialize(bh.GroupId) != nil {
+//	if gid.Deserialize(bh.GroupID) != nil {
 //		panic("verifyGroupSign: group id Deserialize failed.")
 //	}
 //
@@ -183,33 +183,33 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		return
 	}
 
-	var gid = groupsig.DeserializeId(bh.GroupId)
+	var gid = groupsig.DeserializeId(bh.GroupID)
 
-	selectGroupIdFromCache := p.CalcVerifyGroupFromCache(preHeader, bh.Height)
+	selectGroupIDFromCache := p.CalcVerifyGroupFromCache(preHeader, bh.Height)
 
-	if selectGroupIdFromCache == nil {
+	if selectGroupIDFromCache == nil {
 		err = common.ErrSelectGroupNil
 		stdLogger.Debugf("selectGroupId is nil")
 		return
 	}
-	var verifyGid = *selectGroupIdFromCache
+	var verifyGid = *selectGroupIDFromCache
 
-	if !selectGroupIdFromCache.IsEqual(gid) { //有可能组已经解散，需要再从链上取
-		selectGroupIdFromChain := p.CalcVerifyGroupFromChain(preHeader, bh.Height)
-		if selectGroupIdFromChain == nil {
+	if !selectGroupIDFromCache.IsEqual(gid) { //有可能组已经解散，需要再从链上取
+		selectGroupIDFromChain := p.CalcVerifyGroupFromChain(preHeader, bh.Height)
+		if selectGroupIDFromChain == nil {
 			err = common.ErrSelectGroupNil
 			return
 		}
 		//若内存与链不一致，则启动更新
-		if !selectGroupIdFromChain.IsEqual(*selectGroupIdFromCache) {
+		if !selectGroupIDFromChain.IsEqual(*selectGroupIDFromCache) {
 			go p.updateGlobalGroups()
 		}
-		if !selectGroupIdFromChain.IsEqual(gid) {
+		if !selectGroupIDFromChain.IsEqual(gid) {
 			err = common.ErrSelectGroupInequal
-			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIdFromChain.ShortS(), gid.ShortS())
+			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIDFromChain.ShortS(), gid.ShortS())
 			return
 		}
-		verifyGid = *selectGroupIdFromChain
+		verifyGid = *selectGroupIDFromChain
 	}
 
 	group = p.GetGroup(verifyGid) //取得合法的铸块组

@@ -27,21 +27,21 @@ import (
 )
 
 const (
-	BASE_PORT = 22000
+	BasePort = 22000
 
-	SUPER_BASE_PORT = 1122
+	SuperBasePort = 1122
 
-	BASE_SECTION = "network"
+	BaseSection = "network"
 
-	PRIVATE_KEY = "private_key"
+	PrivateKey = "private_key"
 
-	NodeIdLength = 66
+	NodeIDLength = 66
 )
 
-type NodeID [NodeIdLength]byte
+type NodeID [NodeIDLength]byte
 
 func (nid NodeID) IsValid() bool {
-	for i := 0; i < NodeIdLength; i++ {
+	for i := 0; i < NodeIDLength; i++ {
 		if nid[i] > 0 {
 			return true
 		}
@@ -71,8 +71,8 @@ func (nid NodeID) Bytes() []byte {
 
 // Node Kad 节点
 type Node struct {
-	Id      NodeID
-	Ip      nnet.IP
+	ID      NodeID
+	IP      nnet.IP
 	Port    int
 	NatType int
 
@@ -91,19 +91,19 @@ func NewNode(id NodeID, ip nnet.IP, port int) *Node {
 		ip = ipv4
 	}
 	return &Node{
-		Ip:   ip,
+		IP:   ip,
 		Port: port,
-		Id:   id,
+		ID:   id,
 		sha:  makeSha256Hash(id[:]),
 	}
 }
 
 func (n *Node) addr() *nnet.UDPAddr {
-	return &nnet.UDPAddr{IP: n.Ip, Port: int(n.Port)}
+	return &nnet.UDPAddr{IP: n.IP, Port: int(n.Port)}
 }
 
 func (n *Node) Incomplete() bool {
-	return n.Ip == nil
+	return n.IP == nil
 }
 
 func (n *Node) validateComplete() error {
@@ -114,7 +114,7 @@ func (n *Node) validateComplete() error {
 		return errors.New("missing port")
 	}
 
-	if n.Ip.IsMulticast() || n.Ip.IsUnspecified() {
+	if n.IP.IsMulticast() || n.IP.IsUnspecified() {
 		return errors.New("invalid IP (multicast/unspecified)")
 	}
 	return nil
@@ -203,21 +203,21 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 
 func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, error) {
 	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-	ip := getLocalIp()
-	basePort := BASE_PORT
-	port := SUPER_BASE_PORT
+	ip := getLocalIP()
+	basePort := BasePort
+	port := SuperBasePort
 	if !isSuper {
 		basePort += 16
-		port = getAvailablePort(ip, BASE_PORT)
+		port = getAvailablePort(ip, BasePort)
 	}
 
-	n := Node{Id: id, Ip: nnet.ParseIP(ip), Port: port}
+	n := Node{ID: id, IP: nnet.ParseIP(ip), Port: port}
 	common.DefaultLogger.Info(n.String())
 	return &n, nil
 }
 
 //内网IP
-func getLocalIp() string {
+func getLocalIP() string {
 	addrs, err := nnet.InterfaceAddrs()
 
 	if err != nil {
@@ -236,7 +236,7 @@ func getLocalIp() string {
 
 func getAvailablePort(ip string, port int) int {
 	if port < 1024 {
-		port = BASE_PORT
+		port = BasePort
 	}
 
 	if port > 65535 {
@@ -257,17 +257,17 @@ func getAvailablePort(ip string, port int) int {
 	return port
 }
 
-func (s *Node) String() string {
-	str := "Self node net info:\n" + "ID is:" + s.Id.GetHexString() + "\nIP is:" + s.Ip.String() + "\nTcp port is:" + strconv.Itoa(s.Port) + "\n"
+func (n *Node) String() string {
+	str := "Self node net info:\n" + "ID is:" + n.ID.GetHexString() + "\nIP is:" + n.IP.String() + "\nTcp port is:" + strconv.Itoa(n.Port) + "\n"
 	return str
 }
 
 func getPrivateKeyFromConfigFile(config common.ConfManager) (privateKeyStr string) {
-	privateKey := config.GetString(BASE_SECTION, PRIVATE_KEY, "")
+	privateKey := config.GetString(BaseSection, PrivateKey, "")
 	return privateKey
 }
 
 // insert into config file
 func savePrivateKey(privateKeyStr string, config common.ConfManager) {
-	config.SetString(BASE_SECTION, PRIVATE_KEY, privateKeyStr)
+	config.SetString(BaseSection, PrivateKey, privateKeyStr)
 }
