@@ -130,7 +130,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 			blog.debug("OMCGR SendCreateGroupSignMessage... ")
 			p.NetServer.SendCreateGroupSignMessage(signMsg, parentGid)
 		} else {
-			blog.debug("SendCreateGroupSignMessage sign fail, ski=%v, %v", ski.ID.ShortS(), ski.SK.ShortS(), p.IsMinerGroup(parentGid))
+			blog.debug("SendCreateGroupSignMessage sign fail, ski=%v, %v", ski.ID.ShortS(), ski.SK.ShortS())
 		}
 
 	} else {
