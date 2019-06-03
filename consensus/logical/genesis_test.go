@@ -1,7 +1,6 @@
 package logical
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/taschain/taschain/common"
@@ -211,22 +210,11 @@ func TestGetGenesisGroupInfo(t *testing.T) {
 	file := "genesis_sgi_test.config"
 	gg := genGenesisStaticGroupInfo(file)
 
-	if gg.Group.GroupID.GetHexString() != "0x15fc80b99d8904205b768e04ccea60b67756fd8176ce27e95f5db1da9e57735" {
+	if gg.Group.GroupID.GetHexString() != "0x015fc80b99d8904205b768e04ccea60b67756fd8176ce27e95f5db1da9e57735" {
 		t.Errorf("group id error")
 	}
 	if gg.Group.GroupPK.GetHexString() != "0x01367332311024aa875285ade328974e8645ebe2833de109c9960c81a97a333408d4f0b4f9876e80fead0f802a22507dc1b2ad5b75836d15e9ab55747c52107c02bd626518d6b03c6d4421d8f63768f8ed2cf511a1947a05402efae14c77e3db2b20e9182bd94ca4c90e330a8db6c27bd52ef44f86bf01afd25dae660592157d" {
 		t.Errorf("group pk error")
 	}
 
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	json, err := json.Marshal(gg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(data, json) {
-		t.Errorf("data from file differ from json marshal")
-	}
 }
