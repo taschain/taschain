@@ -372,7 +372,6 @@ func (c *simpleContainer) insertQueue(newTx *types.Transaction) {
 	c.queue[addr].items[nonce] = newTx
 }
 
-// TODO 查找其它需要调用这个方法的地方--lei
 func (c *simpleContainer) promoteQueueToPending() {
 	c.lock.Lock()
 	defer c.lock.Unlock()

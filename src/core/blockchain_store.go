@@ -116,12 +116,14 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	chain.updateLatestBlock(ps.state, bh)
 
 	//交易从交易池中删除
+	removeTxs := make([]common.Hash, len(bh.Transactions))
 	if bh.Transactions != nil {
-		chain.transactionPool.RemoveFromPool(bh.Transactions)
+		removeTxs = append(removeTxs, bh.Transactions...)
 	}
 	if ps.evitedTxs != nil {
-		chain.transactionPool.RemoveFromPool(ps.evitedTxs)
+		removeTxs = append(removeTxs, ps.evitedTxs...)
 	}
+	chain.transactionPool.RemoveFromPool(removeTxs)
 
 	ok = true
 	return
