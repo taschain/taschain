@@ -16,17 +16,16 @@
 package net
 
 import (
-	"github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/taslog"
 	"log"
 	"testing"
 )
 
-type TestMachineGenerator struct {
+type testMachineGenerator struct {
 }
 
-func (t *TestMachineGenerator) Generate(id string) *StateMachine {
+func (t *testMachineGenerator) Generate(id string, cnt int) *StateMachine {
 	machine := newStateMachine(id)
 	machine.appendNode(newStateNode(1, 1, 1, func(msg interface{}) {
 		log.Println(1, msg)
@@ -43,16 +42,42 @@ func (t *TestMachineGenerator) Generate(id string) *StateMachine {
 	return machine
 }
 
-func TestStateMachine_GroupMachine(t *testing.T) {
+func TestStateMachines_GetMachine(t *testing.T) {
 	logger = taslog.GetLoggerByName("test_machine.log")
 	cache := common.MustNewLRUCache(2)
 	testMachines := StateMachines{
 		name:      "GroupOutsideMachines",
-		generator: &TestMachineGenerator{},
+		generator: &testMachineGenerator{},
 		machines:  cache,
 	}
 
-	machine := testMachines.GetMachine("abc")
+	machine := testMachines.GetMachine("abc", 4)
+	if machine == nil {
+		t.Fatal("create machine fail")
+	}
+	if machine.Id != "abc" {
+		t.Errorf("machine id error")
+	}
+
+	taslog.Close()
+}
+
+func TestStateMachine_Transform(t *testing.T) {
+	logger = taslog.GetLoggerByName("test_machine.log")
+	cache := common.MustNewLRUCache(2)
+	testMachines := StateMachines{
+		name:      "GroupOutsideMachines",
+		generator: &testMachineGenerator{},
+		machines:  cache,
+	}
+
+	machine := testMachines.GetMachine("abc", 4)
+	if machine == nil {
+		t.Fatal("create machine fail")
+	}
+	if machine.Id != "abc" {
+		t.Errorf("machine id error")
+	}
 	machine.Transform(NewStateMsg(2, "sharepiece 1", "u1"))
 	machine.Transform(NewStateMsg(2, "sharepiece 2", "u2"))
 	machine.Transform(NewStateMsg(2, "sharepiece 4", "u4"))
@@ -64,10 +89,14 @@ func TestStateMachine_GroupMachine(t *testing.T) {
 	machine.Transform(NewStateMsg(1, "init 2", "u4"))
 	machine.Transform(NewStateMsg(3, "pub 2", "u2"))
 	machine.Transform(NewStateMsg(1, "init 1", "u2"))
-	machine.Transform(NewStateMsg(3, "pub 1", "u1"))
+	//machine.Transform(NewStateMsg(3, "pub 1", "u1"))
 
-	log.Println("leastFinished ", machine.finish())
-	log.Println("mostFinisehd ", machine.allFinished())
+	if !machine.finish() {
+		t.Errorf("machine should be finished")
+	}
+	if machine.allFinished() {
+		t.Errorf("machine not all finished yet")
+	}
 
 	taslog.Close()
 }

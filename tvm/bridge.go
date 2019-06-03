@@ -61,7 +61,7 @@ func Transfer(toAddressStr *C.char, value *C.char) {
 	if contractValue.Cmp(transValue) < 0 {
 		return
 	}
-	toAddress := common.HexStringToAddress(C.GoString(toAddressStr))
+	toAddress := common.HexToAddress(C.GoString(toAddressStr))
 	controller.AccountDB.AddBalance(toAddress, transValue)
 	controller.AccountDB.SubBalance(*contractAddr, transValue)
 }
@@ -116,7 +116,7 @@ func SetNonce(addressC *C.char, nonce C.ulonglong) {
 func GetCodeHash(addressC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
 	hash := controller.AccountDB.GetCodeHash(address)
-	return C.CString(hash.String())
+	return C.CString(hash.Hex())
 }
 
 //export GetCode
@@ -213,12 +213,12 @@ func BlockHash(height C.ulonglong) *C.char {
 	if block == nil {
 		return C.CString("0x0000000000000000000000000000000000000000000000000000000000000000")
 	}
-	return C.CString(block.Hash.String())
+	return C.CString(block.Hash.Hex())
 }
 
 //export CoinBase
 func CoinBase() *C.char {
-	return C.CString(common.BytesToAddress(controller.BlockHeader.Castor).GetHexString())
+	return C.CString(common.BytesToAddress(controller.BlockHeader.Castor).Hex())
 }
 
 //export Difficulty
@@ -238,7 +238,7 @@ func Timestamp() C.ulonglong {
 
 //export TxOrigin
 func TxOrigin() *C.char {
-	return C.CString(controller.Transaction.GetSource().GetHexString())
+	return C.CString(controller.Transaction.GetSource().Hex())
 }
 
 //export TxGasLimit
@@ -324,7 +324,7 @@ func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
 		//TODO
 	}
 	source := controller.VM.ContractAddress
-	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	miner := common.HexToAddress(C.GoString(minerAddr))
 	if CanTransfer(controller.AccountDB, *source, value) {
 		mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 		if mexist != nil &&
@@ -347,7 +347,7 @@ func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
 		//TODO
 	}
 	source := controller.VM.ContractAddress
-	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	miner := common.HexToAddress(C.GoString(minerAddr))
 	mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 	if mexist != nil &&
 		controller.mm.CancelStake(source.Bytes(), mexist, value.Uint64(), controller.AccountDB, controller.BlockHeader.Height) &&
@@ -364,7 +364,7 @@ func MinerRefundStake(minerAddr *C.char, _type int) bool {
 	var success = false
 	ss := controller.AccountDB.Snapshot()
 	source := controller.VM.ContractAddress
-	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	miner := common.HexToAddress(C.GoString(minerAddr))
 	mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 	height := controller.BlockHeader.Height
 	if mexist != nil {

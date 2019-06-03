@@ -6,8 +6,6 @@ import (
 	"github.com/taschain/taschain/storage/trie"
 	"strconv"
 	"testing"
-
-	"encoding/json"
 )
 
 func getString(trie *trie.Trie, k string) []byte {
@@ -43,34 +41,6 @@ func TestExpandTrie(t *testing.T) {
 			t.Errorf("wrong value: %v", vl)
 		}
 	}
-	data := encode(trie1)
-
-	newTrie := decode(data)
-	for i := 0; i < 100; i++ {
-		vl := string(getString(newTrie, strconv.Itoa(i)))
-		if vl != strconv.Itoa(i) {
-			t.Errorf("wrong value: %v", vl)
-		}
-	}
-
 }
 
-func decode(data []byte) *trie.Trie {
-	//buffer := bytes.NewBuffer(data)
-	//decoder := gob.NewDecoder(buffer)
-	var n trie.Trie
-	err := json.Unmarshal(data, &n)
-	if err != nil {
-		panic(err)
-	}
-	return &n
-}
 
-func encode(n Trie) []byte {
-	b, err := json.Marshal(n)
-
-	if err != nil {
-		panic(err)
-	}
-	return b
-}

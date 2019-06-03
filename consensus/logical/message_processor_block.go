@@ -32,11 +32,25 @@ func (p *Processor) thresholdPieceVerify(vctx *VerifyContext, slot *SlotContext)
 	p.reserveBlock(vctx, slot)
 }
 
-func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMessage, preBH *types.BlockHeader) (ok bool, err error) {
+func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *types.BlockHeader) (ok bool, err error) {
 	bh := &msg.BH
 	si := &msg.SI
-	castor := groupsig.DeserializeID(bh.Castor)
-	groupID := groupsig.DeserializeID(bh.GroupID)
+	castor := groupsig.DeserializeId(bh.Castor)
+	groupID := groupsig.DeserializeId(bh.GroupID)
+
+	defer func() {
+		if ok {
+			go func() {
+				verifys := p.blockContexts.getVerifyMsgCache(bh.Hash)
+				if verifys != nil {
+					for _, vmsg := range verifys.verifyMsgs {
+						p.OnMessageVerify(vmsg)
+					}
+				}
+				p.blockContexts.removeVerifyMsgCache(bh.Hash)
+			}()
+		}
+	}()
 
 	if p.blockOnChain(bh.Hash) {
 		err = fmt.Errorf("block onchain already")
@@ -72,9 +86,11 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 			err = fmt.Errorf("block signed")
 			return
 		}
-		err = vctx.baseCheck(bh, si.GetID())
-		if err != nil {
-			return
+		if vctx.prevBH.Hash == bh.PreHash {
+			err = vctx.baseCheck(bh, si.GetID())
+			if err != nil {
+				return
+			}
 		}
 	}
 	castorDO := p.minerReader.getProposeMiner(castor)
@@ -148,11 +164,11 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		Hash:     bh.Hash.Hex(),
 		PreHash:  bh.PreHash.Hex(),
 		Proposer: ccm.SI.GetID().GetHexString(),
-		Verifier: groupsig.DeserializeID(bh.GroupID).GetHexString(),
+		Verifier: groupsig.DeserializeId(bh.GroupID).GetHexString(),
 		Ext:      fmt.Sprintf("external:qn:%v,totalQN:%v", 0, bh.TotalQN),
 	}
 	slog.AddStage("getGroup")
-	group := p.GetGroup(groupsig.DeserializeID(bh.GroupID))
+	group := p.GetGroup(groupsig.DeserializeId(bh.GroupID))
 	slog.EndStage()
 
 	slog.AddStage("addLog")
@@ -166,8 +182,8 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 
 	si := &ccm.SI
 	traceLog := newHashTraceLog(mtype, bh.Hash, si.GetID())
-	castor := groupsig.DeserializeID(bh.Castor)
-	groupID := groupsig.DeserializeID(bh.GroupID)
+	castor := groupsig.DeserializeId(bh.Castor)
+	groupID := groupsig.DeserializeId(bh.GroupID)
 
 	traceLog.logStart("%v:height=%v, castor=%v", mtype, bh.Height, castor.ShortS())
 	blog.debug("proc(%v) begin hash=%v, height=%v, sender=%v, castor=%v, groupID=%v", p.getPrefix(), bh.Hash.ShortS(), bh.Height, si.GetID().ShortS(), castor.ShortS(), groupID.ShortS())
@@ -227,23 +243,9 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	}
 
 	slog.AddStage("OMC")
-	ok, err := p.verifyCastMessage("OMC", ccm, preBH)
+	_, err = p.verifyCastMessage(ccm, preBH)
 	slog.EndStage()
 
-	if ok {
-		go func() {
-			verifys := p.blockContexts.getVerifyMsgCache(bh.Hash)
-			if verifys != nil {
-				blog.log("verify cache msg hash:%v, size:%v", bh.Hash.ShortS(), len(verifys.verifyMsgs))
-				slog.AddStage(fmt.Sprintf("OMCVerifies-%v", len(verifys.verifyMsgs)))
-				for _, vmsg := range verifys.verifyMsgs {
-					p.OnMessageVerify(vmsg)
-				}
-				slog.EndStage()
-			}
-			p.blockContexts.removeVerifyMsgCache(bh.Hash)
-		}()
-	}
 }
 
 func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyContext) (ret int8, err error) {
@@ -332,11 +334,18 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	traceLog := newHashTraceLog("OMV", blockHash, cvm.SI.GetID())
 
 	var (
-		err error
-		ret int8
+		err  error
+		ret  int8
+		slot *SlotContext
 	)
 	defer func() {
-		traceLog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, err)
+		result := "unknown"
+		if err != nil {
+			result = err.Error()
+		} else if slot != nil {
+			result = slot.gSignGenerator.Brief()
+		}
+		traceLog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, result)
 	}()
 
 	vctx := p.blockContexts.getVctxByHash(blockHash)
@@ -346,6 +355,8 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 		return
 	}
 	ret, err = p.doVerify(cvm, vctx)
+
+	slot = vctx.GetSlotByHash(blockHash)
 
 	return
 }
@@ -361,7 +372,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 }
 
 func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader, slog *taslog.SlowLog) (send bool, err error) {
-	gid := groupsig.DeserializeID(bh.GroupID)
+	gid := groupsig.DeserializeId(bh.GroupID)
 	group := p.GetGroup(gid)
 	reward := &msg.Reward
 	if group == nil {
@@ -543,7 +554,7 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		return
 	}
 
-	gid := groupsig.DeserializeID(bh.GroupID)
+	gid := groupsig.DeserializeId(bh.GroupID)
 	group := p.GetGroup(gid)
 	if group == nil {
 		panic("group is nil")
@@ -593,7 +604,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	}
 
 	if pb.maxResponseCount == 0 {
-		gid := groupsig.DeserializeID(pb.block.Header.GroupID)
+		gid := groupsig.DeserializeId(pb.block.Header.GroupID)
 		group, err := p.globalGroups.GetGroupByID(gid)
 		if err != nil {
 			blog.log("block proposal response, GetGroupByID err= %v,  hash=%v", err, msg.Hash.ShortS())

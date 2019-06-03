@@ -307,7 +307,7 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 
 	gc := p.joiningGroups.GetGroup(gHash)
 	if gc == nil {
-		err = fmt.Errorf("failed, receive SHAREPIECE msg but gc=nil.gHash=%v", gHash.String())
+		err = fmt.Errorf("failed, receive SHAREPIECE msg but gc=nil.gHash=%v", gHash.Hex())
 		return
 	}
 	if gc.gInfo.GroupHash() != gHash {
@@ -655,7 +655,7 @@ func (p *Processor) OnMessageSharePieceResponse(msg *model.ResponseSharePieceMes
 		//le := &monitor.LogEntry{
 		//	LogType: monitor.LogTypeGroupRecoverFromResponse,
 		//	Height: p.GroupChain.Height(),
-		//	Hash: msg.GHash.Hex(),
+		//	Hash: msg.GHash.String(),
 		//	Proposer: "00",
 		//}
 		//monitor.Instance.AddLog(le)

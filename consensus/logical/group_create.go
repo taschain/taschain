@@ -203,21 +203,21 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	//前一组，父亲组是否存在
 	preGroup := gm.groupChain.GetGroupByID(gh.PreGroup)
 	if preGroup == nil {
-		return nil, false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeID(gh.PreGroup).ShortS())
+		return nil, false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeId(gh.PreGroup).ShortS())
 	}
 	parentGroup := gm.groupChain.GetGroupByID(gh.Parent)
 	if parentGroup == nil {
-		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeID(gh.Parent).ShortS())
+		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
 	}
 	sgi, err := gm.selectParentGroup(baseBH, gh.PreGroup)
 	if err != nil {
 		return nil, false, fmt.Errorf("select parent group err %v", err)
 	}
-	pid := groupsig.DeserializeID(parentGroup.ID)
+	pid := groupsig.DeserializeId(parentGroup.ID)
 	if !sgi.GroupID.IsEqual(pid) {
 		return nil, false, fmt.Errorf("select parent group not equal, expect %v, recieve %v", sgi.GroupID.ShortS(), pid.ShortS())
 	}
-	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeID(gh.Parent))
+	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeId(gh.Parent))
 
 	if !groupsig.VerifySig(gpk, gh.Hash.Bytes(), gInfo.GI.Signature) {
 		return nil, false, fmt.Errorf("verify parent sign fail")

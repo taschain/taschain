@@ -32,23 +32,23 @@ var emptyCodeHash = sha3.Sum256(nil)
 
 type Code []byte
 
-func (c Code) String() string {
-	return string(c) //strings.Join(Disassemble(c), " ")
+func (self Code) String() string {
+	return string(self) //strings.Join(Disassemble(self), " ")
 }
 
 type Storage map[string][]byte
 
-func (s Storage) String() (str string) {
-	for key, value := range s {
+func (self Storage) String() (str string) {
+	for key, value := range self {
 		str += fmt.Sprintf("%X : %X\n", key, value)
 	}
 
 	return
 }
 
-func (s Storage) Copy() Storage {
+func (self Storage) Copy() Storage {
 	cpy := make(Storage)
-	for key, value := range s {
+	for key, value := range self {
 		cpy[key] = value
 	}
 
@@ -77,8 +77,8 @@ type accountObject struct {
 	onDirty   func(addr common.Address)
 }
 
-func (ao *accountObject) empty() bool {
-	return ao.data.Nonce == 0 && ao.data.Balance.Sign() == 0 && bytes.Equal(ao.data.CodeHash, emptyCodeHash[:])
+func (s *accountObject) empty() bool {
+	return s.data.Nonce == 0 && s.data.Balance.Sign() == 0 && bytes.Equal(s.data.CodeHash, emptyCodeHash[:])
 }
 
 type Account struct {
@@ -106,145 +106,145 @@ func newAccountObject(db *AccountDB, address common.Address, data Account, onDir
 	}
 }
 
-func (ao *accountObject) Encode(w io.Writer) error {
-	return serialize.Encode(w, ao.data)
+func (c *accountObject) Encode(w io.Writer) error {
+	return serialize.Encode(w, c.data)
 }
 
-func (ao *accountObject) setError(err error) {
-	if ao.dbErr == nil {
-		ao.dbErr = err
+func (self *accountObject) setError(err error) {
+	if self.dbErr == nil {
+		self.dbErr = err
 	}
 }
 
-func (ao *accountObject) markSuicided() {
-	ao.suicided = true
-	if ao.onDirty != nil {
-		ao.onDirty(ao.Address())
-		ao.onDirty = nil
+func (self *accountObject) markSuicided() {
+	self.suicided = true
+	if self.onDirty != nil {
+		self.onDirty(self.Address())
+		self.onDirty = nil
 	}
 }
 
-func (ao *accountObject) touch() {
-	ao.db.transitions = append(ao.db.transitions, touchChange{
-		account:   &ao.address,
-		prev:      ao.touched,
-		prevDirty: ao.onDirty == nil,
+func (c *accountObject) touch() {
+	c.db.transitions = append(c.db.transitions, touchChange{
+		account:   &c.address,
+		prev:      c.touched,
+		prevDirty: c.onDirty == nil,
 	})
-	if ao.onDirty != nil {
-		ao.onDirty(ao.Address())
-		ao.onDirty = nil
+	if c.onDirty != nil {
+		c.onDirty(c.Address())
+		c.onDirty = nil
 	}
-	ao.touched = true
+	c.touched = true
 }
 
-func (ao *accountObject) getTrie(db AccountDatabase) Trie {
-	if ao.trie == nil {
+func (c *accountObject) getTrie(db AccountDatabase) Trie {
+	if c.trie == nil {
 		var err error
-		ao.trie, err = db.OpenStorageTrie(ao.addrHash, ao.data.Root)
+		c.trie, err = db.OpenStorageTrie(c.addrHash, c.data.Root)
 		if err != nil {
-			ao.trie, _ = db.OpenStorageTrie(ao.addrHash, common.Hash{})
-			ao.setError(fmt.Errorf("can't create storage trie: %v", err))
+			c.trie, _ = db.OpenStorageTrie(c.addrHash, common.Hash{})
+			c.setError(fmt.Errorf("can't create storage trie: %v", err))
 		}
 	}
-	return ao.trie
+	return c.trie
 }
 
-func (ao *accountObject) GetData(db AccountDatabase, key string) []byte {
-	ao.cachedLock.RLock()
-	value, exists := ao.cachedStorage[key]
-	ao.cachedLock.RUnlock()
+func (self *accountObject) GetData(db AccountDatabase, key string) []byte {
+	self.cachedLock.RLock()
+	value, exists := self.cachedStorage[key]
+	self.cachedLock.RUnlock()
 	if exists {
 		return value
 	}
 
-	value, err := ao.getTrie(db).TryGet([]byte(key))
+	value, err := self.getTrie(db).TryGet([]byte(key))
 	if err != nil {
-		ao.setError(err)
+		self.setError(err)
 		return nil
 	}
 
 	if value != nil {
-		ao.cachedLock.Lock()
-		ao.cachedStorage[key] = value
-		ao.cachedLock.Unlock()
+		self.cachedLock.Lock()
+		self.cachedStorage[key] = value
+		self.cachedLock.Unlock()
 	}
 	return value
 }
 
-func (ao *accountObject) SetData(db AccountDatabase, key string, value []byte) {
-	ao.db.transitions = append(ao.db.transitions, storageChange{
-		account:  &ao.address,
+func (self *accountObject) SetData(db AccountDatabase, key string, value []byte) {
+	self.db.transitions = append(self.db.transitions, storageChange{
+		account:  &self.address,
 		key:      key,
-		prevalue: ao.GetData(db, key),
+		prevalue: self.GetData(db, key),
 	})
-	ao.setData(key, value)
+	self.setData(key, value)
 }
 
-func (ao *accountObject) RemoveData(db AccountDatabase, key string) {
-	ao.SetData(db, key, nil)
+func (self *accountObject) RemoveData(db AccountDatabase, key string) {
+	self.SetData(db, key, nil)
 }
 
-func (ao *accountObject) setData(key string, value []byte) {
-	ao.cachedLock.Lock()
-	ao.cachedStorage[key] = value
-	ao.cachedLock.Unlock()
-	ao.dirtyStorage[key] = value
+func (self *accountObject) setData(key string, value []byte) {
+	self.cachedLock.Lock()
+	self.cachedStorage[key] = value
+	self.cachedLock.Unlock()
+	self.dirtyStorage[key] = value
 
-	if ao.onDirty != nil {
-		ao.onDirty(ao.Address())
-		ao.onDirty = nil
+	if self.onDirty != nil {
+		self.onDirty(self.Address())
+		self.onDirty = nil
 	}
 }
 
-func (ao *accountObject) updateTrie(db AccountDatabase) Trie {
-	tr := ao.getTrie(db)
-	for key, value := range ao.dirtyStorage {
-		delete(ao.dirtyStorage, key)
+func (self *accountObject) updateTrie(db AccountDatabase) Trie {
+	tr := self.getTrie(db)
+	for key, value := range self.dirtyStorage {
+		delete(self.dirtyStorage, key)
 		if value == nil {
-			ao.setError(tr.TryDelete([]byte(key)))
+			self.setError(tr.TryDelete([]byte(key)))
 			continue
 		}
 
-		ao.setError(tr.TryUpdate([]byte(key), value[:]))
+		self.setError(tr.TryUpdate([]byte(key), value[:]))
 	}
 	return tr
 }
 
-func (ao *accountObject) updateRoot(db AccountDatabase) {
-	ao.updateTrie(db)
-	ao.data.Root = ao.trie.Hash()
+func (self *accountObject) updateRoot(db AccountDatabase) {
+	self.updateTrie(db)
+	self.data.Root = self.trie.Hash()
 }
 
-func (ao *accountObject) CommitTrie(db AccountDatabase) error {
-	ao.updateTrie(db)
-	if ao.dbErr != nil {
-		return ao.dbErr
+func (self *accountObject) CommitTrie(db AccountDatabase) error {
+	self.updateTrie(db)
+	if self.dbErr != nil {
+		return self.dbErr
 	}
-	root, err := ao.trie.Commit(nil)
+	root, err := self.trie.Commit(nil)
 	if err == nil {
-		ao.data.Root = root
-		//ao.db.db.PushTrie(root, ao.trie)
+		self.data.Root = root
+		//self.db.db.PushTrie(root, self.trie)
 	}
 	return err
 }
 
-func (ao *accountObject) AddBalance(amount *big.Int) {
+func (c *accountObject) AddBalance(amount *big.Int) {
 
 	if amount.Sign() == 0 {
-		if ao.empty() {
-			ao.touch()
+		if c.empty() {
+			c.touch()
 		}
 
 		return
 	}
-	ao.SetBalance(new(big.Int).Add(ao.Balance(), amount))
+	c.SetBalance(new(big.Int).Add(c.Balance(), amount))
 }
 
-func (ao *accountObject) SubBalance(amount *big.Int) {
+func (c *accountObject) SubBalance(amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	ao.SetBalance(new(big.Int).Sub(ao.Balance(), amount))
+	c.SetBalance(new(big.Int).Sub(c.Balance(), amount))
 }
 
 func (ao *accountObject) SetBalance(amount *big.Int) {
@@ -263,7 +263,7 @@ func (ao *accountObject) setBalance(amount *big.Int) {
 	}
 }
 
-func (ao *accountObject) ReturnGas(gas *big.Int) {}
+func (c *accountObject) ReturnGas(gas *big.Int) {}
 
 func (ao *accountObject) deepCopy(db *AccountDB, onDirty func(addr common.Address)) *accountObject {
 	accountObject := newAccountObject(db, ao.address, ao.data, onDirty)
@@ -279,10 +279,12 @@ func (ao *accountObject) deepCopy(db *AccountDB, onDirty func(addr common.Addres
 	return accountObject
 }
 
-func (ao *accountObject) Address() common.Address {
-	return ao.address
+func (c *accountObject) Address() common.Address {
+	return c.address
 }
 
+
+// Code returns the contract code associated with this object, if any.
 func (ao *accountObject) Code(db AccountDatabase) []byte {
 	if ao.code != nil {
 		return ao.code
@@ -306,11 +308,11 @@ func (ao *accountObject) DataIterator(db AccountDatabase, prefix []byte) *trie.I
 }
 
 func (ao *accountObject) SetCode(codeHash common.Hash, code []byte) {
-	prevCode := ao.Code(ao.db.db)
+	prevcode := ao.Code(ao.db.db)
 	ao.db.transitions = append(ao.db.transitions, codeChange{
 		account:  &ao.address,
 		prevhash: ao.CodeHash(),
-		prevcode: prevCode,
+		prevcode: prevcode,
 	})
 	ao.setCode(codeHash, code)
 }
@@ -357,9 +359,3 @@ func (ao *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
 }
 
-//func (self *accountObject) fstring() string {
-//	if self.trie == nil {
-//		self.trie = self.getTrie(self.db.db)
-//	}
-//	return self.trie.Fstring()
-//}
