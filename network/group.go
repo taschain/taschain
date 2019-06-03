@@ -26,7 +26,7 @@ import (
 
 const GroupBaseConnectNodeCount = 2
 
-// Group 组对象
+// Group represents a group object
 type Group struct {
 	id               string
 	members          []NodeID
@@ -195,7 +195,7 @@ func (g *Group) send(packet *bytes.Buffer, code uint32) {
 	return
 }
 
-//GroupManager 组管理
+// GroupManager represents group management
 type GroupManager struct {
 	groups map[string]*Group
 	mutex  sync.RWMutex

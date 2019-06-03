@@ -194,7 +194,7 @@ func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
 
 	fp.syncCtx.lastReqPiece = pieceReq
 
-	//启动定时器
+	// Start ticker
 	fp.chain.ticker.RegisterOneTimeRoutine(tickerReqPieceBlock, func() bool {
 		fp.reqPieceTimeout(fp.syncCtx.target)
 		return true
@@ -234,9 +234,9 @@ func (fp *forkProcessor) chainPieceBlockReqHandler(msg notify.Message) {
 		Blocks:       blocks,
 	}
 
-	if ancestor != nil { //找到共同祖先
+	if ancestor != nil { // Find a common ancestor
 		ancestorBH := fp.chain.queryBlockHeaderByHash(*ancestor)
-		//可能祖先被分叉干掉了
+		// Maybe the ancestor were killed due to forks
 		if ancestorBH != nil {
 			blocks = fp.chain.BatchGetBlocksAfterHeight(ancestorBH.Height, int(pieceReq.ReqCnt))
 			response.Blocks = blocks

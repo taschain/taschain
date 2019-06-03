@@ -13,12 +13,6 @@ import (
 	"sort"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/1/11 下午1:39
-**  Description:
- */
-
 type SysWorkSummary struct {
 	BeginHeight         uint64                `json:"begin_height"`
 	ToHeight            uint64                `json:"to_height"`
@@ -128,11 +122,6 @@ func (s *GroupVerifySummary) fillGroupInfo(g *types.Group, top uint64) {
 	s.Dissmissed = s.DissmissHeight <= top
 }
 
-//func (api *GtasAPI) DebugContextSummary() (*Result, error) {
-//	s := mediator.Proc.BlockContextSummary()
-//	return successResult(s)
-//}
-
 func getAllGroup() map[string]*types.Group {
 	iterator := mediator.Proc.GroupChain.NewIterator()
 	gs := make(map[string]*types.Group)
@@ -218,7 +207,6 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 					maxHeight = bh.Height
 				}
 			}
-			//expectGid, gs := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
 			gid := groupsig.DeserializeID(bh.GroupID)
 			preBH = bh
 			gvs := summary.getGroupSummary(gid, topHeight, gid.IsEqual(nextGroupID))

@@ -10,11 +10,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/6 下午2:22
-**  Description:
- */
 var spaceRe, _ = regexp.Compile("\\s+")
 
 const (
@@ -64,7 +59,6 @@ func (ns *NodeResStat) startStatLoop() {
 
 func (ns *NodeResStat) statCPUAndMEM() {
 	sess := sh.NewSession()
-	//sess.ShowCMD = true
 	bs, err := sess.Command("top", "-b", "-n 1", fmt.Sprintf("-p %v", os.Getpid())).Command("grep", "gtas").Output()
 
 	if err == nil {
@@ -96,7 +90,6 @@ func (ns *NodeResStat) statCPUAndMEM() {
 
 func (ns *NodeResStat) statFlow() {
 	sess := sh.NewSession()
-	//sess.ShowCMD = true
 	bs, err := sess.Command("sar", "-n", "DEV", "1", "2").Command("grep", "eth").CombinedOutput()
 
 	if err == nil {

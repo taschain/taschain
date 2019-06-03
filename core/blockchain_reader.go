@@ -40,6 +40,7 @@ func (chain *FullBlockChain) TotalQN() uint64 {
 	return chain.QueryTopBlock().TotalQN
 }
 
+// GetTransactionByHash get a transaction by hash
 func (chain *FullBlockChain) GetTransactionByHash(onlyBonus, needSource bool, h common.Hash) *types.Transaction {
 	tx := chain.transactionPool.GetTransaction(onlyBonus, h)
 	if tx == nil {
@@ -56,10 +57,13 @@ func (chain *FullBlockChain) GetTransactionByHash(onlyBonus, needSource bool, h 
 	return tx
 }
 
+// GetTransactionPool return the transaction pool waiting for the block
 func (chain *FullBlockChain) GetTransactionPool() TransactionPool {
 	return chain.transactionPool
 }
 
+// IsAdujsting means whether need to adjust blockchain,
+// which means there may be a fork
 func (chain *FullBlockChain) IsAdujsting() bool {
 	return chain.isAdujsting
 }
@@ -70,7 +74,7 @@ func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 	return chain.latestStateDB
 }
 
-//查询最高块
+// QueryTopBlock returns the latest block header
 func (chain *FullBlockChain) QueryTopBlock() *types.BlockHeader {
 	chain.rwLock.RLock()
 	defer chain.rwLock.RUnlock()
@@ -89,8 +93,8 @@ func (chain *FullBlockChain) HasHeight(height uint64) bool {
 	return chain.hasHeight(height)
 }
 
-// 根据指定高度查询块
-// 带有缓存
+// QueryBlockHeaderByHeight returns the block header query by height,
+// first query LRU, if there's not exist, then query db
 func (chain *FullBlockChain) QueryBlockHeaderByHeight(height uint64) *types.BlockHeader {
 	b := chain.getTopBlockByHeight(height)
 	if b != nil {
@@ -103,6 +107,7 @@ func (chain *FullBlockChain) QueryBlockHeaderByHeight(height uint64) *types.Bloc
 	return chain.queryBlockHeaderByHeight(height)
 }
 
+// QueryBlockByHeight query the block by height
 func (chain *FullBlockChain) QueryBlockByHeight(height uint64) *types.Block {
 	b := chain.getTopBlockByHeight(height)
 	if b != nil {
@@ -123,7 +128,7 @@ func (chain *FullBlockChain) QueryBlockByHeight(height uint64) *types.Block {
 	}
 }
 
-//根据指定哈希查询块
+// QueryBlockHeaderByHash query block header according to the specified hash
 func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
 	if b := chain.getTopBlockByHash(hash); b != nil {
 		return b.Header
@@ -131,6 +136,7 @@ func (chain *FullBlockChain) QueryBlockHeaderByHash(hash common.Hash) *types.Blo
 	return chain.queryBlockHeaderByHash(hash)
 }
 
+// QueryBlockByHash query the block by block hash
 func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 	if b := chain.getTopBlockByHash(hash); b != nil {
 		return b
@@ -141,6 +147,8 @@ func (chain *FullBlockChain) QueryBlockByHash(hash common.Hash) *types.Block {
 
 	return chain.queryBlockByHash(hash)
 }
+
+// QueryBlockHeaderCeil query first block header whose height >= height
 func (chain *FullBlockChain) QueryBlockHeaderCeil(height uint64) *types.BlockHeader {
 	if b := chain.getTopBlockByHeight(height); b != nil {
 		return b.Header
@@ -155,6 +163,8 @@ func (chain *FullBlockChain) QueryBlockHeaderCeil(height uint64) *types.BlockHea
 	}
 	return chain.queryBlockHeaderByHash(*hash)
 }
+
+// QueryBlockCeil query first block whose height >= height
 func (chain *FullBlockChain) QueryBlockCeil(height uint64) *types.Block {
 	if b := chain.getTopBlockByHeight(height); b != nil {
 		return b
@@ -169,6 +179,8 @@ func (chain *FullBlockChain) QueryBlockCeil(height uint64) *types.Block {
 	}
 	return chain.queryBlockByHash(*hash)
 }
+
+// QueryBlockHeaderFloor query first block header whose height <= height
 func (chain *FullBlockChain) QueryBlockHeaderFloor(height uint64) *types.BlockHeader {
 	if b := chain.getTopBlockByHeight(height); b != nil {
 		return b.Header
@@ -180,6 +192,8 @@ func (chain *FullBlockChain) QueryBlockHeaderFloor(height uint64) *types.BlockHe
 	header := chain.queryBlockHeaderByHeightFloor(height)
 	return header
 }
+
+// QueryBlockFloor query first block whose height <= height
 func (chain *FullBlockChain) QueryBlockFloor(height uint64) *types.Block {
 	if b := chain.getTopBlockByHeight(height); b != nil {
 		return b
@@ -201,6 +215,7 @@ func (chain *FullBlockChain) QueryBlockFloor(height uint64) *types.Block {
 	return b
 }
 
+// QueryBlockBytesFloor query the block byte slice by height
 func (chain *FullBlockChain) QueryBlockBytesFloor(height uint64) []byte {
 	chain.rwLock.RLock()
 	defer chain.rwLock.RUnlock()
@@ -255,6 +270,7 @@ func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB, 
 	return account.NewAccountDB(header.StateTree, chain.stateCache)
 }
 
+// BatchGetBlocksAfterHeight query blocks after the specified height
 func (chain *FullBlockChain) BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block {
 	chain.rwLock.RLock()
 	defer chain.rwLock.RUnlock()

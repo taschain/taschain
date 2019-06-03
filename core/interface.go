@@ -24,53 +24,62 @@ import (
 	"math/big"
 )
 
-//主链接口
+// BlockChain is a interface, encapsulates some methods for manipulating the blockchain
 type BlockChain interface {
 	vm.ChainReader
 	AccountRepository
 
-	//构建一个铸块（组内当前铸块人同步操作）
+	// CastBlock cast a block, current casters synchronization operation in the group
 	CastBlock(height uint64, proveValue []byte, qn uint64, castor []byte, groupid []byte) *types.Block
 
-	//铸块成功，上链
-	//返回值: 0,上链成功
-	//       -1，验证失败
-	//        1, 丢弃该块(链上已存在该块）
-	//        2,丢弃该块（链上存在QN值更大的相同高度块)
-	//        3,分叉调整
+	// AddBlockOnChain add a block on blockchain, there are five cases of return value：
+	// 0, successfully add block on blockchain
+	// -1, verification failed
+	// 1, the block already exist on the blockchain, then we should discard it
+	// 2, the same height block with a larger QN value on the chain, then we should discard it
+	// 3, need adjust the blockchain, there will be a fork
 	AddBlockOnChain(source string, b *types.Block) types.AddBlockResult
 
 	TotalQN() uint64
 
 	LatestStateDB() *account.AccountDB
 
-	//query block with body by hash
+	// QueryBlockByHash query the block by hash
 	QueryBlockByHash(hash common.Hash) *types.Block
+
+	// QueryBlockByHeight query the block by height
 	QueryBlockByHeight(height uint64) *types.Block
 
-	//query first block whose height >= height
+	// QueryBlockCeil query first block whose height >= height
 	QueryBlockCeil(height uint64) *types.Block
+
+	// QueryBlockHeaderCeil query first block header whose height >= height
 	QueryBlockHeaderCeil(height uint64) *types.BlockHeader
 
-	//query first block whose height <= height
+	// QueryBlockFloor query first block whose height <= height
 	QueryBlockFloor(height uint64) *types.Block
+
+	// QueryBlockHeaderFloor query first block header whose height <= height
 	QueryBlockHeaderFloor(height uint64) *types.BlockHeader
 
+	// QueryBlockBytesFloor query the block byte slice by height
 	QueryBlockBytesFloor(height uint64) []byte
 
+	// BatchGetBlocksAfterHeight query blocks after the specified height
 	BatchGetBlocksAfterHeight(height uint64, limit int) []*types.Block
 
-	//根据哈希取得某个交易
+	// GetTransactionByHash get a transaction by hash
 	GetTransactionByHash(onlyBonus, needSource bool, h common.Hash) *types.Transaction
 
-	// 返回等待入块的交易池
+	// GetTransactionPool return the transaction pool waiting for the block
 	GetTransactionPool() TransactionPool
 
+	// IsAdujsting means whether need to adjust blockchain, which means there may be a fork
 	IsAdujsting() bool
 
 	Remove(block *types.Block) bool
 
-	//清除链所有数据
+	// Clear clear blockchain all data
 	Clear() error
 
 	Close()
@@ -105,14 +114,15 @@ const (
 type TransactionPool interface {
 	PackForCast() []*types.Transaction
 
-	//add new transaction to the transaction pool
+	// AddTransaction add new transaction to the transaction pool
 	AddTransaction(tx *types.Transaction) (bool, error)
 
-	//rcv transactions broadcast from other nodes
+	// AddTransactions add new transactions to the transaction pool
 	AddTransactions(txs []*types.Transaction, from txSource)
-	//rcv transactions broadcast from other nodes
+
+	// AsyncAddTxs rcv transactions broadcast from other nodes
 	AsyncAddTxs(txs []*types.Transaction)
-	//add  local miss transactions while verifying blocks to the transaction pool
+	// AddMissTransactions add  local miss transactions while verifying blocks to the transaction pool
 	//AddMissTransactions(txs []*types.Transaction)
 
 	GetTransaction(bonus bool, hash common.Hash) *types.Transaction
@@ -140,16 +150,16 @@ type TransactionPool interface {
 	RecoverAndValidateTx(tx *types.Transaction) error
 }
 
-//组管理接口
+// GroupInfoI is a group management interface
 type GroupInfoI interface {
 }
 
-// VM执行器
+// VMExecutor is a VM executor
 type VMExecutor interface {
 	Execute(statedb *account.AccountDB, block *types.Block) (types.Receipts, *common.Hash, uint64, error)
 }
 
-// 账户查询接口
+// AccountRepository contains account query interface
 type AccountRepository interface {
 	GetBalance(address common.Address) *big.Int
 

@@ -22,7 +22,7 @@ func (d *DummyMessage) GetData() interface{} {
 
 type Handler func(message Message)
 
-// 消息订阅
+// Topic as a message subscription
 type Topic struct {
 	ID       string
 	handlers []Handler

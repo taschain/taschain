@@ -10,8 +10,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-// 区块链浏览器
-// 账号信息查询
+// ExplorerAccount is used in the blockchain browser to query account information
 func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 
 	accoundDb := core.BlockChainImpl.LatestStateDB()
@@ -43,8 +42,7 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	return successResult(account)
 }
 
-//区块链浏览器
-//查询块详情
+// ExplorerBlockDetail is used in the blockchain browser to query block details
 func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	chain := core.BlockChainImpl
 	b := chain.QueryBlockCeil(height)
@@ -77,8 +75,8 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	return successResult(bd)
 }
 
-//区块链浏览器
-//查询组信息
+// ExplorerGroupsAfter is used in the blockchain browser to
+// query groups after the specified height
 func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
 	groups := core.GroupChainImpl.GetGroupsAfterHeight(height, common.MaxInt64)
 
@@ -142,7 +140,7 @@ func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	return successResult(ret)
 }
 
-//监控平台调用块同步
+// MonitorBlocks monitoring platform calls block sync
 func (api *GtasAPI) MonitorBlocks(begin, end uint64) (*Result, error) {
 	chain := core.BlockChainImpl
 	if begin > end {

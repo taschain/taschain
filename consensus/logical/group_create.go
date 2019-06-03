@@ -10,20 +10,7 @@ import (
 	"strings"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/2/18 下午2:18
-**  Description:
- */
-
 func (gm *GroupManager) selectParentGroup(baseBH *types.BlockHeader, preGroupID []byte) (*StaticGroupInfo, error) {
-	//rand := baseBH.Random
-	//rand = append(rand, preGroupID...)
-	//gid, err := gm.processor.globalGroups.SelectNextGroupFromChain(base.Data2CommonHash(rand), baseBH.Height)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return gm.processor.GetGroup(gid), nil
 	return gm.processor.globalGroups.getGenesisGroup(), nil
 }
 
@@ -60,7 +47,7 @@ func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 		blog.log("baseBH height=%v, create=%v, ret=%v", baseHeight, create, ret)
 	}()
 
-	// 指定高度已经在组链上出现过
+	// The specified height has appeared on the group chain
 	if gm.checker.heightCreated(baseHeight) {
 		err = fmt.Errorf("topHeight already created")
 		return
@@ -121,9 +108,6 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	}()
 
 	if ctx.readyTimeout(topHeight) {
-		//blog.log("ctx readytimeout, baseHeight=%v", ctx.baseBH.Height)
-		//desc = "ready timeout."
-		//gm.removeContext()
 		return false
 	}
 
@@ -168,7 +152,7 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	}
 	newHashTraceLog("checkReqCreateGroupSign", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", ctx.parentInfo.GroupID.ShortS(), strings.Join(memIDStrs, ","))
 
-	//发送日志
+	// Send log
 	le := &monitor.LogEntry{
 		LogType:  monitor.LogTypeCreateGroup,
 		Height:   gm.groupChain.Height(),
@@ -184,7 +168,6 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	return true
 }
 
-//todo 是否需要等待收到阈值个OMGIED消息后才行？
 func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]groupsig.ID, bool, error) {
 	gh := gInfo.GI.GHeader
 	if gh.Hash != gh.GenHash() {
@@ -200,7 +183,7 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if baseBH == nil {
 		return nil, false, common.ErrCreateBlockNil
 	}
-	//前一组，父亲组是否存在
+	// The previous group, whether the parent group exists
 	preGroup := gm.groupChain.GetGroupByID(gh.PreGroup)
 	if preGroup == nil {
 		return nil, false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeID(gh.PreGroup).ShortS())
@@ -227,7 +210,7 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if !enough {
 		return nil, false, fmt.Errorf("not enough candidates")
 	}
-	//所选成员是否在指定候选人中
+	// Whether the selected member is in the designated candidate
 	for _, mem := range gInfo.Mems {
 		find := false
 		for _, cand := range candidates {

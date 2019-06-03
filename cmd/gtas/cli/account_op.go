@@ -12,12 +12,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/12/20 下午3:21
-**  Description:
- */
-
 const accountUnLockTime = time.Second * 120
 
 var encryptPrivateKey *common.PrivateKey
@@ -42,8 +36,6 @@ type AccountManager struct {
 	unlockAccount *AccountInfo
 	mu            sync.Mutex
 }
-
-//var AccountOp accountOp
 
 type AccountInfo struct {
 	Account
@@ -93,7 +85,7 @@ func newAccountOp(ks string) (*AccountManager, error) {
 }
 
 func initAccountManager(keystore string, readyOnly bool) (accountOp, error) {
-	//内部批量部署时，指定自动创建账号（只需创建一次）
+	// Specify internal account creation when you deploy in bulk (just create it once)
 	if readyOnly && !dirExists(keystore) {
 		aop, err := newAccountOp(keystore)
 		if err != nil {
@@ -106,19 +98,6 @@ func initAccountManager(keystore string, readyOnly bool) (accountOp, error) {
 		}
 		return aop, nil
 	}
-
-	//tmp := keystore
-	//if readyOnly {
-	//	if !dirExists(keystore) {
-	//		os.Mkdir(keystore, os.ModePerm)
-	//	}
-	//	//要先将keystore目录拷贝一份，打开拷贝目录，否则gtas无法再打开该keystore
-	//	tmp = fmt.Sprintf("tmp%c%v", os.PathSeparator, keystore)
-	//	os.RemoveAll(tmp)
-	//	if err := utility.Copy(keystore, tmp); err != nil {
-	//		return nil, err
-	//	}
-	//}
 
 	aop, err := newAccountOp(keystore)
 	if err != nil {

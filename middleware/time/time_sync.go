@@ -9,12 +9,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/4/10 上午11:15
-**  Description:
- */
-
 type TimeStamp int64
 
 func Int64ToTimeStamp(sec int64) TimeStamp {
@@ -23,10 +17,6 @@ func Int64ToTimeStamp(sec int64) TimeStamp {
 
 func TimeToTimeStamp(t time.Time) TimeStamp {
 	return TimeStamp(t.Unix())
-}
-
-func BytesToTimeStamp(bs []byte) TimeStamp {
-	return TimeStamp(utility.ByteToInt64(bs))
 }
 
 func (ts TimeStamp) Bytes() []byte {
@@ -68,8 +58,8 @@ type TimeSync struct {
 	ticker        *ticker.GlobalTicker
 }
 
-//time service return utc time;
-//all input time will convert to utc time
+// TimeService is a time service, it return utc time
+// All input time will convert to utc time
 type TimeService interface {
 	Now() TimeStamp
 	Since(t TimeStamp) int64

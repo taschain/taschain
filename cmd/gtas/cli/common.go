@@ -24,7 +24,7 @@ import (
 	"net/http"
 )
 
-// 获取rpc接口的message,如果发生错误，error返回result中的错误提示
+// getMessage get the result of the rpc interface. If an error occurs, error returns an error message in result
 func getMessage(addr string, port uint, method string, params ...interface{}) (string, error) {
 	res, err := rpcPost(addr, port, method, params...)
 	if err != nil {
@@ -36,7 +36,7 @@ func getMessage(addr string, port uint, method string, params ...interface{}) (s
 	return res.Result.Message, nil
 }
 
-// 通用的rpc的请求方法。
+// rpcPost provides a general rpc request method
 func rpcPost(addr string, port uint, method string, params ...interface{}) (*RPCResObj, error) {
 	obj := RPCReqObj{
 		Method:  method,

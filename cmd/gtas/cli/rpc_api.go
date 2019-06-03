@@ -20,11 +20,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/30 下午4:34
-**  Description:
- */
 var BonusLogger taslog.Logger
 
 func successResult(data interface{}) (*Result, error) {
@@ -46,7 +41,7 @@ func failResult(err string) (*Result, error) {
 type GtasAPI struct {
 }
 
-// T 用户交易接口
+// Tx is user transaction interface
 func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 	var txRaw = new(txRawData)
 	if err := json.Unmarshal([]byte(txRawjson), txRaw); err != nil {
@@ -64,7 +59,7 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 	return successResult(trans.Hash.String())
 }
 
-// Balance 查询余额接口
+// Balance is query balance interface
 func (api *GtasAPI) Balance(account string) (*Result, error) {
 	balance, err := walletManager.getBalance(account)
 	if err != nil {
@@ -76,7 +71,7 @@ func (api *GtasAPI) Balance(account string) (*Result, error) {
 	}, nil
 }
 
-// NewWallet 新建账户接口
+// NewWallet is create a new account interface
 func (api *GtasAPI) NewWallet() (*Result, error) {
 	privKey, addr := walletManager.newWallet()
 	data := make(map[string]string)
@@ -85,37 +80,30 @@ func (api *GtasAPI) NewWallet() (*Result, error) {
 	return successResult(data)
 }
 
-// GetWallets 获取当前节点的wallets
+// GetWallets get the wallets of the current node
 func (api *GtasAPI) GetWallets() (*Result, error) {
 	return successResult(walletManager)
 }
 
-// DeleteWallet 删除本地节点指定序号的地址
+// DeleteWallet delete the address of the specified serial number of the local node
 func (api *GtasAPI) DeleteWallet(key string) (*Result, error) {
 	walletManager.deleteWallet(key)
 	return successResult(walletManager)
 }
 
-// BlockHeight 块高查询
+// BlockHeight query block height
 func (api *GtasAPI) BlockHeight() (*Result, error) {
 	height := core.BlockChainImpl.QueryTopBlock().Height
 	return successResult(height)
 }
 
-// GroupHeight 组块高查询
+// GroupHeight query group height
 func (api *GtasAPI) GroupHeight() (*Result, error) {
 	height := core.GroupChainImpl.Height()
 	return successResult(height)
 }
 
-// Vote
-func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
-	//config := v.ToGlobal()
-	//walletManager.newVote(from, config)
-	return successResult(nil)
-}
-
-// ConnectedNodes 查询已链接的node的信息
+// ConnectedNodes query the information of the linked node
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 
 	nodes := network.GetNetInstance().ConnInfo()
@@ -126,7 +114,7 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 	return successResult(conns)
 }
 
-// TransPool 查询缓冲区的交易信息。
+// TransPool query buffer transaction information
 func (api *GtasAPI) TransPool() (*Result, error) {
 	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
 	transList := make([]Transactions, 0, len(transactions))
@@ -299,7 +287,7 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	return successResult(ret)
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint64, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
@@ -351,7 +339,7 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	return &Result{Message: address.GetHexString(), Data: string(js)}, nil
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
@@ -372,7 +360,7 @@ func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
 	return successResult(nil)
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
@@ -393,7 +381,7 @@ func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
 	return &Result{Message: "success"}, nil
 }
 
-//铸块统计
+// CastStat cast block statistics
 func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	proposerStat := make(map[string]int32)
 	groupStat := make(map[string]int32)
@@ -689,12 +677,6 @@ func (api *GtasAPI) BlockReceipts(h string) (*Result, error) {
 	}
 
 	evictedReceipts := make([]*types.Receipt, 0)
-	//for _, tx := range bh.EvictedTxs {
-	//	wrapper := chain.GetTransactionPool().GetReceipt(tx)
-	//	if wrapper != nil {
-	//		evictedReceipts = append(evictedReceipts, wrapper)
-	//	}
-	//}
 	receipts := make([]*types.Receipt, len(b.Transactions))
 	for i, tx := range b.Transactions {
 		wrapper := chain.GetTransactionPool().GetReceipt(tx.Hash)

@@ -349,7 +349,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 		peerTop := bs.getPeerTopBlock(source)
 		localTop := newTopBlockInfo(bs.chain.QueryTopBlock())
 
-		//先比较权重
+		// First compare weights
 		if peerTop != nil && localTop.MoreWeight(&peerTop.BlockWeight) {
 			bs.logger.Debugf("sync block from %v, local top hash %v, height %v, totalQN %v, peerTop hash %v, height %v, totalQN %v", localTop.Hash.String(), localTop.Height, localTop.TotalQN, peerTop.Hash.String(), peerTop.Height, peerTop.TotalQN)
 			return
@@ -367,6 +367,8 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 		})
 
 		//权重还是比较低，继续同步(必须所有上链成功，否则会造成死循环）
+		// The weight is still low, continue to synchronize (must add blocks
+		// is successful, otherwise it will cause an infinite loop)
 		if allSuccess && peerTop != nil && peerTop.MoreWeight(&localTop.BlockWeight) {
 			bs.syncComplete(source, false)
 			complete = true

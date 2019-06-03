@@ -11,12 +11,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/2/13 下午4:58
-**  Description:
- */
-
 type MonitorService struct {
 	enable   bool
 	cfg      *gorose.DbConfigSingle
@@ -87,12 +81,12 @@ func InitLogService(nodeID string) {
 	rUser := common.GlobalConf.GetString("gtas", "log_db_user", "root")
 	rPass := common.GlobalConf.GetString("gtas", "log_db_password", "TASchain1003")
 	Instance.cfg = &gorose.DbConfigSingle{
-		Driver:          "mysql",                                                                                         // 驱动: mysql/sqlite/oracle/mssql/postgres
-		EnableQueryLog:  false,                                                                                           // 是否开启sql日志
-		SetMaxOpenConns: 0,                                                                                               // (连接池)最大打开的连接数，默认值为0表示不限制
-		SetMaxIdleConns: 0,                                                                                               // (连接池)闲置的连接数
-		Prefix:          "",                                                                                              // 表前缀
-		Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // 数据库链接username:password@protocol(address)/dbname?param=value
+		Driver:          "mysql",                                                                                         // Drive: mysql/sqlite/oracle/mssql/postgres
+		EnableQueryLog:  false,                                                                                           // Whether to open SQL log
+		SetMaxOpenConns: 0,                                                                                               // (Connection pool) the maximum number of open connections, the default value of 0 means no limit
+		SetMaxIdleConns: 0,                                                                                               // (Connection pool) number of idle connections
+		Prefix:          "",                                                                                              // Prefix
+		Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // Database link -> username:password@protocol(address)/dbname?param=value
 	}
 
 	Instance.insertMinerID()
@@ -247,8 +241,6 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo) {
 			if affet <= 0 {
 				sess.Table("nodes").Data(dm).Insert()
 			}
-		} else {
-			//fmt.Printf("update nodes fail, sql=%v, err=%v\n", sess.LastSql, err)
 		}
 	}
 }

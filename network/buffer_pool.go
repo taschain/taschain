@@ -45,9 +45,8 @@ func (poolItem *BufferPoolItem) freeBuffer(buf *bytes.Buffer) {
 	poolItem.inuse--
 }
 
-//BufferPool
 type BufferPool struct {
-	items [5]*BufferPoolItem //key为网络ID
+	items [5]*BufferPoolItem // The key is the network ID
 	mutex sync.RWMutex
 }
 

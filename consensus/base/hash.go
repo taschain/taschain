@@ -22,9 +22,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// Hash helpers
-
-//生成多维字节数组的SHA3_256位哈希
+// HashBytes generate a SHA3_256 bit hash of a multidimensional byte array
 func HashBytes(b ...[]byte) hash.Hash {
 	d := sha3.New256()
 	for _, bi := range b {
@@ -33,7 +31,7 @@ func HashBytes(b ...[]byte) hash.Hash {
 	return d
 }
 
-//生成数据的256位common.Hash
+// Data2CommonHash Generate 256-bit common.Hash of data
 func Data2CommonHash(data []byte) common.Hash {
 	var h common.Hash
 	sha3Hash := sha3.Sum256(data)

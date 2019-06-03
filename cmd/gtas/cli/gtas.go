@@ -43,11 +43,11 @@ import (
 )
 
 const (
-	// Section 默认section配置
+	// Section is default section configuration
 	Section = "gtas"
-	// RemoteHost 默认host
+	// RemoteHost is default host
 	RemoteHost = "127.0.0.1"
-	// RemotePort 默认端口
+	// RemotePort is default port
 	RemotePort = 8088
 
 	instanceSection = "instance"
@@ -71,34 +71,7 @@ type Gtas struct {
 	account Account
 }
 
-// vote 投票操作
-func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
-	if from == "" {
-		// 本地钱包同时无钱包地址
-		if len(walletManager) == 0 {
-			common.DefaultLogger.Infof("Please new account or assign a account")
-			return
-		}
-		from = walletManager[0].Address
-	}
-	config, err := configVote.ToVoteConfig()
-	if err != nil {
-		common.DefaultLogger.Errorf("translate vote config error:%v", err)
-		return
-	}
-	if err != nil {
-		common.DefaultLogger.Errorf("serialize config error:%v", err)
-		return
-	}
-	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_vote", from, modelNum, config)
-	if err != nil {
-		common.DefaultLogger.Errorf("rpc get message error:%v", err)
-		return
-	}
-	common.DefaultLogger.Infof(msg)
-}
-
-// miner 起旷工节点
+// miner start miner node
 func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIP string, natPort uint16, seedIP string, seedID string, rpcPort uint, light bool, apply string, keystore string, enableLog bool, chainID uint16) {
 	gtas.runtimeInit()
 	err := gtas.fullInit(super, testMode, natIP, natPort, seedIP, seedID, light, keystore, enableLog, chainID)
@@ -164,13 +137,13 @@ func (gtas *Gtas) exit(ctrlC <-chan bool, quit chan<- bool) {
 
 func (gtas *Gtas) Run() {
 	var err error
-	// control+c 信号
+
+	// Control+c interrupt signal
 	ctrlC := signals()
 	quitChan := make(chan bool)
 	go gtas.exit(ctrlC, quitChan)
 	app := kingpin.New("GTAS", "A blockchain application.")
 	app.HelpFlag.Short('h')
-	// TODO config file的默认位置以及相关问题
 	configFile := app.Flag("config", "Config file").Default("tas.ini").String()
 	_ = app.Flag("metrics", "enable metrics").Bool()
 	_ = app.Flag("dashboard", "enable metrics dashboard").Bool()
@@ -178,42 +151,21 @@ func (gtas *Gtas) Run() {
 	statisticsEnable := app.Flag("statistics", "enable statistics").Bool()
 	keystore := app.Flag("keystore", "the keystore path, default is current path").Default("keystore").Short('k').String()
 	*statisticsEnable = false
-	//remoteAddr := app.Flag("remoteaddr", "rpc host").Short('r').Default("127.0.0.1").IP()
-	//remotePort := app.Flag("remoteport", "rpc port").Short('p').Default("8080").Uint()
 
-	// 投票解析
-	//voteCmd := app.Command("vote", "new vote")
-	//modelNumVote := voteCmd.Flag("modelnum", "model number").Default("").String()
-	//fromVote := voteCmd.Flag("from", "the wallet address who polled").Default("").String()
-	//configVote := VoteConfigParams(voteCmd.Arg("config", voteConfigHelp()))
-
-	//控制台
+	// Console
 	consoleCmd := app.Command("console", "start gtas console")
 	showRequest := consoleCmd.Flag("show", "show the request json").Short('v').Bool()
 	remoteHost := consoleCmd.Flag("host", "the node host address to connect").Short('i').String()
 	remotePort := consoleCmd.Flag("port", "the node host port to connect").Short('p').Default("8101").Int()
 	rpcPort := consoleCmd.Flag("rpcport", "gtas console will listen at the port for wallet service").Short('r').Default("0").Int()
 
-	//版本号
+	// Version
 	versionCmd := app.Command("version", "show gtas version")
 
-	// 交易解析
-	//tCmd := app.Command("t", "create a transaction")
-	//fromT := tCmd.Flag("from", "from acc").Short('f').String()
-	//toT := tCmd.Flag("to", "to acc").Short('t').String()
-	//valueT := tCmd.Flag("value", "value").Short('v').Uint64()
-	//codeT := tCmd.Flag("code", "code").Short('c').String()
-
-	// 查询余额解析
-	//balanceCmd := app.Command("balance", "get the balance of account")
-	//accountBalance := balanceCmd.Flag("account", "account address").String()
-
-	// 新建账户解析
-	//newCmd := app.Command("newaccount", "new account")
-
-	// mine
+	// Mine
 	mineCmd := app.Command("miner", "miner start")
-	// rpc解析
+
+	// Rpc analysis
 	rpc := mineCmd.Flag("rpc", "start rpc server").Bool()
 	enableLogSrv := mineCmd.Flag("monitor", "enable monitor").Default("false").Bool()
 	addrRPC := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("0.0.0.0").IP()
@@ -226,11 +178,11 @@ func (gtas *Gtas) Run() {
 	} else if *apply == "heavy" {
 		fmt.Println("Welcom to be a tas verify miner!")
 	}
-	//address := mineCmd.Flag("addr", "start miner with address ").String()
-	//light 废弃
+
+	// Light discard
 	light := mineCmd.Flag("light", "light node").Bool()
 
-	//在测试模式下 P2P的NAT关闭
+	// In test mode, P2P NAT is closed
 	testMode := mineCmd.Flag("test", "test mode").Bool()
 	seedIP := mineCmd.Flag("seed", "seed ip").String()
 	seedID := mineCmd.Flag("seedid", "seed id").Default("").String()
@@ -248,8 +200,6 @@ func (gtas *Gtas) Run() {
 	gtas.simpleInit(*configFile)
 
 	switch command {
-	//case voteCmd.FullCommand():
-	//	gtas.vote(*fromVote, *modelNumVote, *configVote)
 	case versionCmd.FullCommand():
 		fmt.Println("Gtas Version:", common.GtasVersion)
 		os.Exit(0)
@@ -258,24 +208,6 @@ func (gtas *Gtas) Run() {
 		if err != nil {
 			fmt.Println(err.Error())
 		}
-
-		//case tCmd.FullCommand():
-		//	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_tx", *fromT, *toT, *valueT, *codeT)
-		//	if err != nil {
-		//		common.DefaultLogger.Error(err.Error())
-		//	}
-		//	common.DefaultLogger.Info(msg)
-		//case balanceCmd.FullCommand():
-		//	msg, err := getMessage(RemoteHost, RemotePort, "GTAS_getBalance", *accountBalance)
-		//	if err != nil {
-		//		common.DefaultLogger.Error(err.Error())
-		//	} else {
-		//		common.DefaultLogger.Info(msg)
-		//	}
-		//case newCmd.FullCommand():
-		//	privKey, address := walletManager.newWallet()
-		//	common.DefaultLogger.Info("Please Remember Your PrivateKey!")
-		//	common.DefaultLogger.Infof("PrivateKey: %s\n WalletAddress: %s", privKey, address)
 	case mineCmd.FullCommand():
 		common.InstanceIndex = *instanceIndex
 		go func() {
@@ -298,7 +230,7 @@ func (gtas *Gtas) Run() {
 			common.DefaultLogger.Infof("NAT server ip:%s", *nat)
 		}
 		lightMiner = *light
-		//轻重节点一样
+		// Light node and heavy node
 		gtas.miner(*rpc, *super, *testMode, addrRPC.String(), *nat, *natPort, *seedIP, *seedID, *portRPC, *light, *apply, *keystore, *enableLogSrv, *chainID)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
@@ -311,7 +243,7 @@ func (gtas *Gtas) Run() {
 	<-quitChan
 }
 
-// ClearBlock 删除本地的chainblock数据。
+// ClearBlock delete local blockchain data
 func ClearBlock(light bool) error {
 	err := core.InitCore(light, mediator.NewConsensusHelper(groupsig.ID{}))
 	if err != nil {
@@ -356,16 +288,9 @@ func (gtas *Gtas) checkAddress(keystore, address string) error {
 func (gtas *Gtas) fullInit(isSuper, testMode bool, natIP string, natPort uint16, seedIP string, seedID string, light bool, keystore string, enableLog bool, chainID uint16) error {
 	var err error
 
-	// 椭圆曲线初始化
-	//groupsig.Init(1)
-	// 初始化中间件
+	// Initialization middleware
 	middleware.InitMiddleware()
-	// block初始化
-	//secret := (*configManager).GetString(Section, "secret", "")
-	//if secret == "" {
-	//	secret = getRandomString(5)
-	//	(*configManager).SetString(Section, "secret", secret)
-	//}
+
 	addressConfig := common.GlobalConf.GetString(Section, "miner", "")
 	err = gtas.checkAddress(keystore, addressConfig)
 	if err != nil {
@@ -374,7 +299,6 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIP string, natPort uint16,
 
 	common.GlobalConf.SetString(Section, "miner", gtas.account.Address)
 	fmt.Println("Your Miner Address:", gtas.account.Address)
-	//fmt.Println("sk:", gtas.account.Sk)
 
 	minerInfo := model.NewSelfMinerDO(common.HexToAddress(gtas.account.Address))
 
@@ -400,18 +324,7 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIP string, natPort uint16,
 		return err
 	}
 
-	// TODO gov, ConsensusInit? StartMiner?
-	//ok := global.InitGov(core.BlockChainImpl)
-	//if !ok {
-	//	return errors.NewAccountDB("gov module error")
-	//}
-
-	if isSuper {
-		//超级节点启动前先把Redis数据清空
-		//redis.CleanRedisData()
-	}
-
-	// 打印相关
+	// Print related content
 	ShowPubKeyInfo(minerInfo, id)
 	ok := mediator.ConsensusInit(minerInfo, common.GlobalConf)
 	if !ok {
@@ -464,7 +377,6 @@ func genTestTx(hash string, price uint64, source string, target string, nonce ui
 	sourcebyte := common.BytesToAddress(common.Sha256([]byte(source)))
 	targetbyte := common.BytesToAddress(common.Sha256([]byte(target)))
 
-	//byte: 84,104,105,115,32,105,115,32,97,32,116,114,97,110,115,97,99,116,105,111,110
 	data := []byte("This is a transaction")
 	return &types.Transaction{
 		Data:     data,

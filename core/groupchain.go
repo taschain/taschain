@@ -44,13 +44,10 @@ type GroupChainConfig struct {
 type GroupChain struct {
 	config *GroupChainConfig
 
-	// key id, value group
-	// key number, value id
-	groups       *tasdb.PrefixedDatabase
-	groupsHeight *tasdb.PrefixedDatabase
+	groups       *tasdb.PrefixedDatabase // Key is group id, and the value is the group
+	groupsHeight *tasdb.PrefixedDatabase // Key is groupsHeight, and the value is the group id
 
-	// 读写锁
-	lock sync.RWMutex
+	lock sync.RWMutex // Read-write lock
 
 	lastGroup      *types.Group
 	genesisMembers []string
@@ -184,7 +181,7 @@ func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 		return errGroupExist
 	}
 
-	//CheckGroup会调用groupchain的接口，需要在加锁前调用
+	// CheckGroup will call the groupchain interface, which needs to be called before locking.
 	ok, err := chain.consensusHelper.CheckGroup(group)
 	if !ok {
 		if err == common.ErrCreateBlockNil {
@@ -232,15 +229,16 @@ func (chain *GroupChain) GenesisMember() map[string]byte {
 func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uint64) bool {
 	iter := chain.NewIterator()
 	for g := iter.Current(); g != nil; g = iter.MovePre() {
-		//解散，后面的组，除了创世组外也都解散了
+
+		// Dissolve groups before current height other than the genesis group
 		if g.Header.DismissedAt(currentHeight) {
-			//直接跳到创世组检查
+			// Check directly in the genesis group
 			genisGroup := chain.getGroupByHeight(0)
 			if genisGroup.MemberExist(id) {
 				return true
 			}
 			break
-		} else { //有效组
+		} else { // The group is effective
 			if g.MemberExist(id) {
 				return true
 			}

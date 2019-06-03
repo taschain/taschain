@@ -104,9 +104,6 @@ func AddBlockLog(bootID int, code string, blockHeight uint64, qn uint64, txCount
 }
 
 func PutLog(data *LogObj) {
-	//if !HasInit(){
-	//	Init()
-	//}
 	LogChannel <- data
 }
 
@@ -116,7 +113,6 @@ func PutBlockLog(data *BlockLogObject) {
 
 func InitStatistics(config common.ConfManager) {
 	url = config.GetString("statistics", "url", "http://118.31.60.210:9090/send")
-	//url = config.GetString("statistics","url","http://localhost:9090/send")
 	timeout = time.Duration(config.GetInt("statistics", "timeout", 1)) * time.Second
 	batch = config.GetInt("statistics", "batch", 0)
 	enable = config.GetBool("statistics", "enable", false)

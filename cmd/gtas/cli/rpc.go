@@ -24,14 +24,6 @@ import (
 	"strings"
 )
 
-// 分红价值统计
-//var BonusValueStatMap = make(map[uint64]map[string]uint64, 50)
-//
-//// 分红次数统计
-//var BonusNumStatMap = make(map[uint64]map[string]uint64, 50)
-//
-//var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
-
 // startHTTP initializes and starts the HTTP RPC endpoint.
 func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string) error {
 	// Short circuit if the HTTP endpoint isn't being exposed
@@ -61,13 +53,12 @@ func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string,
 		return err
 	}
 	go rpc.NewHTTPServer(cors, vhosts, handler).Serve(listener)
-	//go rpc.NewWSServer(cors, handler).Serve(listener)
 	return nil
 }
 
 var GtasAPIImpl *GtasAPI
 
-// StartRPC RPC 功能
+// StartRPC RPC function
 func StartRPC(host string, port uint) error {
 	var err error
 	GtasAPIImpl = &GtasAPI{}

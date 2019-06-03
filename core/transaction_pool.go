@@ -39,7 +39,7 @@ const (
 	txCountPerBlock = 3000
 	gasLimitMax     = 500000
 
-	txMaxSize = 64000 //每个交易最大大小
+	txMaxSize = 64000 // Maximum size per transaction
 )
 
 var (
@@ -56,7 +56,9 @@ type TxPool struct {
 	//missTxs  *lru.Cache
 	received *simpleContainer
 
-	asyncAdds *lru.Cache //异步添加的，加速块上链时validateTxs，不参与广播
+	// Asynchronously added, accelerates validated transaction when
+	// add block on chain, does not participate in the broadcast
+	asyncAdds *lru.Cache
 
 	receiptdb *tasdb.PrefixedDatabase
 	batch     tasdb.Batch
