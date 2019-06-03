@@ -26,24 +26,27 @@ import (
 )
 
 const (
+	// Number of codehash->size associations to keep.
 	codeSizeCacheSize = 100000
 )
 
 type AccountDatabase interface {
+	// OpenTrie opens the main account trie.
 	OpenTrie(root common.Hash) (Trie, error)
 
-	//OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error)
-
+	// OpenStorageTrie opens the storage trie of an account.
 	OpenStorageTrie(addrHash, root common.Hash) (Trie, error)
 
+	// CopyTrie returns an independent copy of the given trie.
 	CopyTrie(Trie) Trie
 
-	PushTrie(root common.Hash, t Trie)
-
+	// ContractCode retrieves a particular contract's code.
 	ContractCode(addrHash, codeHash common.Hash) ([]byte, error)
 
+	// ContractCodeSize retrieves a particular contracts code's size.
 	ContractCodeSize(addrHash, codeHash common.Hash) (int, error)
 
+	// TrieDB retrieves the low level trie database used for data storage.
 	TrieDB() *trie.NodeDatabase
 }
 
@@ -58,6 +61,9 @@ type Trie interface {
 	//GetAllNodes(nodes map[string]*[]byte)
 }
 
+// NewDatabase creates a backing store for state. The returned database
+// is safe for concurrent use and retains a lot of collapsed RLP trie nodes in a
+// large memory cache.
 func NewDatabase(db tasdb.Database) AccountDatabase {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &storageDB{
@@ -68,20 +74,11 @@ func NewDatabase(db tasdb.Database) AccountDatabase {
 	}
 }
 
-func NewLightDatabase(db tasdb.Database) AccountDatabase {
-	csc, _ := lru.New(codeSizeCacheSize)
-	return &lightStorageDB{
-		publicStorageDB: publicStorageDB{
-			db:            trie.NewDatabase(db),
-			codeSizeCache: csc,
-		},
-	}
-}
+
 
 type publicStorageDB struct {
 	db *trie.NodeDatabase
 	mu sync.Mutex
-	//pastTries     []Trie
 	codeSizeCache *lru.Cache
 }
 
@@ -89,9 +86,7 @@ type storageDB struct {
 	publicStorageDB
 }
 
-type lightStorageDB struct {
-	publicStorageDB
-}
+
 
 func (db *publicStorageDB) TrieDB() *trie.NodeDatabase {
 	return db.db
@@ -116,16 +111,7 @@ func (db *publicStorageDB) ContractCodeSize(addrHash, codeHash common.Hash) (int
 	return len(code), err
 }
 
-//func (db *storageDB) OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error) {
-//	db.mu.Lock()
-//	defer db.mu.Unlock()
-//
-//	tr, err := trie.NewTrieWithMap(root, db.db, nodes)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return tr, nil
-//}
+
 
 func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()
@@ -144,67 +130,11 @@ func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	return tr, nil
 }
 
-func (db *storageDB) PushTrie(root common.Hash, t Trie) {
-	//db.mu.Lock()
-	//defer db.mu.Unlock()
-
-	//if len(db.pastTries) >= maxPastTries {
-	//	copy(db.pastTries, db.pastTries[1:])
-	//	db.pastTries[len(db.pastTries)-1] = t
-	//} else {
-	//	db.pastTries = append(db.pastTries, t)
-	//}
-}
-
 func (db *storageDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
 	return trie.NewTrie(root, db.db)
 }
 
 func (db *storageDB) CopyTrie(t Trie) Trie {
-	switch t := t.(type) {
-	case *trie.Trie:
-		newTrie, _ := trie.NewTrie(t.Hash(), db.db)
-		return newTrie
-	default:
-		panic(fmt.Errorf("unknown trie type %T", t))
-	}
-}
-
-//func (db *storageDB) RestoreTrie(root common.Hash,hn []byte) []trie.node {
-//	return nilsss
-//}
-
-func (db *lightStorageDB) OpenTrieWithMap(root common.Hash, nodes map[string]*[]byte) (Trie, error) {
-	panic("not support")
-}
-
-func (db *lightStorageDB) OpenTrie(root common.Hash) (Trie, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	tr, err := trie.NewLightTrie(root, db.db)
-	if err != nil {
-		return nil, err
-	}
-	return tr, nil
-}
-
-func (db *lightStorageDB) PushTrie(root common.Hash, t Trie) {
-	//db.mu.Lock()
-	//defer db.mu.Unlock()
-
-	//if len(db.pastTries) >= maxPastTries {
-	//	copy(db.pastTries, db.pastTries[1:])
-	//	db.pastTries[len(db.pastTries)-1] = t
-	//} else {
-	//	db.pastTries = append(db.pastTries, t)
-	//}
-}
-
-func (db *lightStorageDB) OpenStorageTrie(addrHash, root common.Hash) (Trie, error) {
-	return trie.NewTrie(root, db.db)
-}
-
-func (db *lightStorageDB) CopyTrie(t Trie) Trie {
 	switch t := t.(type) {
 	case *trie.Trie:
 		newTrie, _ := trie.NewTrie(t.Hash(), db.db)

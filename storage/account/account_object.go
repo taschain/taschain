@@ -247,35 +247,35 @@ func (c *accountObject) SubBalance(amount *big.Int) {
 	c.SetBalance(new(big.Int).Sub(c.Balance(), amount))
 }
 
-func (self *accountObject) SetBalance(amount *big.Int) {
-	self.db.transitions = append(self.db.transitions, balanceChange{
-		account: &self.address,
-		prev:    new(big.Int).Set(self.data.Balance),
+func (ao *accountObject) SetBalance(amount *big.Int) {
+	ao.db.transitions = append(ao.db.transitions, balanceChange{
+		account: &ao.address,
+		prev:    new(big.Int).Set(ao.data.Balance),
 	})
-	self.setBalance(amount)
+	ao.setBalance(amount)
 }
 
-func (self *accountObject) setBalance(amount *big.Int) {
-	self.data.Balance = amount
-	if self.onDirty != nil {
-		self.onDirty(self.Address())
-		self.onDirty = nil
+func (ao *accountObject) setBalance(amount *big.Int) {
+	ao.data.Balance = amount
+	if ao.onDirty != nil {
+		ao.onDirty(ao.Address())
+		ao.onDirty = nil
 	}
 }
 
 func (c *accountObject) ReturnGas(gas *big.Int) {}
 
-func (self *accountObject) deepCopy(db *AccountDB, onDirty func(addr common.Address)) *accountObject {
-	accountObject := newAccountObject(db, self.address, self.data, onDirty)
-	if self.trie != nil {
-		accountObject.trie = db.db.CopyTrie(self.trie)
+func (ao *accountObject) deepCopy(db *AccountDB, onDirty func(addr common.Address)) *accountObject {
+	accountObject := newAccountObject(db, ao.address, ao.data, onDirty)
+	if ao.trie != nil {
+		accountObject.trie = db.db.CopyTrie(ao.trie)
 	}
-	accountObject.code = self.code
-	accountObject.dirtyStorage = self.dirtyStorage.Copy()
-	accountObject.cachedStorage = self.dirtyStorage.Copy()
-	accountObject.suicided = self.suicided
-	accountObject.dirtyCode = self.dirtyCode
-	accountObject.deleted = self.deleted
+	accountObject.code = ao.code
+	accountObject.dirtyStorage = ao.dirtyStorage.Copy()
+	accountObject.cachedStorage = ao.dirtyStorage.Copy()
+	accountObject.suicided = ao.suicided
+	accountObject.dirtyCode = ao.dirtyCode
+	accountObject.deleted = ao.deleted
 	return accountObject
 }
 
@@ -283,83 +283,79 @@ func (c *accountObject) Address() common.Address {
 	return c.address
 }
 
-func (self *accountObject) Code(db AccountDatabase) []byte {
-	if self.code != nil {
-		return self.code
+
+// Code returns the contract code associated with this object, if any.
+func (ao *accountObject) Code(db AccountDatabase) []byte {
+	if ao.code != nil {
+		return ao.code
 	}
-	if bytes.Equal(self.CodeHash(), emptyCodeHash[:]) {
+	if bytes.Equal(ao.CodeHash(), emptyCodeHash[:]) {
 		return nil
 	}
-	code, err := db.ContractCode(self.addrHash, common.BytesToHash(self.CodeHash()))
+	code, err := db.ContractCode(ao.addrHash, common.BytesToHash(ao.CodeHash()))
 	if err != nil {
-		self.setError(fmt.Errorf("can't load code hash %x: %v", self.CodeHash(), err))
+		ao.setError(fmt.Errorf("can't load code hash %x: %v", ao.CodeHash(), err))
 	}
-	self.code = code
+	ao.code = code
 	return code
 }
 
-func (self *accountObject) DataIterator(db AccountDatabase, prefix []byte) *trie.Iterator {
-	if self.trie == nil {
-		self.getTrie(db)
+func (ao *accountObject) DataIterator(db AccountDatabase, prefix []byte) *trie.Iterator {
+	if ao.trie == nil {
+		ao.getTrie(db)
 	}
-	return trie.NewIterator(self.trie.NodeIterator([]byte(prefix)))
+	return trie.NewIterator(ao.trie.NodeIterator([]byte(prefix)))
 }
 
-func (self *accountObject) SetCode(codeHash common.Hash, code []byte) {
-	prevcode := self.Code(self.db.db)
-	self.db.transitions = append(self.db.transitions, codeChange{
-		account:  &self.address,
-		prevhash: self.CodeHash(),
+func (ao *accountObject) SetCode(codeHash common.Hash, code []byte) {
+	prevcode := ao.Code(ao.db.db)
+	ao.db.transitions = append(ao.db.transitions, codeChange{
+		account:  &ao.address,
+		prevhash: ao.CodeHash(),
 		prevcode: prevcode,
 	})
-	self.setCode(codeHash, code)
+	ao.setCode(codeHash, code)
 }
 
-func (self *accountObject) setCode(codeHash common.Hash, code []byte) {
-	self.code = code
-	self.data.CodeHash = codeHash[:]
-	self.dirtyCode = true
-	if self.onDirty != nil {
-		self.onDirty(self.Address())
-		self.onDirty = nil
+func (ao *accountObject) setCode(codeHash common.Hash, code []byte) {
+	ao.code = code
+	ao.data.CodeHash = codeHash[:]
+	ao.dirtyCode = true
+	if ao.onDirty != nil {
+		ao.onDirty(ao.Address())
+		ao.onDirty = nil
 	}
 }
 
-func (self *accountObject) SetNonce(nonce uint64) {
-	self.db.transitions = append(self.db.transitions, nonceChange{
-		account: &self.address,
-		prev:    self.data.Nonce,
+func (ao *accountObject) SetNonce(nonce uint64) {
+	ao.db.transitions = append(ao.db.transitions, nonceChange{
+		account: &ao.address,
+		prev:    ao.data.Nonce,
 	})
-	self.setNonce(nonce)
+	ao.setNonce(nonce)
 }
 
-func (self *accountObject) setNonce(nonce uint64) {
-	self.data.Nonce = nonce
-	if self.onDirty != nil {
-		self.onDirty(self.Address())
-		self.onDirty = nil
+func (ao *accountObject) setNonce(nonce uint64) {
+	ao.data.Nonce = nonce
+	if ao.onDirty != nil {
+		ao.onDirty(ao.Address())
+		ao.onDirty = nil
 	}
 }
 
-func (self *accountObject) CodeHash() []byte {
-	return self.data.CodeHash
+func (ao *accountObject) CodeHash() []byte {
+	return ao.data.CodeHash
 }
 
-func (self *accountObject) Balance() *big.Int {
-	return self.data.Balance
+func (ao *accountObject) Balance() *big.Int {
+	return ao.data.Balance
 }
 
-func (self *accountObject) Nonce() uint64 {
-	return self.data.Nonce
+func (ao *accountObject) Nonce() uint64 {
+	return ao.data.Nonce
 }
 
-func (self *accountObject) Value() *big.Int {
+func (ao *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
 }
 
-//func (self *accountObject) fstring() string {
-//	if self.trie == nil {
-//		self.trie = self.getTrie(self.db.db)
-//	}
-//	return self.trie.Fstring()
-//}

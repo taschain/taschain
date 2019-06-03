@@ -134,33 +134,38 @@ func (self *AccountDB) Empty(addr common.Address) bool {
 	return so == nil || so.empty()
 }
 
-func (self *AccountDB) GetBalance(addr common.Address) *big.Int {
-	accountObject := self.getAccountObject(addr)
+// Retrieve the balance from the given address or 0 if account not found
+func (adb *AccountDB) GetBalance(addr common.Address) *big.Int {
+	accountObject := adb.getAccountObject(addr)
 	if accountObject != nil {
 		return accountObject.Balance()
 	}
 	return common.Big0
 }
 
-func (self *AccountDB) GetNonce(addr common.Address) uint64 {
-	accountObject := self.getAccountObject(addr)
+// Retrieve the nonce from the given address or 0 if account not found
+func (adb *AccountDB) GetNonce(addr common.Address) uint64 {
+	accountObject := adb.getAccountObject(addr)
 	if accountObject != nil {
 		return accountObject.Nonce()
 	}
-
 	return 0
 }
 
-func (self *AccountDB) GetCode(addr common.Address) []byte {
-	stateObject := self.getAccountObject(addr)
+
+// Retrieve the code from the given address or nil if account not found
+func (adb *AccountDB) GetCode(addr common.Address) []byte {
+	stateObject := adb.getAccountObject(addr)
 	if stateObject != nil {
 		return stateObject.Code(self.db)
 	}
 	return nil
 }
 
-func (self *AccountDB) GetCodeSize(addr common.Address) int {
-	stateObject := self.getAccountObject(addr)
+
+// Retrieve the code size from the given address or 0 if account not found
+func (adb *AccountDB) GetCodeSize(addr common.Address) int {
+	stateObject := adb.getAccountObject(addr)
 	if stateObject == nil {
 		return 0
 	}
