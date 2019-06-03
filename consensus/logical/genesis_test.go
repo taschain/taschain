@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-const confPathPrefix = `/Users/pxf/workspace/tas_develop/tas/local_test`
+const confPathPrefix = `genesis_test_file`
 const procNum = 3
 
 func initProcessor(conf string) *Processor {

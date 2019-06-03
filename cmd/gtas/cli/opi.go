@@ -59,7 +59,7 @@ func txRawToTransaction(tx *txRawData) *types.Transaction {
 	}
 	var sign []byte
 	if tx.Sign != "" {
-		sign = common.HexStringToSign(tx.Sign).Bytes()
+		sign = common.HexToSign(tx.Sign).Bytes()
 	} else {
 
 	}

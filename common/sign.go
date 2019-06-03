@@ -21,42 +21,43 @@ import (
 	"math/big"
 )
 
+//Data struct of signature
 type Sign struct {
 	r     big.Int
 	s     big.Int
 	recid byte
 }
 
-//数据签名结构 for message casting
+//data struct for message casting
 type SignData struct {
 	DataHash Hash   //哈希值
 	DataSign Sign   //签名
 	Id       string //用户ID
 }
 
-//签名构造函数
+//signature construct function
 func (s *Sign) Set(_r, _s *big.Int, recid int) {
 	s.r = *_r
 	s.s = *_s
 	s.recid = byte(recid)
 }
 
-//检查签名是否有效
+//Check the signature is valid
 func (s Sign) Valid() bool {
 	return s.r.BitLen() != 0 && s.s.BitLen() != 0 && s.recid < 4
 }
 
-//获取R值
+//Get r value
 func (s Sign) GetR() big.Int {
 	return s.r
 }
 
-//获取S值
+//Get s value
 func (s Sign) GetS() big.Int {
 	return s.s
 }
 
-//Sign必须65 bytes
+//Export the signature into a byte array.
 func (s Sign) Bytes() []byte {
 	rb := s.r.Bytes()
 	sb := s.s.Bytes()
@@ -67,7 +68,7 @@ func (s Sign) Bytes() []byte {
 	return r
 }
 
-//Sign必须65 bytes
+//Construct a signature with the byte array imported. The length of the byte array must be 65.
 func BytesToSign(b []byte) *Sign {
 	if len(b) == 65 {
 		var r, s big.Int
@@ -84,14 +85,13 @@ func BytesToSign(b []byte) *Sign {
 	}
 }
 
-func (s Sign) GetHexString() string {
-	buf := s.Bytes()
-	str := ToHex(buf)
-	return str
+//Export the signature into a hex string
+func (s Sign) Hex() string {
+	return ToHex(s.Bytes())
 }
 
-//导入函数
-func HexStringToSign(s string) (si *Sign) {
+//Construct a signature with the hex string imported
+func HexToSign(s string) (si *Sign) {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return
 	}
@@ -100,6 +100,7 @@ func HexStringToSign(s string) (si *Sign) {
 	return si
 }
 
+//Recover the public key from the signature
 func (s Sign) RecoverPubkey(msg []byte) (pk *PublicKey, err error) {
 	pubkey, err := secp256k1.RecoverPubkey(msg, s.Bytes())
 	if err != nil {

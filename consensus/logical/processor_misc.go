@@ -72,7 +72,7 @@ func (p *Processor) prepareMiner() {
 				p.joinGroup(jg)
 			}
 			if sgi.GInfo.GI.CreateHeight() == 0 {
-				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().String())
+				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().GetHexString())
 				p.genesisMember = true
 			}
 		}

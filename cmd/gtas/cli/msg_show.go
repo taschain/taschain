@@ -89,7 +89,7 @@ func (ms *msgShower) onBlockAddSuccess(message notify.Message) {
 				_, ids, blockHash, value := ms.bchain.GetBonusManager().ParseBonusTransaction(tx)
 				for _, id := range ids {
 					if bytes.Equal(id, ms.id) {
-						ms.showMsg("congratulations, you verified block hash %v success, bonus %v TAS", blockHash.String(), common.RA2TAS(value))
+						ms.showMsg("congratulations, you verified block hash %v success, bonus %v TAS", blockHash.Hex(), common.RA2TAS(value))
 						break
 					}
 				}

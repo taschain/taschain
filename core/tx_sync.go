@@ -254,7 +254,7 @@ func (ts *txSyncer) clearJob() {
 		if remove {
 			rm := ts.pool.bonPool.removeByBlockHash(bhash)
 			ts.indexer.remove(tx)
-			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.String(), rm)
+			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.Hex(), rm)
 		}
 		return true
 	})

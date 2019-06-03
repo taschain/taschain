@@ -67,7 +67,7 @@ func (mi *SelfMinerDO) Read(p []byte) (n int, err error) {
 
 func NewSelfMinerDO(address common.Address) SelfMinerDO {
 	var mi SelfMinerDO
-	mi.SecretSeed = base.RandFromString(address.GetHexString())
+	mi.SecretSeed = base.RandFromString(address.Hex())
 	mi.SK = *groupsig.NewSeckeyFromRand(mi.SecretSeed)
 	mi.PK = *groupsig.NewPubkeyFromSeckey(mi.SK)
 	mi.ID = groupsig.DeserializeId(address.Bytes())

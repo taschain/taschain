@@ -259,7 +259,7 @@ func (api *GtasAPI) DebugGetTxs(limit int) (*Result, error) {
 
 	hashs := make([]string, 0)
 	for _, tx := range txs {
-		hashs = append(hashs, tx.Hash.String())
+		hashs = append(hashs, tx.Hash.Hex())
 		if len(hashs) >= limit {
 			break
 		}
