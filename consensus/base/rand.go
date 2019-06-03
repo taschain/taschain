@@ -113,21 +113,3 @@ func (r Rand) RandomPerm(n int, k int) []int {
 	}
 	return l[:k]
 }
-
-func NewFromSeed(seed []byte) *big.Int {
-	_, err := rand.Read(seed)
-	if err != nil {
-		return nil
-	}
-	var bb = make([]byte, 32)
-	for i := 0; i < 32; i++ {
-		bb[i] = 0xff
-	}
-	max := new(big.Int)
-	max.SetBytes(bb)
-	n, err := rand.Int(rand.Reader, max)
-	if err != nil {
-		return nil
-	}
-	return n
-}

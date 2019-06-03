@@ -26,6 +26,7 @@ import (
 )
 
 const (
+	// Number of codehash->size associations to keep.
 	codeSizeCacheSize = 100000
 )
 

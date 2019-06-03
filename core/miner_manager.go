@@ -177,8 +177,8 @@ func (mm *MinerManager) buildVirtualNetRoutine() bool {
 		array := make([]string, 0)
 		for iterator.Next() {
 			miner, _ := iterator.Current()
-			gid := groupsig.DeserializeID(miner.ID)
-			array = append(array, gid.String())
+			gid := groupsig.DeserializeId(miner.ID)
+			array = append(array, gid.GetHexString())
 		}
 		mm.heavyMiners = array
 		network.GetNetInstance().BuildGroupNet(network.FullNodeVirtualGroupID, array)
@@ -206,7 +206,7 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 		return -1
 	}
 	if miner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
-		miner.Status = types.MinerStatusAbort
+		return -1
 	} else {
 		mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
 	}
@@ -218,29 +218,31 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	return 1
 }
 
-func (mm *MinerManager) activateMiner(miner *types.Miner, accountdb vm.AccountDB) {
+func (mm *MinerManager) activateAndAddStakeMiner(miner *types.Miner, accountdb vm.AccountDB, height uint64) bool {
 	db := mm.getMinerDatabase(miner.Type)
 	minerData := accountdb.GetData(db, string(miner.ID))
 	if minerData == nil || len(minerData) == 0 {
-		return
+		return false
 	}
 	var dbMiner types.Miner
 	err := msgpack.Unmarshal(minerData, &dbMiner)
 	if err != nil {
 		Logger.Errorf("activateMiner: Unmarshal %d error, ", miner.ID)
-		return
+		return false
 	}
-	if dbMiner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
-		return
+	miner.Stake = dbMiner.Stake + miner.Stake
+	if miner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
+		return false
 	}
-	miner.Stake = dbMiner.Stake
 	miner.Status = types.MinerStatusNormal
+	miner.ApplyHeight = height
 	data, _ := msgpack.Marshal(miner)
 	accountdb.SetData(db, string(miner.ID), data)
 	if miner.Type == types.MinerTypeHeavy {
 		mm.hasNewHeavyMiner = true
 	}
 	mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
+	return true
 }
 
 func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.AccountDB) {
@@ -253,7 +255,7 @@ func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			data, _ := msgpack.Marshal(miner)
 			accountdb.SetData(dbh, string(miner.ID), data)
 			mm.AddStakeDetail(miner.ID, miner, miner.Stake, accountdb)
-			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeID(miner.ID).String())
+			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeId(miner.ID).GetHexString())
 			mm.updateMinerCount(types.MinerTypeHeavy, minerCountIncrease, accountdb)
 		}
 		if accountdb.GetData(dbl, string(miner.ID)) == nil {
@@ -382,7 +384,6 @@ func (mm *MinerManager) CancelStake(from []byte, miner *types.Miner, amount uint
 	newStake = preStake - amount
 	newFrozen = preFrozen + amount
 	if preStake < amount || newFrozen < preFrozen {
-		//preStake: 200000000000, preFrozen: 0, newStake: 18446743973709551616, newFrozen: 300000000000
 		Logger.Debugf("MinerManager.CancelStake return false(overflow or not enough staked: preStake: %d, "+
 			"preFrozen: %d, newStake: %d, newFrozen: %d)", preStake, preFrozen, newStake, newFrozen)
 		return false
@@ -456,6 +457,7 @@ func (mm *MinerManager) ReduceStake(id []byte, miner *types.Miner, amount uint64
 			return false
 		}
 		miner.Status = types.MinerStatusAbort
+		miner.AbortHeight = height
 		mm.updateMinerCount(miner.Type, minerCountDecrease, accountdb)
 	}
 	data, _ := msgpack.Marshal(miner)

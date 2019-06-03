@@ -1,3 +1,17 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package serialize
 
 import (
@@ -19,18 +33,18 @@ func TestSerialize(t *testing.T) {
 	accountDump(a)
 	byte, err := EncodeToBytes(a)
 	if err != nil {
-		fmt.Printf("encode error\n" + err.Error())
+		t.Errorf("encoding error")
 	}
-	fmt.Println(byte)
+
 
 	var b = Account{}
 	decodeErr := DecodeBytes(byte, &b)
 	if decodeErr != nil {
-		fmt.Printf("decode error\n" + decodeErr.Error())
+		t.Errorf("decode error")
 	}
 	accountDump(b)
 }
 
 func accountDump(a Account) {
-	fmt.Printf("Account nounce:%d,Root:%s,CodeHash:%v,Balance:%v\n", a.Nonce, a.Root.String(), a.CodeHash, a.Balance.Sign())
+	fmt.Printf("Account nounce:%d,Root:%s,CodeHash:%v,Balance:%v\n", a.Nonce, a.Root.Hex(), a.CodeHash, a.Balance.Sign())
 }

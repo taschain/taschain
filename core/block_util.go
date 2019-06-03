@@ -36,7 +36,7 @@ func IsTestTransaction(tx *types.Transaction) bool {
 		return false
 	}
 
-	source := tx.Source.GetHexString()
+	source := tx.Source.Hex()
 	for _, testAccount := range testTxAccount {
 		if source == testAccount {
 			return true
@@ -85,18 +85,18 @@ func calcReceiptsTree(receipts types.Receipts) common.Hash {
 func setupGenesisStateDB(stateDB *account.AccountDB, genesisInfo *types.GenesisInfo) {
 	tenThousandTasBi := big.NewInt(0).SetUint64(common.TAS2RA(10000))
 
-	// Administrator account
-	stateDB.SetBalance(common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"), big.NewInt(0).SetUint64(common.TAS2RA(5000000)))
-	stateDB.SetBalance(common.HexStringToAddress("0xb055a3ffdc9eeb0c5cf0c1f14507a40bdcbff98c03286b47b673c02d2efe727e"), big.NewInt(0).SetUint64(common.TAS2RA(5000000)))
+	//管理员账户
+	stateDB.SetBalance(common.HexToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"), big.NewInt(0).SetUint64(common.TAS2RA(100000000)))
+	stateDB.SetBalance(common.HexToAddress("0xb055a3ffdc9eeb0c5cf0c1f14507a40bdcbff98c03286b47b673c02d2efe727e"), big.NewInt(0).SetUint64(common.TAS2RA(100000000)))
 
-	// Genesis account
+	//创世账户
 	for _, mem := range genesisInfo.Group.Members {
 		addr := common.BytesToAddress(mem)
 		stateDB.SetBalance(addr, tenThousandTasBi)
 	}
 
-	// Script trading account
+	// 交易脚本账户
 	for _, acc := range testTxAccount {
-		stateDB.SetBalance(common.HexStringToAddress(acc), tenThousandTasBi)
+		stateDB.SetBalance(common.HexToAddress(acc), tenThousandTasBi)
 	}
 }

@@ -308,7 +308,7 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 			hash := common.BytesToHash(iter.Value())
 			bh := chain.queryBlockHeaderByHash(hash)
 			if bh == nil {
-				panic(fmt.Sprintf("data error:height %v, hash %v", height, hash.String()))
+				panic(fmt.Sprintf("data error:height %v, hash %v", height, hash.Hex()))
 			}
 			if bh.Height != height {
 				panic(fmt.Sprintf("key height not equal to value height:keyHeight=%v, valueHeight=%v", realHeight, bh.Height))
@@ -326,7 +326,7 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 func (chain *FullBlockChain) queryBlockBodyBytes(hash common.Hash) []byte {
 	bs, err := chain.txdb.Get(hash.Bytes())
 	if err != nil {
-		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), hash.String())
+		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), hash.Hex())
 		return nil
 	}
 	return bs
@@ -339,7 +339,7 @@ func (chain *FullBlockChain) queryBlockTransactionsAll(hash common.Hash) []*type
 	}
 	txs, err := decodeBlockTransactions(bs)
 	if err != nil {
-		Logger.Errorf("decode transactions err:%v, key:%v", err.Error(), hash.String())
+		Logger.Errorf("decode transactions err:%v, key:%v", err.Error(), hash.Hex())
 		return nil
 	}
 	return txs
@@ -446,13 +446,14 @@ func (chain *FullBlockChain) queryBlockTransactionsOptional(txIdx int, height ui
 	}
 	bs, err := chain.txdb.Get(bh.Hash.Bytes())
 	if err != nil {
-		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), bh.Hash.String())
+		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), bh.Hash.Hex())
 		return nil
 	}
 	tx, err := decodeTransaction(txIdx, txHash, bs)
 	if tx != nil {
 		return tx
+	} else {
+		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.Hex(), err.Error())
+		return nil
 	}
-	Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.String(), err.Error())
-	return nil
 }

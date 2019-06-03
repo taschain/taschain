@@ -162,11 +162,11 @@ func (gis *ConsensusGroupInitSummary) GetHash() common.Hash {
 }
 
 func (gis *ConsensusGroupInitSummary) ParentID() groupsig.ID {
-	return groupsig.DeserializeID(gis.GHeader.Parent)
+	return groupsig.DeserializeId(gis.GHeader.Parent)
 }
 
 func (gis *ConsensusGroupInitSummary) PreGroupID() groupsig.ID {
-	return groupsig.DeserializeID(gis.GHeader.PreGroup)
+	return groupsig.DeserializeId(gis.GHeader.PreGroup)
 }
 
 func (gis *ConsensusGroupInitSummary) CreateHeight() uint64 {

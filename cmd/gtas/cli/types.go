@@ -98,18 +98,24 @@ type MortGage struct {
 	ApplyHeight uint64 `json:"apply_height"`
 	AbortHeight uint64 `json:"abort_height"`
 	Type        string `json:"type"`
+	Status      string `json:"status"`
 }
 
 func NewMortGageFromMiner(miner *types.Miner) *MortGage {
-	t := "重节点"
+	t := "proposal node"
 	if miner.Type == types.MinerTypeLight {
-		t = "轻节点"
+		t = "verify node"
+	}
+	status := "abort"
+	if miner.Status == types.MinerStatusNormal {
+		status = "normal"
 	}
 	mg := &MortGage{
 		Stake:       uint64(common.RA2TAS(miner.Stake)),
 		ApplyHeight: miner.ApplyHeight,
 		AbortHeight: miner.AbortHeight,
 		Type:        t,
+		Status:      status,
 	}
 	return mg
 }

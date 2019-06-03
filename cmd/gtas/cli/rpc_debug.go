@@ -126,7 +126,7 @@ func getAllGroup() map[string]*types.Group {
 	iterator := mediator.Proc.GroupChain.NewIterator()
 	gs := make(map[string]*types.Group)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre() {
-		id := groupsig.DeserializeID(coreGroup.ID)
+		id := groupsig.DeserializeId(coreGroup.ID)
 		gs[id.GetHexString()] = coreGroup
 	}
 
@@ -152,7 +152,7 @@ func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader,
 	value := hash.Big()
 	index := value.Mod(value, big.NewInt(int64(len(qualifiedGs))))
 	gid := qualifiedGs[index.Int64()].ID
-	return groupsig.DeserializeID(gid), qualifiedGs
+	return groupsig.DeserializeId(gid), qualifiedGs
 }
 
 func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
@@ -207,7 +207,8 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 					maxHeight = bh.Height
 				}
 			}
-			gid := groupsig.DeserializeID(bh.GroupID)
+			//expectGid, gs := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
+			gid := groupsig.DeserializeId(bh.GroupID)
 			preBH = bh
 			gvs := summary.getGroupSummary(gid, topHeight, gid.IsEqual(nextGroupID))
 			gvs.NumVerify++
@@ -247,7 +248,7 @@ func (api *GtasAPI) DebugGetTxs(limit int) (*Result, error) {
 
 	hashs := make([]string, 0)
 	for _, tx := range txs {
-		hashs = append(hashs, tx.Hash.String())
+		hashs = append(hashs, tx.Hash.Hex())
 		if len(hashs) >= limit {
 			break
 		}
@@ -282,7 +283,7 @@ func (api *GtasAPI) DebugPrintCheckProve(height, preheight uint64, gids string) 
 		return failResult("nil pre block")
 	}
 	gidBytes := common.FromHex(gids)
-	gid := groupsig.DeserializeID(gidBytes)
+	gid := groupsig.DeserializeId(gidBytes)
 
 	common.DefaultLogger.Debugf("debug print check prove: %v %v %v %v", height, preheight, gids, gid.GetHexString())
 	ss := mediator.Proc.DebugPrintCheckProves(pre, height, gid)
