@@ -39,6 +39,18 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 	castor := groupsig.DeserializeId(bh.Castor)
 	groupId := groupsig.DeserializeId(bh.GroupId)
 
+	if ok {
+		go func() {
+			verifys := p.blockContexts.getVerifyMsgCache(bh.Hash)
+			if verifys != nil {
+				for _, vmsg := range verifys.verifyMsgs {
+					p.OnMessageVerify(vmsg)
+				}
+			}
+			p.blockContexts.removeVerifyMsgCache(bh.Hash)
+		}()
+	}
+
 	if p.blockOnChain(bh.Hash) {
 		err = fmt.Errorf("block onchain already")
 		return
@@ -73,9 +85,11 @@ func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMess
 			err = fmt.Errorf("block signed")
 			return
 		}
-		err = vctx.baseCheck(bh, si.GetID())
-		if err != nil {
-			return
+		if vctx.prevBH.Hash == bh.PreHash {
+			err = vctx.baseCheck(bh, si.GetID())
+			if err != nil {
+				return
+			}
 		}
 	}
 	castorDO := p.minerReader.getProposeMiner(castor)
@@ -228,23 +242,9 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	}
 
 	slog.AddStage("OMC")
-	ok, err := p.verifyCastMessage("OMC", ccm, preBH)
+	_, err = p.verifyCastMessage("OMC", ccm, preBH)
 	slog.EndStage()
 
-	if ok {
-		go func() {
-			verifys := p.blockContexts.getVerifyMsgCache(bh.Hash)
-			if verifys != nil {
-				blog.log("verify cache msg hash:%v, size:%v", bh.Hash.ShortS(), len(verifys.verifyMsgs))
-				slog.AddStage(fmt.Sprintf("OMCVerifies-%v", len(verifys.verifyMsgs)))
-				for _, vmsg := range verifys.verifyMsgs {
-					p.OnMessageVerify(vmsg)
-				}
-				slog.EndStage()
-			}
-			p.blockContexts.removeVerifyMsgCache(bh.Hash)
-		}()
-	}
 }
 
 func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyContext) (ret int8, err error) {
@@ -333,11 +333,18 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	traceLog := newHashTraceLog("OMV", blockHash, cvm.SI.GetID())
 
 	var (
-		err error
-		ret int8
+		err  error
+		ret  int8
+		slot *SlotContext
 	)
 	defer func() {
-		traceLog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, err)
+		result := "unknown"
+		if err != nil {
+			result = err.Error()
+		} else if slot != nil {
+			result = slot.gSignGenerator.Brief()
+		}
+		traceLog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, result)
 	}()
 
 	vctx := p.blockContexts.getVctxByHash(blockHash)
@@ -347,6 +354,8 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 		return
 	}
 	ret, err = p.doVerify(cvm, vctx)
+
+	slot = vctx.GetSlotByHash(blockHash)
 
 	return
 }
