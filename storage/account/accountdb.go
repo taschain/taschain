@@ -257,6 +257,11 @@ func (adb *AccountDB) SetData(addr common.Address, key string, value []byte) {
 	}
 }
 
+// Suicide marks the given account as suicided.
+// This clears the account balance.
+//
+// The account's account object is still available until the account is committed,
+// getAccountObject will return a non-nil account after Suicide.
 func (adb *AccountDB) Suicide(addr common.Address) bool {
 	stateObject := adb.getAccountObject(addr)
 	if stateObject == nil {

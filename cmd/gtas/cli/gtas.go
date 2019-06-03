@@ -43,24 +43,22 @@ import (
 )
 
 const (
-	// Section 默认section配置
+	//ini configuration file main section
 	Section = "gtas"
-	// RemoteHost 默认host
+	// rpc default host
 	RemoteHost = "127.0.0.1"
-	// RemotePort 默认端口
+	// rpc default port
 	RemotePort = 8088
-
+	// ini configuration file instance section
 	instanceSection = "instance"
-
+	// The key below the instance section
 	indexKey = "index"
-
+	// ini configuration file chain section
 	chainSection = "chain"
-
+	// The key below the chain section
 	databaseKey = "database"
-
+	// ini configuration file statistics section
 	statisticsSection = "statistics"
-
-	redisPrefix = "aliyun_"
 )
 
 var walletManager wallets

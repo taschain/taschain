@@ -33,7 +33,7 @@ var emptyCodeHash = sha3.Sum256(nil)
 type Code []byte
 
 func (c Code) String() string {
-	return string(c) //strings.Join(Disassemble(c), " ")
+	return string(c)
 }
 
 type Storage map[string][]byte
@@ -55,6 +55,12 @@ func (s Storage) Copy() Storage {
 	return cpy
 }
 
+// accountObject represents an account which is being modified.
+//
+// The usage pattern is as follows:
+// First you need to obtain a account object.
+// Account values can be accessed and modified through the object.
+// Finally, call CommitTrie to write the modified storage trie into a database.
 type accountObject struct {
 	address  common.Address
 	addrHash common.Hash
@@ -77,10 +83,13 @@ type accountObject struct {
 	onDirty   func(addr common.Address)
 }
 
+// empty returns whether the account is considered empty.
 func (ao *accountObject) empty() bool {
 	return ao.data.Nonce == 0 && ao.data.Balance.Sign() == 0 && bytes.Equal(ao.data.CodeHash, emptyCodeHash[:])
 }
 
+// Account is the consensus representation of accounts.
+// These objects are stored in the main account trie.
 type Account struct {
 	Nonce    uint64
 	Balance  *big.Int
@@ -88,6 +97,7 @@ type Account struct {
 	CodeHash []byte
 }
 
+// newObject creates a account object.
 func newAccountObject(db *AccountDB, address common.Address, data Account, onDirty func(addr common.Address)) *accountObject {
 	if data.Balance == nil {
 		data.Balance = new(big.Int)
@@ -106,10 +116,12 @@ func newAccountObject(db *AccountDB, address common.Address, data Account, onDir
 	}
 }
 
+// EncodeRLP implements rlp.Encoder.
 func (ao *accountObject) Encode(w io.Writer) error {
 	return serialize.Encode(w, ao.data)
 }
 
+// setError remembers the first non-nil error it is called with.
 func (ao *accountObject) setError(err error) {
 	if ao.dbErr == nil {
 		ao.dbErr = err
