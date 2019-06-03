@@ -20,7 +20,7 @@ func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
 	for _, msg := range futures {
 		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
-		ok, err := p.verifyCastMessage(mtype, msg, bh)
+		ok, err := p.verifyCastMessage(msg, bh)
 		tlog.logEnd("result=%v %v", ok, err)
 	}
 

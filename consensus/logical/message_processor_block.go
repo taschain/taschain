@@ -33,7 +33,7 @@ func (p *Processor) thresholdPieceVerify(vctx *VerifyContext, slot *SlotContext)
 	p.reserveBlock(vctx, slot)
 }
 
-func (p *Processor) verifyCastMessage(mtype string, msg *model.ConsensusCastMessage, preBH *types.BlockHeader) (ok bool, err error) {
+func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *types.BlockHeader) (ok bool, err error) {
 	bh := &msg.BH
 	si := &msg.SI
 	castor := groupsig.DeserializeId(bh.Castor)
@@ -242,7 +242,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	}
 
 	slog.AddStage("OMC")
-	_, err = p.verifyCastMessage("OMC", ccm, preBH)
+	_, err = p.verifyCastMessage(ccm, preBH)
 	slog.EndStage()
 
 }
