@@ -349,9 +349,8 @@ func (bg *BelongGroups) addMemSignPk(uid groupsig.ID, gid groupsig.ID, signPK gr
 		jg.addMemSignPK(uid, signPK)
 		bg.storeGroupInfo(jg)
 		return jg, true
-	} else {
-		return jg, false
 	}
+	return jg, false
 }
 
 func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
@@ -395,8 +394,8 @@ func (p *Processor) genBelongGroupStoreFile() string {
 //取得组内成员的签名公钥
 func (p Processor) GetMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pubkey, ok bool) {
 	if jg := p.belongGroups.getJoinedGroup(gmi.Gid); jg != nil {
-		pk, ok = jg.getMemSignPK(gmi.Uid)
-		if !ok && !p.GetMinerID().IsEqual(gmi.Uid) {
+		pk, ok = jg.getMemSignPK(gmi.UID)
+		if !ok && !p.GetMinerID().IsEqual(gmi.UID) {
 			p.askSignPK(gmi)
 		}
 	}
@@ -437,7 +436,7 @@ func (p *Processor) IsMinerGroup(gid groupsig.ID) bool {
 }
 
 func (p *Processor) askSignPK(gmi *model.GroupMinerID) {
-	if !addSignPkReq(gmi.Uid) {
+	if !addSignPkReq(gmi.UID) {
 		return
 	}
 	msg := &model.ConsensusSignPubkeyReqMessage{
@@ -445,7 +444,7 @@ func (p *Processor) askSignPK(gmi *model.GroupMinerID) {
 	}
 	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 	if msg.GenSign(ski, msg) {
-		newBizLog("AskSignPK").log("ask sign pk message, receiver %v, gid %v", gmi.Uid.ShortS(), gmi.Gid.ShortS())
-		p.NetServer.AskSignPkMessage(msg, gmi.Uid)
+		newBizLog("AskSignPK").log("ask sign pk message, receiver %v, gid %v", gmi.UID.ShortS(), gmi.Gid.ShortS())
+		p.NetServer.AskSignPkMessage(msg, gmi.UID)
 	}
 }

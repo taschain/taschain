@@ -115,7 +115,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
 	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	rlog.log("height=%v, hash=%v, result=%v.", bh.Height, bh.Hash.ShortS(), result)
-	castor := groupsig.DeserializeId(bh.Castor)
+	castor := groupsig.DeserializeID(bh.Castor)
 	tlog := newHashTraceLog("doAddOnChain", bh.Hash, castor)
 	tlog.log("result=%v,castor=%v", result, castor.ShortS())
 
@@ -189,23 +189,23 @@ func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader)
 		return
 	}
 
-	if ok2, group, err2 := p.isCastLegal(bh, preBH); !ok2 {
+	ok2, group, err2 := p.isCastLegal(bh, preBH)
+	if !ok2 {
 		err = err2
 		return
-	} else {
-		gpk := group.GroupPK
-		sig := groupsig.DeserializeSign(bh.Signature)
-		b := groupsig.VerifySig(gpk, bh.Hash.Bytes(), *sig)
-		if !b {
-			err = fmt.Errorf("signature verify fail")
-			return
-		}
-		rsig := groupsig.DeserializeSign(bh.Random)
-		b = groupsig.VerifySig(gpk, preBH.Random, *rsig)
-		if !b {
-			err = fmt.Errorf("random verify fail")
-			return
-		}
+	}
+	gpk := group.GroupPK
+	sig := groupsig.DeserializeSign(bh.Signature)
+	b := groupsig.VerifySig(gpk, bh.Hash.Bytes(), *sig)
+	if !b {
+		err = fmt.Errorf("signature verify fail")
+		return
+	}
+	rsig := groupsig.DeserializeSign(bh.Random)
+	b = groupsig.VerifySig(gpk, preBH.Random, *rsig)
+	if !b {
+		err = fmt.Errorf("random verify fail")
+		return
 	}
 	ok = true
 	return
@@ -217,7 +217,7 @@ func (p *Processor) VerifyBlockHeader(bh *types.BlockHeader) (ok bool, err error
 		return
 	}
 
-	gid := groupsig.DeserializeId(bh.GroupId)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	gpk := p.getGroupPubKey(gid)
 	sig := groupsig.DeserializeSign(bh.Signature)
 	b := groupsig.VerifySig(gpk, bh.Hash.Bytes(), *sig)
@@ -240,7 +240,7 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 	//}
 	mems := make([]groupsig.ID, len(g.Members))
 	for idx, mem := range g.Members {
-		mems[idx] = groupsig.DeserializeId(mem)
+		mems[idx] = groupsig.DeserializeID(mem)
 	}
 	gInfo := &model.ConsensusGroupInitInfo{
 		GI: model.ConsensusGroupInitSummary{
@@ -254,8 +254,8 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 	if _, ok, err := p.groupManager.checkGroupInfo(gInfo); ok {
 		gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
 		gid := groupsig.NewIDFromPubkey(gpk).Serialize()
-		if !bytes.Equal(gid, g.Id) {
-			return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.Id)
+		if !bytes.Equal(gid, g.ID) {
+			return false, fmt.Errorf("gid error, expect %v, receive %v", gid, g.ID)
 		}
 	} else {
 		return false, err

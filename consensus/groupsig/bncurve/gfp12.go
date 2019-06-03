@@ -13,7 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package bn_curve
+package bncurve
 
 // For details of the algorithms used, see "Multiplication and Squaring on
 // Pairing-Friendly Fields, Devegili et al.
@@ -125,7 +125,7 @@ func (e *gfP12) MulScalar(a *gfP12, b *gfP6) *gfP12 {
 	return e
 }
 
-func (c *gfP12) Exp(a *gfP12, power *big.Int) *gfP12 {
+func (e *gfP12) Exp(a *gfP12, power *big.Int) *gfP12 {
 	sum := (&gfP12{}).SetOne()
 	t := &gfP12{}
 
@@ -138,8 +138,8 @@ func (c *gfP12) Exp(a *gfP12, power *big.Int) *gfP12 {
 		}
 	}
 
-	c.Set(sum)
-	return c
+	e.Set(sum)
+	return e
 }
 
 func (e *gfP12) Square(a *gfP12) *gfP12 {

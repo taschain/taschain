@@ -76,7 +76,7 @@ func main() {
 	flag.Parse()
 
 	loadRichAccounts()
-	hosts = extractUrl(urlInput)
+	hosts = extractURL(urlInput)
 
 	rand.Seed(time.Now().UnixNano())
 	nonce := rand.Uint64()
@@ -85,7 +85,7 @@ func main() {
 		toAccount := getRandomToAccount()
 		url := getRandomHost()
 
-		nonce += 1
+		nonce++
 		var gasPrice uint64 = 1
 		var txType = 0
 		go mockSendTransaction(url.host, url.port, account.privateKey, account.address, toAccount, nonce, txType, gasPrice)
@@ -94,7 +94,7 @@ func main() {
 	}
 }
 
-func extractUrl(urlInput *string) []url {
+func extractURL(urlInput *string) []url {
 	urls := strings.Split(*urlInput, ",")
 	result := make([]url, len(urls))
 

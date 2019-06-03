@@ -45,7 +45,7 @@ func (m *GroupMessage) GetData() interface{} {
 type DefaultMessage struct {
 	body            []byte
 	source          string
-	chainId         uint16
+	chainID         uint16
 	protocalVersion uint16
 }
 
@@ -64,15 +64,15 @@ func (m *DefaultMessage) Body() []byte {
 func (m *DefaultMessage) Source() string {
 	return m.source
 }
-func (m *DefaultMessage) ChainId() uint16 {
-	return m.chainId
+func (m *DefaultMessage) ChainID() uint16 {
+	return m.chainID
 }
 func (m *DefaultMessage) ProtocalVersion() uint16 {
 	return m.protocalVersion
 }
 
-func NewDefaultMessage(body []byte, from string, chainId, protocal uint16) *DefaultMessage {
-	return &DefaultMessage{body: body, source: from, chainId: chainId, protocalVersion: protocal}
+func NewDefaultMessage(body []byte, from string, chainID, protocal uint16) *DefaultMessage {
+	return &DefaultMessage{body: body, source: from, chainID: chainID, protocalVersion: protocal}
 }
 
 func AsDefault(message Message) *DefaultMessage {

@@ -57,7 +57,7 @@ func (fm *FlowMeter) send(code int64, size int64) {
 		item = newFlowMeterItem(code)
 		fm.sendItems[code] = item
 	}
-	item.count += 1
+	item.count++
 	item.size += size
 	fm.sendSize += size
 }
@@ -70,7 +70,7 @@ func (fm *FlowMeter) recv(code int64, size int64) {
 		item = newFlowMeterItem(code)
 		fm.recvItems[code] = item
 	}
-	item.count += 1
+	item.count++
 	item.size += size
 	fm.recvSize += size
 }

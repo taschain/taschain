@@ -117,9 +117,9 @@ func (x DataType) String() string {
 func (DataType) EnumDescriptor() ([]byte, []int) { return fileDescriptorP2P, []int{1} }
 
 type RpcNode struct {
-	Ip   string `protobuf:"bytes,1,opt,name=Ip,proto3" json:"Ip,omitempty"`
+	Ip   string `protobuf:"bytes,1,opt,name=IP,proto3" json:"IP,omitempty"`
 	Port int32  `protobuf:"varint,2,opt,name=Port,proto3" json:"Port,omitempty"`
-	Id   string `protobuf:"bytes,3,opt,name=Id,proto3" json:"Id,omitempty"`
+	Id   string `protobuf:"bytes,3,opt,name=ID,proto3" json:"ID,omitempty"`
 }
 
 func (m *RpcNode) Reset()                    { *m = RpcNode{} }
@@ -149,7 +149,7 @@ func (m *RpcNode) GetId() string {
 }
 
 type RpcEndPoint struct {
-	Ip   string `protobuf:"bytes,1,opt,name=Ip,proto3" json:"Ip,omitempty"`
+	Ip   string `protobuf:"bytes,1,opt,name=IP,proto3" json:"IP,omitempty"`
 	Port int32  `protobuf:"varint,2,opt,name=Port,proto3" json:"Port,omitempty"`
 }
 
@@ -286,10 +286,10 @@ func (m *MsgNeighbors) GetExpiration() uint64 {
 
 type MsgData struct {
 	DataType     DataType `protobuf:"varint,1,opt,name=DataType,proto3,enum=network.DataType" json:"DataType,omitempty"`
-	GroupId      string   `protobuf:"bytes,2,opt,name=GroupId,proto3" json:"GroupId,omitempty"`
+	GroupId      string   `protobuf:"bytes,2,opt,name=GroupID,proto3" json:"GroupID,omitempty"`
 	Expiration   uint64   `protobuf:"varint,3,opt,name=Expiration,proto3" json:"Expiration,omitempty"`
 	MessageId    uint64   `protobuf:"varint,4,opt,name=MessageId,proto3" json:"MessageId,omitempty"`
-	BizMessageId []byte   `protobuf:"bytes,5,opt,name=BizMessageId,proto3" json:"BizMessageId,omitempty"`
+	BizMessageId []byte   `protobuf:"bytes,5,opt,name=BizMessageID,proto3" json:"BizMessageID,omitempty"`
 	DestNodeId   []byte   `protobuf:"bytes,6,opt,name=DestNodeId,proto3" json:"DestNodeId,omitempty"`
 	SrcNodeId    []byte   `protobuf:"bytes,7,opt,name=SrcNodeId,proto3" json:"SrcNodeId,omitempty"`
 	Data         []byte   `protobuf:"bytes,8,opt,name=Data,proto3" json:"Data,omitempty"`
@@ -864,7 +864,7 @@ func (m *RpcNode) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Ip", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field IP", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -912,7 +912,7 @@ func (m *RpcNode) Unmarshal(dAtA []byte) error {
 			}
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ID", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -991,7 +991,7 @@ func (m *RpcEndPoint) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Ip", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field IP", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -1574,7 +1574,7 @@ func (m *MsgData) Unmarshal(dAtA []byte) error {
 			}
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field GroupId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field GroupID", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -1641,7 +1641,7 @@ func (m *MsgData) Unmarshal(dAtA []byte) error {
 			}
 		case 5:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field BizMessageId", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field BizMessageID", wireType)
 			}
 			var byteLen int
 			for shift := uint(0); ; shift += 7 {

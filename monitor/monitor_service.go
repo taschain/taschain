@@ -37,7 +37,7 @@ type MonitorService struct {
 	cfg      *gorose.DbConfigSingle
 	queue    []*LogEntry
 	lastSend time.Time
-	nodeId   string
+	nodeID   string
 	status   int32
 	mu       sync.Mutex
 
@@ -88,9 +88,9 @@ func (le *LogEntry) toMap() map[string]interface{} {
 
 var Instance = &MonitorService{}
 
-func InitLogService(nodeId string) {
+func InitLogService(nodeID string) {
 	Instance = &MonitorService{
-		nodeId:   nodeId,
+		nodeID:   nodeID,
 		queue:    make([]*LogEntry, 0),
 		lastSend: time.Now(),
 		enable:   true,
@@ -110,7 +110,7 @@ func InitLogService(nodeId string) {
 		Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // 数据库链接username:password@protocol(address)/dbname?param=value
 	}
 
-	Instance.insertMinerId()
+	Instance.insertMinerID()
 
 	Instance.loadInternalNodesIds()
 }
@@ -163,7 +163,7 @@ func (ms *MonitorService) doAddLog(log *LogEntry) {
 }
 
 func (ms *MonitorService) AddLog(log *LogEntry) {
-	log.Operator = ms.nodeId
+	log.Operator = ms.nodeID
 	log.OperTime = time.Now()
 	ms.doAddLog(log)
 }
@@ -215,7 +215,7 @@ func (ms *MonitorService) IsFirstNInternalNodesInGroup(mems []groupsig.ID, n int
 			if cnt >= n {
 				break
 			}
-			if mem.GetHexString() == ms.nodeId {
+			if mem.GetHexString() == ms.nodeID {
 				return true
 			}
 		}
@@ -243,21 +243,21 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo) {
 
 		sess := connection.NewSession()
 		dm := make(map[string]interface{})
-		dm["MinerId"] = ms.nodeId
+		dm["MinerId"] = ms.nodeID
 		dm["NType"] = ms.nodeInfo.Type
 		dm["VrfThreshold"] = ms.nodeInfo.VrfThreshold
 		dm["PStake"] = ms.nodeInfo.PStake
 		dm["BlockHeight"] = ms.nodeInfo.BlockHeight
 		dm["GroupHeight"] = ms.nodeInfo.GroupHeight
 		dm["TxPoolCount"] = ms.nodeInfo.TxPoolCount
-		dm["Cpu"] = ms.resStat.Cpu
+		dm["CPU"] = ms.resStat.CPU
 		dm["Mem"] = ms.resStat.Mem
 		dm["RcvBps"] = ms.resStat.RcvBps
 		dm["TxBps"] = ms.resStat.TxBps
 		dm["UpdateTime"] = time.Now()
 		dm["Instance"] = common.InstanceIndex
 
-		affet, err := sess.Table("nodes").Where(fmt.Sprintf("MinerId='%v'", ms.nodeId)).Data(dm).Update()
+		affet, err := sess.Table("nodes").Where(fmt.Sprintf("MinerId='%v'", ms.nodeID)).Data(dm).Update()
 		if err == nil {
 			if affet <= 0 {
 				sess.Table("nodes").Data(dm).Insert()
@@ -268,7 +268,7 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo) {
 	}
 }
 
-func (ms *MonitorService) insertMinerId() {
+func (ms *MonitorService) insertMinerID() {
 	if !ms.MonitorEnable() {
 		return
 	}
@@ -285,7 +285,7 @@ func (ms *MonitorService) insertMinerId() {
 
 	sess := connection.NewSession()
 	dm := make(map[string]interface{})
-	dm["MinerId"] = ms.nodeId
+	dm["MinerId"] = ms.nodeID
 	dm["UpdateTime"] = time.Now()
 	dm["Instance"] = common.InstanceIndex
 

@@ -107,7 +107,7 @@ func (kad *Kad) print() {
 
 	for i, b := range kad.buckets {
 		for _, n := range b.entries {
-			Logger.Debugf(" [kad] print bucket:%v id:%v  addr: IP:%v    Port:%v", i, n.Id.GetHexString(), n.Ip, n.Port)
+			Logger.Debugf(" [kad] print bucket:%v id:%v  addr: IP:%v    Port:%v", i, n.ID.GetHexString(), n.IP, n.Port)
 		}
 	}
 
@@ -179,7 +179,7 @@ func (kad *Kad) setFallbackNodes(nodes []*Node) error {
 	kad.seeds = make([]*Node, 0, len(nodes))
 	for _, n := range nodes {
 		cpy := *n
-		cpy.sha = makeSha256Hash(n.Id[:])
+		cpy.sha = makeSha256Hash(n.ID[:])
 		kad.seeds = append(kad.seeds, &cpy)
 	}
 	return nil
@@ -200,7 +200,7 @@ func (kad *Kad) find(targetID NodeID) *Node {
 	kad.mutex.Lock()
 	cl := kad.closest(hash, 1)
 	kad.mutex.Unlock()
-	if len(cl.entries) > 0 && cl.entries[0].Id == targetID {
+	if len(cl.entries) > 0 && cl.entries[0].ID == targetID {
 		return cl.entries[0]
 	}
 
@@ -212,13 +212,13 @@ func (kad *Kad) resolve(targetID NodeID) *Node {
 	kad.mutex.Lock()
 	cl := kad.closest(hash, 1)
 	kad.mutex.Unlock()
-	if len(cl.entries) > 0 && cl.entries[0].Id == targetID {
+	if len(cl.entries) > 0 && cl.entries[0].ID == targetID {
 		return cl.entries[0]
 	}
 	// 找不到，开始向临近节点询问
 	result := kad.Lookup(targetID)
 	for _, n := range result {
-		if n.Id == targetID {
+		if n.ID == targetID {
 			return n
 		}
 	}
@@ -239,7 +239,7 @@ func (kad *Kad) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 		result         *nodesByDistance
 	)
 
-	asked[kad.self.Id] = true
+	asked[kad.self.ID] = true
 
 	for {
 		kad.mutex.Lock()
@@ -255,11 +255,11 @@ func (kad *Kad) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 	for {
 		for i := 0; i < len(result.entries) && pendingQueries < alpha; i++ {
 			n := result.entries[i]
-			if !asked[n.Id] {
-				asked[n.Id] = true
+			if !asked[n.ID] {
+				asked[n.ID] = true
 				pendingQueries++
 				go func() {
-					r, err := kad.net.findNode(n.Id, n.addr(), targetID)
+					r, err := kad.net.findNode(n.ID, n.addr(), targetID)
 					if err != nil {
 					}
 					reply <- kad.pingAll(r)
@@ -270,8 +270,8 @@ func (kad *Kad) lookup(targetID NodeID, refreshIfEmpty bool) []*Node {
 			break
 		}
 		for _, n := range <-reply {
-			if n != nil && !seen[n.Id] {
-				seen[n.Id] = true
+			if n != nil && !seen[n.ID] {
+				seen[n.ID] = true
 				result.push(n, bucketSize)
 			}
 		}
@@ -346,7 +346,7 @@ func (kad *Kad) doRefresh(done chan struct{}) {
 	defer close(done)
 	kad.loadSeedNodes(true)
 
-	kad.lookup(kad.self.Id, false)
+	kad.lookup(kad.self.ID, false)
 
 	for i := 0; i < 3; i++ {
 		var target NodeID
@@ -397,7 +397,7 @@ func (kad *Kad) pingAll(nodes []*Node) (result []*Node) {
 	rc := make(chan *Node, len(nodes))
 	for i := range nodes {
 		go func(n *Node) {
-			nn, _ := kad.pingNode(n.Id, n.addr())
+			nn, _ := kad.pingNode(n.ID, n.addr())
 			rc <- nn
 		}(nodes[i])
 	}
@@ -411,7 +411,7 @@ func (kad *Kad) pingAll(nodes []*Node) (result []*Node) {
 
 func (kad *Kad) pingNode(id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 
-	if id == kad.self.Id {
+	if id == kad.self.ID {
 		return nil, errors.New("is self")
 	}
 
@@ -437,7 +437,7 @@ func (kad *Kad) pingNode(id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 
 func (kad *Kad) onPingNode(id NodeID, addr *nnet.UDPAddr) (*Node, error) {
 
-	if id == kad.self.Id {
+	if id == kad.self.ID {
 		return nil, errors.New("is self")
 	}
 
@@ -485,7 +485,7 @@ func (kad *Kad) stuff(nodes []*Node) {
 	defer kad.mutex.Unlock()
 
 	for _, n := range nodes {
-		if n.Id == kad.self.Id {
+		if n.ID == kad.self.ID {
 			continue // don't add self
 		}
 		b := kad.bucket(n.sha)
@@ -504,7 +504,7 @@ func (kad *Kad) delete(node *Node) {
 
 func (kad *Kad) addReplacement(b *bucket, n *Node) {
 	for _, e := range b.replacements {
-		if e.Id == n.Id {
+		if e.ID == n.ID {
 			return
 		}
 	}
@@ -514,7 +514,7 @@ func (kad *Kad) addReplacement(b *bucket, n *Node) {
 }
 
 func (kad *Kad) replace(b *bucket, last *Node) *Node {
-	if len(b.entries) == 0 || b.entries[len(b.entries)-1].Id != last.Id {
+	if len(b.entries) == 0 || b.entries[len(b.entries)-1].ID != last.ID {
 		return nil
 	}
 	if len(b.replacements) == 0 {
@@ -530,7 +530,7 @@ func (kad *Kad) replace(b *bucket, last *Node) *Node {
 
 func (b *bucket) bump(n *Node) bool {
 	for i := range b.entries {
-		if b.entries[i].Id == n.Id {
+		if b.entries[i].ID == n.ID {
 			// move it to the front
 			copy(b.entries[1:], b.entries[:i])
 			b.entries[0] = n
@@ -570,7 +570,7 @@ func pushNode(list []*Node, n *Node, max int) ([]*Node, *Node) {
 
 func deleteNode(list []*Node, n *Node) []*Node {
 	for i := range list {
-		if list[i].Id == n.Id {
+		if list[i].ID == n.ID {
 			return append(list[:i], list[i+1:]...)
 		}
 	}

@@ -51,13 +51,13 @@ func newProveChecker(chain core.BlockChain) *proveChecker {
 }
 
 func (p *proveChecker) proveExists(pi base.VRFProve) bool {
-	hash := common.BytesToHash(base.VRF_proof2hash(pi))
+	hash := common.BytesToHash(base.VRFProof2hash(pi))
 	_, ok := p.proposalVrfHashs.Get(hash)
 	return ok
 }
 
 func (p *proveChecker) addProve(pi base.VRFProve) {
-	hash := common.BytesToHash(base.VRF_proof2hash(pi))
+	hash := common.BytesToHash(base.VRFProof2hash(pi))
 	p.proposalVrfHashs.Add(hash, 1)
 }
 

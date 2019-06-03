@@ -80,15 +80,13 @@ func Hex2BytesFixed(str string, flen int) []byte {
 	h, _ := hex.DecodeString(str)
 	if len(h) == flen {
 		return h
-	} else {
-		if len(h) > flen {
-			return h[len(h)-flen:]
-		} else {
-			hh := make([]byte, flen)
-			copy(hh[flen-len(h):flen], h[:])
-			return hh
-		}
 	}
+	if len(h) > flen {
+		return h[len(h)-flen:]
+	}
+	hh := make([]byte, flen)
+	copy(hh[flen-len(h):flen], h[:])
+	return hh
 }
 
 func RightPadBytes(slice []byte, l int) []byte {
@@ -123,4 +121,8 @@ func UInt32ToByte(i int32) []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, i)
 	return buf.Bytes()
+}
+
+func ByteToUint64(bs []byte) uint64 {
+	return binary.BigEndian.Uint64(bs)
 }

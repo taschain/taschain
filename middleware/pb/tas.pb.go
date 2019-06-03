@@ -428,7 +428,7 @@ type BlockHeader struct {
 	TotalQN              *uint64  `protobuf:"varint,6,opt,name=TotalQN" json:"TotalQN,omitempty"`
 	CurTime              *int64   `protobuf:"varint,7,opt,name=CurTime" json:"CurTime,omitempty"`
 	Castor               []byte   `protobuf:"bytes,8,opt,name=Castor" json:"Castor,omitempty"`
-	GroupId              []byte   `protobuf:"bytes,9,opt,name=GroupId" json:"GroupId,omitempty"`
+	GroupId              []byte   `protobuf:"bytes,9,opt,name=GroupID" json:"GroupID,omitempty"`
 	Signature            []byte   `protobuf:"bytes,10,opt,name=Signature" json:"Signature,omitempty"`
 	Nonce                *int32   `protobuf:"varint,11,opt,name=Nonce" json:"Nonce,omitempty"`
 	TxTree               []byte   `protobuf:"bytes,12,opt,name=TxTree" json:"TxTree,omitempty"`
@@ -662,7 +662,7 @@ func (m *BlockSlice) GetBlocks() []*Block {
 }
 
 type Member struct {
-	Id                   []byte   `protobuf:"bytes,1,req,name=Id" json:"Id,omitempty"`
+	Id                   []byte   `protobuf:"bytes,1,req,name=ID" json:"ID,omitempty"`
 	PubKey               []byte   `protobuf:"bytes,2,req,name=PubKey" json:"PubKey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -835,7 +835,7 @@ func (m *GroupHeader) GetExtends() string {
 
 type Group struct {
 	Header               *GroupHeader `protobuf:"bytes,1,req,name=Header" json:"Header,omitempty"`
-	Id                   []byte       `protobuf:"bytes,2,opt,name=Id" json:"Id,omitempty"`
+	Id                   []byte       `protobuf:"bytes,2,opt,name=ID" json:"ID,omitempty"`
 	PubKey               []byte       `protobuf:"bytes,3,opt,name=PubKey" json:"PubKey,omitempty"`
 	Signature            []byte       `protobuf:"bytes,4,opt,name=Signature" json:"Signature,omitempty"`
 	Members              [][]byte     `protobuf:"bytes,5,rep,name=Members" json:"Members,omitempty"`
@@ -2273,7 +2273,7 @@ type Bonus struct {
 	TxHash               []byte   `protobuf:"bytes,1,req,name=TxHash" json:"TxHash,omitempty"`
 	TargetIds            []int32  `protobuf:"varint,2,rep,name=TargetIds" json:"TargetIds,omitempty"`
 	BlockHash            []byte   `protobuf:"bytes,3,req,name=BlockHash" json:"BlockHash,omitempty"`
-	GroupId              []byte   `protobuf:"bytes,4,req,name=GroupId" json:"GroupId,omitempty"`
+	GroupId              []byte   `protobuf:"bytes,4,req,name=GroupID" json:"GroupID,omitempty"`
 	Sign                 []byte   `protobuf:"bytes,5,opt,name=Sign" json:"Sign,omitempty"`
 	TotalValue           *uint64  `protobuf:"varint,6,req,name=TotalValue" json:"TotalValue,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`

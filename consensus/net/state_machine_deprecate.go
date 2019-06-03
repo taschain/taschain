@@ -41,7 +41,7 @@ package net
 //}
 //
 //type StateMachine1 struct {
-//	Id 	string
+//	ID 	string
 //	Current *StateNode
 //	Head *StateNode
 //	lock sync.Mutex
@@ -133,7 +133,7 @@ package net
 //
 //func newStateMachine1(id string) *StateMachine1 {
 //	init := newStateNode1(math.MaxUint32)
-//	return &StateMachine1{Id: id, Current:init, Head:init}
+//	return &StateMachine1{ID: id, Current:init, Head:init}
 //}
 //
 ///**
@@ -184,7 +184,7 @@ package net
 //	defer m.lock.Unlock()
 //	defer func() {
 //		if !m.Finish() {
-//			logger.Debugf("machine %v wating state %v", m.Id, m.Current.Next.State.code)
+//			logger.Debugf("machine %v wating state %v", m.ID, m.Current.Next.State.code)
 //		}
 //	}()
 //
@@ -194,15 +194,15 @@ package net
 //		return true
 //	} else if future, st := m.futureState(state); future {
 //		if st == nil {
-//			logger.Debugf("machine %v future reducdant state received, ingored! %v", m.Id, state.State)
+//			logger.Debugf("machine %v future reducdant state received, ingored! %v", m.ID, state.State)
 //		} else {
-//			logger.Debugf("machine %v future state received, cached! %v", m.Id, state.State)
+//			logger.Debugf("machine %v future state received, cached! %v", m.ID, state.State)
 //			st.State = state.State // 后续消息先到达,不能转换, 消息先缓存
 //			st.Handler = handleFunc
 //		}
 //		return false
 //	} else {
-//		logger.Debugf("machine %v prev state received, handle %v", m.Id, state.State)
+//		logger.Debugf("machine %v prev state received, handle %v", m.ID, state.State)
 //		handleFunc(msg.msg) //重复消息或者是某些超过门限后的消息, 怎么处理?
 //		return false
 //	}
@@ -296,7 +296,7 @@ package net
 //	for !m.Finish() && m.Current.Next.State.msg != nil {
 //		m.Current = m.Current.Next
 //		if m.Current.State.msg != nil {
-//			logger.Debugf("machine %v handle state %v %v", m.Id, m.Current.State)
+//			logger.Debugf("machine %v handle state %v %v", m.ID, m.Current.State)
 //			m.Current.Handler(m.Current.State.msg)
 //		}
 //	}
@@ -306,7 +306,7 @@ package net
 //func (m *StateMachine1) Finish() bool {
 //    ret := m.Current.Next == nil
 //	if ret {
-//		TimeSeq.finishCh <- m.Id
+//		TimeSeq.finishCh <- m.ID
 //	}
 //	return ret
 //}

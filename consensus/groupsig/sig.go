@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
-	"github.com/taschain/taschain/consensus/groupsig/bn_curve"
+	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 	"log"
 	"math/big"
 	"sort"
@@ -30,7 +30,7 @@ import (
 
 // Signature --
 type Signature struct {
-	value bn_curve.G1
+	value bncurve.G1
 }
 
 //func (sig Signature) UnmarshalJSON(b []byte) error {
@@ -46,15 +46,15 @@ func (sig *Signature) IsNil() bool {
 }
 
 func (sig *Signature) Add(sig1 *Signature) error {
-	new_sig := &Signature{}
-	new_sig.value.Set(&sig.value)
-	sig.value.Add(&new_sig.value, &sig1.value)
+	newSig := &Signature{}
+	newSig.value.Set(&sig.value)
+	sig.value.Add(&newSig.value, &sig1.value)
 
 	return nil
 }
 
 func (sig *Signature) Mul(bi *big.Int) error {
-	g1 := new(bn_curve.G1)
+	g1 := new(bncurve.G1)
 	g1.Set(&sig.value)
 	sig.value.ScalarMult(g1, bi)
 	return nil
@@ -95,7 +95,7 @@ func DeserializeSign(b []byte) *Signature {
 //由字节切片初始化签名
 func (sig *Signature) Deserialize(b []byte) error {
 	if len(b) == 0 {
-		return fmt.Errorf("signature Deserialized failed.")
+		return fmt.Errorf("signature Deserialized failed")
 	}
 	sig.value.Unmarshal(b)
 	return nil
@@ -136,7 +136,7 @@ func (sig *Signature) SetHexString(s string) error {
 	buf := s[len(PREFIX):]
 
 	if sig.value.IsNil() {
-		sig.value = bn_curve.G1{}
+		sig.value = bncurve.G1{}
 	}
 
 	sig.value.Unmarshal(common.Hex2Bytes(buf))
@@ -161,15 +161,15 @@ func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
 	if sig.value.IsNil() {
 		return false
 	}
-	bQ := bn_curve.GetG2Base()
-	p1 := bn_curve.Pair(&sig.value, bQ)
+	bQ := bncurve.GetG2Base()
+	p1 := bncurve.Pair(&sig.value, bQ)
 	//fmt.Println("p1:", p1.String())
 
 	Hm := HashToG1(string(msg))
-	p2 := bn_curve.Pair(Hm, &pub.value)
+	p2 := bncurve.Pair(Hm, &pub.value)
 	//fmt.Println("p2:", p2.String())
 
-	return bn_curve.PairIsEuqal(p1, p2)
+	return bncurve.PairIsEuqal(p1, p2)
 }
 
 //分片合并验证函数。先把公钥切片合并，然后验证该签名是否来自公钥对应的私钥。
@@ -214,7 +214,7 @@ func RecoverSignature(sigs []Signature, ids []ID) *Signature {
 	}
 	// need len(ids) = k > 0
 	sig := &Signature{}
-	new_sig := &Signature{}
+	newSig := &Signature{}
 	for i := 0; i < k; i++ { //输入元素遍历
 		// compute delta_i depending on ids only
 		//为什么前面delta/num/den初始值是1，最后一个diff初始值是0？
@@ -234,13 +234,13 @@ func RecoverSignature(sigs []Signature, ids []ID) *Signature {
 		delta.Mod(delta, curveOrder)
 
 		//最终需要的值是delta
-		new_sig.value.Set(&sigs[i].value)
-		new_sig.Mul(delta)
+		newSig.value.Set(&sigs[i].value)
+		newSig.Mul(delta)
 
 		if i == 0 {
-			sig.value.Set(&new_sig.value)
+			sig.value.Set(&newSig.value)
 		} else {
-			sig.Add(new_sig)
+			sig.Add(newSig)
 		}
 	}
 	return sig
@@ -274,9 +274,9 @@ func RecoverSignatureByMapI(m SignatureIMap, k int) *Signature {
 	ids := make([]ID, k)
 	sigs := make([]Signature, k)
 	i := 0
-	for s_id, si := range m { //map遍历
+	for sID, si := range m { //map遍历
 		var id ID
-		id.SetHexString(s_id)
+		id.SetHexString(sID)
 		ids[i] = id  //组成员ID值
 		sigs[i] = si //组成员签名
 		i++
@@ -309,7 +309,7 @@ func RecoverSignatureByMapA(m SignatureAMap, k int) *Signature {
 }
 
 // Recover --
-func (sign *Signature) Recover(signVec []Signature, idVec []ID) error {
+func (sig *Signature) Recover(signVec []Signature, idVec []ID) error {
 
 	return nil
 }

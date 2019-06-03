@@ -43,7 +43,7 @@ func (bus *Bus) Subscribe(id string, handler Handler) {
 	topic, ok := bus.topics[id]
 	if !ok {
 		topic = &Topic{
-			Id: id,
+			ID: id,
 		}
 		bus.topics[id] = topic
 	}

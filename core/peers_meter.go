@@ -12,6 +12,7 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -55,7 +56,7 @@ func (m *peerMeter) updateReqCnt(increase bool) {
 			m.reqBlockCount = 1
 		}
 	} else {
-		m.reqBlockCount += 1
+		m.reqBlockCount++
 		if m.reqBlockCount > maxReqBlockCount {
 			m.reqBlockCount = maxReqBlockCount
 		}

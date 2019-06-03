@@ -32,9 +32,9 @@ import (
 )
 
 const (
-	BLOCK_STATUS_KEY = "bcurrent"
+	blockStatusKey = "bcurrent"
 
-	CONFIG_SEC    = "chain"
+	configSec     = "chain"
 	wantedTxsSize = txCountPerBlock
 )
 
@@ -118,7 +118,7 @@ type FullBlockChain struct {
 
 func getBlockChainConfig() *BlockChainConfig {
 	return &BlockChainConfig{
-		dbfile: common.GlobalConf.GetString(CONFIG_SEC, "db_blocks", "d_b") + common.GlobalConf.GetString("instance", "index", ""),
+		dbfile: common.GlobalConf.GetString(configSec, "db_blocks", "d_b") + common.GlobalConf.GetString("instance", "index", ""),
 		block:  "bh",
 
 		blockHeight: "hi",
@@ -263,7 +263,7 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	//Logger.Debugf("GenesisBlock Stage1 Root:%s", stage.Hex())
 	miners := make([]*types.Miner, 0)
 	for i, member := range genesisInfo.Group.Members {
-		miner := &types.Miner{Id: member, PublicKey: genesisInfo.Pks[i], VrfPublicKey: genesisInfo.VrfPKs[i], Stake: common.TAS2RA(100)}
+		miner := &types.Miner{ID: member, PublicKey: genesisInfo.Pks[i], VrfPublicKey: genesisInfo.VrfPKs[i], Stake: common.TAS2RA(100)}
 		miners = append(miners, miner)
 	}
 	MinerManagerImpl.addGenesesMiner(miners, stateDB)
@@ -272,6 +272,7 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	stateDB.SetNonce(common.BonusStorageAddress, 1)
 	stateDB.SetNonce(common.HeavyDBAddress, 1)
 	stateDB.SetNonce(common.LightDBAddress, 1)
+	stateDB.SetNonce(common.MinerStakeDetailDBAddress, 1)
 
 	root, _ := stateDB.Commit(true)
 	//Logger.Debugf("GenesisBlock final Root:%s", root.Hex())
@@ -302,7 +303,7 @@ func (chain *FullBlockChain) Clear() error {
 	//gchain.blockHeight.Close()
 	//gchain.statedb.Close()
 	//
-	//os.RemoveAll(tasdb.DEFAULT_FILE)
+	//os.RemoveAll(tasdb.DefaultFile)
 	//
 	//gchain.statedb, err = ds.NewPrefixDatabase(gchain.config.state)
 	//if err != nil {
@@ -319,9 +320,9 @@ func (chain *FullBlockChain) Clear() error {
 }
 
 func Clear() {
-	path := tasdb.DEFAULT_FILE
+	path := tasdb.DefaultFile
 	if nil != common.GlobalConf {
-		path = common.GlobalConf.GetString(CONFIG_SEC, "database", tasdb.DEFAULT_FILE)
+		path = common.GlobalConf.GetString(configSec, "database", tasdb.DefaultFile)
 	}
 	os.RemoveAll(path)
 }
@@ -379,9 +380,8 @@ func (chain *FullBlockChain) Remove(block *types.Block) bool {
 	pre := chain.queryBlockHeaderByHash(block.Header.PreHash)
 	if pre == nil {
 		return chain.removeOrphan(block) == nil
-	} else {
-		return chain.resetTop(pre) == nil
 	}
+	return chain.resetTop(pre) == nil
 }
 
 func (chain *FullBlockChain) getLatestBlock() *types.BlockHeader {

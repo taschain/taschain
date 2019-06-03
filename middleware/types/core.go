@@ -45,36 +45,36 @@ const (
 	Forking                   AddBlockResult = 3
 )
 const (
-	SUCCESS                             = 0
-	TxErrorCode_BalanceNotEnough        = 1
-	TxErrorCode_ContractAddressConflict = 2
-	TxErrorCode_DeployGasNotEnough      = 3
-	TxErrorCode_NO_CODE                 = 4
+	Success                            = 0
+	TxErrorCodeBalanceNotEnough        = 1
+	TxErrorCodeContractAddressConflict = 2
+	TxErrorCodeDeployGasNotEnough      = 3
+	TxErrorCodeNoCode                  = 4
 
-	Syntax_Error = 1001
+	SyntaxError  = 1001
 	GasNotEnough = 1002
 
-	Sys_Error                        = 2001
-	Sys_Check_Abi_Error              = 2002
-	Sys_Abi_JSON_Error               = 2003
-	Sys_CONTRACT_CALL_MAX_DEEP_Error = 2004
+	SysError                    = 2001
+	SysCheckABIError            = 2002
+	SysABIJSONError             = 2003
+	SysContractCallMaxDeepError = 2004
 )
 
 var (
-	NO_CODE_ERROR           = 4
-	NO_CODE_ERROR_MSG       = "get code from address %s,but no code!"
-	ABI_JSON_ERROR          = 2003
-	ABI_JSON_ERROR_MSG      = "abi json format error"
-	CALL_MAX_DEEP_ERROR     = 2004
-	CALL_MAX_DEEP_ERROR_MSG = "call max deep cannot more than 8"
-	INIT_CONTRACT_ERROR     = 2005
-	INIT_CONTRACT_ERROR_MSG = "contract init error"
+	NoCodeErr            = 4
+	NoCodeErrorMsg       = "get code from address %s,but no code!"
+	ABIJSONError         = 2003
+	ABIJSONErrorMsg      = "abi json format error"
+	CallMaxDeepError     = 2004
+	CallMaxDeepErrorMsg  = "call max deep cannot more than 8"
+	InitContractError    = 2005
+	InitContractErrorMsg = "contract init error"
 )
 
 var (
-	TxErrorBalanceNotEnough   = NewTransactionError(TxErrorCode_BalanceNotEnough, "balance not enough")
-	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCode_DeployGasNotEnough, "gas not enough")
-	TxErrorAbiJson            = NewTransactionError(Sys_Abi_JSON_Error, "abi json format error")
+	TxErrorBalanceNotEnough   = NewTransactionError(TxErrorCodeBalanceNotEnough, "balance not enough")
+	TxErrorDeployGasNotEnough = NewTransactionError(TxErrorCodeDeployGasNotEnough, "gas not enough")
+	TxErrorABIJSON            = NewTransactionError(SysABIJSONError, "abi json format error")
 )
 
 type TransactionError struct {
@@ -87,13 +87,15 @@ func NewTransactionError(code int, msg string) *TransactionError {
 }
 
 const (
-	TransactionTypeTransfer       = 0
-	TransactionTypeContractCreate = 1
-	TransactionTypeContractCall   = 2
-	TransactionTypeBonus          = 3
-	TransactionTypeMinerApply     = 4
-	TransactionTypeMinerAbort     = 5
-	TransactionTypeMinerRefund    = 6
+	TransactionTypeTransfer         = 0
+	TransactionTypeContractCreate   = 1
+	TransactionTypeContractCall     = 2
+	TransactionTypeBonus            = 3
+	TransactionTypeMinerApply       = 4
+	TransactionTypeMinerAbort       = 5
+	TransactionTypeMinerRefund      = 6
+	TransactionTypeMinerCancelStake = 7
+	TransactionTypeMinerStake       = 8
 
 	TransactionTypeToBeRemoved = -1
 )
@@ -216,7 +218,7 @@ type Bonus struct {
 	TxHash     common.Hash
 	TargetIds  []int32
 	BlockHash  common.Hash
-	GroupId    []byte
+	GroupID    []byte
 	Sign       []byte
 	TotalValue uint64
 }
@@ -229,7 +231,7 @@ const (
 )
 
 type Miner struct {
-	Id           []byte
+	ID           []byte
 	PublicKey    []byte
 	VrfPublicKey []byte
 	ApplyHeight  uint64
@@ -249,7 +251,7 @@ type BlockHeader struct {
 	TotalQN    uint64         //整条链的QN
 	CurTime    time.TimeStamp //当前铸块时间
 	Castor     []byte         //出块人ID
-	GroupId    []byte         //组ID，groupsig.ID的二进制表示
+	GroupID    []byte         //组ID，groupsig.ID的二进制表示
 	Signature  []byte         // 组签名
 	Nonce      int32          //盐
 	//Transactions []common.Hash // 交易集哈希列表
@@ -279,7 +281,7 @@ func (bh *BlockHeader) GenHash() common.Hash {
 
 	buf.Write(bh.Castor)
 
-	buf.Write(bh.GroupId)
+	buf.Write(bh.GroupID)
 
 	buf.Write(utility.Int32ToByte(bh.Nonce))
 
@@ -324,7 +326,7 @@ func (b *Block) GetTransactionHashs() []common.Hash {
 }
 
 type Member struct {
-	Id     []byte
+	ID     []byte
 	PubKey []byte
 }
 
@@ -372,7 +374,7 @@ func (gh *GroupHeader) WorkAt(h uint64) bool {
 type Group struct {
 	Header *GroupHeader
 	//不参与签名
-	Id          []byte
+	ID          []byte
 	PubKey      []byte
 	Signature   []byte
 	Members     [][]byte //成员id列表

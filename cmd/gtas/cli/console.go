@@ -19,14 +19,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/howeyc/gopass"
-	"github.com/peterh/liner"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/tvm"
 	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/howeyc/gopass"
+	"github.com/peterh/liner"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/tvm"
 )
 
 /*
@@ -267,7 +268,7 @@ func (c *gasBaseCmd) parseGasPrice() bool {
 }
 
 func (c *gasBaseCmd) initBase() {
-	c.fs.Uint64Var(&c.gaslimit, "gaslimit", 100, "gas limit, default 100")
+	c.fs.Uint64Var(&c.gaslimit, "gaslimit", 1000, "gas limit, default 1000")
 	c.fs.StringVar(&c.gasPriceStr, "gasprice", "100RA", "gas price, default 100RA")
 }
 
@@ -339,7 +340,7 @@ func (c *sendTxCmd) parse(args []string) bool {
 			c.fs.PrintDefaults()
 			return false
 		}
-		contract := tvm.Contract{string(f), c.contractName, nil}
+		contract := tvm.Contract{Code: string(f), ContractName: c.contractName, ContractAddress: nil}
 
 		jsonBytes, errMarsh := json.Marshal(contract)
 		if errMarsh != nil {
@@ -450,7 +451,7 @@ func (c *sendTxCmd) parse(args []string) bool {
 //builtins.register = Register()
 //`
 //	fmt.Println(str)
-//	errorCode, errorMsg := vm.ExecutedScriptVmSucceed(str)
+//	errorCode, errorMsg := vm.ExecutedScriptVMSucceed(str)
 //	if errorCode == types.SUCCESS {
 //		result := vm.ExecutedScriptKindFile(c.contract.Code)
 //		fmt.Println(result.Abi)
@@ -509,6 +510,7 @@ func (c *minerAbortCmd) parse(args []string) bool {
 type minerRefundCmd struct {
 	gasBaseCmd
 	mtype int
+	addr  string
 }
 
 func genMinerRefundCmd() *minerRefundCmd {
@@ -517,10 +519,63 @@ func genMinerRefundCmd() *minerRefundCmd {
 	}
 	c.initBase()
 	c.fs.IntVar(&c.mtype, "type", 0, "refund miner type: 0=verify node, 1=proposal node, default 0")
+	c.fs.StringVar(&c.addr, "addr", "", "refund miner addr, default self")
 	return c
 }
 
 func (c *minerRefundCmd) parse(args []string) bool {
+	if err := c.fs.Parse(args); err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+	return c.parseGasPrice()
+}
+
+type minerStakeCmd struct {
+	gasBaseCmd
+	mtype int
+	addr  string
+	value uint64
+}
+
+func genMinerStakeCmd() *minerStakeCmd {
+	c := &minerStakeCmd{
+		gasBaseCmd: *genGasBaseCmd("minerstake", "stake TAS to an address"),
+	}
+	c.initBase()
+	c.fs.IntVar(&c.mtype, "type", 0, "receiver's type staked to: 0=verify node, 1=proposal node, default 0")
+	c.fs.StringVar(&c.addr, "addr", "", "receiver's addr staked to, default self")
+	c.fs.Uint64Var(&c.value, "value", 0, "stake value, default 0TAS")
+	return c
+}
+
+func (c *minerStakeCmd) parse(args []string) bool {
+	if err := c.fs.Parse(args); err != nil {
+		fmt.Println(err.Error())
+		return false
+	}
+	return c.parseGasPrice()
+}
+
+type minerCancelStakeCmd struct {
+	gasBaseCmd
+	mtype int
+	addr  string
+	value uint64
+}
+
+func genMinerCancelStakeCmd() *minerCancelStakeCmd {
+	c := &minerCancelStakeCmd{
+		gasBaseCmd: *genGasBaseCmd("minercancelstake", "cancel stake TAS of an address"),
+	}
+	c.initBase()
+	c.fs.IntVar(&c.mtype, "type", 0, "receiver's type: 0=verify node, 1=proposal node, default 0")
+	c.fs.StringVar(&c.addr, "addr", "", "receiver's addr, default self")
+	c.fs.Uint64Var(&c.value, "value", 0, "refund value, default 0TAS")
+	return c
+}
+
+func (c *minerCancelStakeCmd) parse(args []string) bool {
 	if err := c.fs.Parse(args); err != nil {
 		fmt.Println(err.Error())
 		return false
@@ -573,6 +628,8 @@ var cmdSendTx = genSendTxCmd()
 var cmdMinerApply = genMinerApplyCmd()
 var cmdMinerAbort = genMinerAbortCmd()
 var cmdMinerRefund = genMinerRefundCmd()
+var cmdMinerStake = genMinerStakeCmd()
+var cmdMinerCancelStake = genMinerCancelStakeCmd()
 var cmdViewContract = genViewContractCmd()
 
 var list = make([]*baseCmd, 0)
@@ -597,6 +654,8 @@ func init() {
 	list = append(list, &cmdMinerAbort.baseCmd)
 	list = append(list, &cmdMinerRefund.baseCmd)
 	list = append(list, &cmdViewContract.baseCmd)
+	list = append(list, &cmdMinerCancelStake.baseCmd)
+	list = append(list, &cmdMinerStake.baseCmd)
 	list = append(list, cmdExit)
 }
 
@@ -610,7 +669,7 @@ func Usage() {
 }
 
 func ConsoleInit(keystore, host string, port int, show bool, rpcport int) error {
-	aop, err := InitAccountManager(keystore, false)
+	aop, err := initAccountManager(keystore, false)
 	if err != nil {
 		return err
 	}
@@ -795,9 +854,8 @@ func loop(acm accountOp, chainOp chainOp) {
 				handleCmd(func() *Result {
 					if cmd.hash != "" {
 						return chainOp.BlockByHash(cmd.hash)
-					} else {
-						return chainOp.BlockByHeight(cmd.height)
 					}
+					return chainOp.BlockByHeight(cmd.height)
 				})
 			}
 		case cmdSendTx.name:
@@ -831,7 +889,21 @@ func loop(acm accountOp, chainOp chainOp) {
 			cmd := genMinerRefundCmd()
 			if cmd.parse(args) {
 				handleCmd(func() *Result {
-					return chainOp.RefundMiner(cmd.mtype, cmd.gaslimit, cmd.gasPrice)
+					return chainOp.RefundMiner(cmd.mtype, cmd.addr, cmd.gaslimit, cmd.gasPrice)
+				})
+			}
+		case cmdMinerStake.name:
+			cmd := genMinerStakeCmd()
+			if cmd.parse(args) {
+				handleCmd(func() *Result {
+					return chainOp.MinerStake(cmd.mtype, cmd.addr, cmd.value, cmd.gaslimit, cmd.gasPrice)
+				})
+			}
+		case cmdMinerCancelStake.name:
+			cmd := genMinerCancelStakeCmd()
+			if cmd.parse(args) {
+				handleCmd(func() *Result {
+					return chainOp.MinerCancelStake(cmd.mtype, cmd.addr, cmd.value, cmd.gaslimit, cmd.gasPrice)
 				})
 			}
 		case cmdViewContract.name:

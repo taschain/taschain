@@ -48,7 +48,7 @@ func (poolItem *BufferPoolItem) GetBuffer() *bytes.Buffer {
 	}
 	buf := bytes.NewBuffer(make([]byte, poolItem.size))
 	buf.Reset()
-	poolItem.inuse += 1
+	poolItem.inuse++
 	return buf
 }
 
@@ -57,7 +57,7 @@ func (poolItem *BufferPoolItem) freeBuffer(buf *bytes.Buffer) {
 	if buf.Cap() == poolItem.size && poolItem.buffers.Len() < poolItem.max {
 		poolItem.buffers.PushBack(buf)
 	}
-	poolItem.inuse -= 1
+	poolItem.inuse--
 }
 
 //BufferPool

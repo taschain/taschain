@@ -43,18 +43,19 @@ const (
 	//默认曲线相关参数结束。
 	AddressLength = 32 //地址字节长度(TAS, golang.SHA3，256位)
 	HashLength    = 32 //哈希字节长度(golang.SHA3, 256位)。to do : 考虑废弃，直接使用golang的hash.Hash，直接为SHA3_256位，类型一样。
-	GroupIdLength = 32
+	GroupIDLength = 32
 )
 
 var DefaultLogger taslog.Logger
 
 var (
-	hashT               = reflect.TypeOf(Hash{})
-	addressT            = reflect.TypeOf(Address{})
-	BonusStorageAddress = BigToAddress(big.NewInt(0))
-	LightDBAddress      = BigToAddress(big.NewInt(1))
-	HeavyDBAddress      = BigToAddress(big.NewInt(2))
-	MinerCountDBAddress = BigToAddress(big.NewInt(3))
+	hashT                     = reflect.TypeOf(Hash{})
+	addressT                  = reflect.TypeOf(Address{})
+	BonusStorageAddress       = BigToAddress(big.NewInt(0))
+	LightDBAddress            = BigToAddress(big.NewInt(1))
+	HeavyDBAddress            = BigToAddress(big.NewInt(2))
+	MinerCountDBAddress       = BigToAddress(big.NewInt(3))
+	MinerStakeDetailDBAddress = BigToAddress(big.NewInt(4))
 )
 
 //160位地址

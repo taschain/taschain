@@ -26,7 +26,8 @@
 // Barreto-Naehrig curve as described in
 // http://cryptojedi.org/papers/dclxvi-20100714.pdf. Its output is compatible
 // with the implementation described in that paper.
-package bn_curve
+
+package bncurve
 
 import (
 	"bytes"
@@ -63,13 +64,13 @@ func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 }
 
 //获得x,y坐标(仿射坐标)
-func (g *G1) GetXY() (*gfP, *gfP, bool) {
-	p := &curvePoint{}
-	p.Set(g.p)
-	p.MakeAffine()
-
-	return &p.x, &p.y, p.y.IsOdd()
-}
+//func (g *G1) GetXY() (*gfP, *gfP, bool) {
+//	p := &curvePoint{}
+//	p.Set(g.p)
+//	p.MakeAffine()
+//
+//	return &p.x, &p.y, p.y.IsOdd()
+//}
 
 //通过x坐标恢复出点(x,y)
 func (g *G1) SetX(px *gfP, isOdd bool) error {
@@ -112,7 +113,7 @@ func (g *G1) SetX(px *gfP, isOdd bool) error {
 // Using try-and-increment method
 // 	in https://www.normalesup.org/~tibouchi/papers/bnhash-scis.pdf
 func hashToCurvePoint(m []byte) (*big.Int, *big.Int) {
-	bi_curveB := new(big.Int).SetInt64(3)
+	biCurveB := new(big.Int).SetInt64(3)
 	one := big.NewInt(1)
 
 	h := sha256.Sum256(m)
@@ -122,7 +123,7 @@ func hashToCurvePoint(m []byte) (*big.Int, *big.Int) {
 	for {
 		xxx := new(big.Int).Mul(x, x)
 		xxx.Mul(xxx, x)
-		t := new(big.Int).Add(xxx, bi_curveB)
+		t := new(big.Int).Add(xxx, biCurveB)
 
 		y := new(big.Int).ModSqrt(t, P)
 		if y != nil {
@@ -133,47 +134,46 @@ func hashToCurvePoint(m []byte) (*big.Int, *big.Int) {
 	}
 }
 
-func (e *G1) HashToPoint(m []byte) error {
+func (g *G1) HashToPoint(m []byte) error {
 	x, y := hashToCurvePoint(m)
 	Px, Py := &gfP{}, &gfP{}
 
-	x_str := x.Bytes()
-	if len(x_str) == 32 {
-		Px.Unmarshal(x_str)
+	xStr := x.Bytes()
+	if len(xStr) == 32 {
+		Px.Unmarshal(xStr)
 	} else {
-		buf_x := make([]byte, 32)
-		copy(buf_x[32-len(x_str):32], x_str)
-		Px.Unmarshal(buf_x)
+		bufX := make([]byte, 32)
+		copy(bufX[32-len(xStr):32], xStr)
+		Px.Unmarshal(bufX)
 	}
 	montEncode(Px, Px)
 
-	y_str := y.Bytes()
-	if len(y_str) == 32 {
-		Py.Unmarshal(y_str)
+	yStr := y.Bytes()
+	if len(yStr) == 32 {
+		Py.Unmarshal(yStr)
 	} else {
-		buf_y := make([]byte, 32)
-		copy(buf_y[32-len(y_str):32], y_str)
-		Py.Unmarshal(buf_y)
+		bufY := make([]byte, 32)
+		copy(bufY[32-len(yStr):32], yStr)
+		Py.Unmarshal(bufY)
 	}
 	montEncode(Py, Py)
 
-	if e.p == nil {
-		e.p = &curvePoint{}
+	if g.p == nil {
+		g.p = &curvePoint{}
 	}
-	e.p.x.Set(Px)
-	e.p.y.Set(Py)
-	e.p.z.Set(newGFp(1))
-	e.p.t.Set(newGFp(1))
+	g.p.x.Set(Px)
+	g.p.y.Set(Py)
+	g.p.z.Set(newGFp(1))
+	g.p.t.Set(newGFp(1))
 
-	if e.IsValid() {
+	if g.IsValid() {
 		return nil
-	} else {
-		return errors.New("hash to point failed.")
 	}
+	return errors.New("hash to point failed")
 }
 
 func (g *G1) String() string {
-	return "bn_curve.G1" + g.p.String()
+	return "bncurve.G1" + g.p.String()
 }
 
 func (g *G1) IsValid() bool {
@@ -186,66 +186,66 @@ func (g *G1) IsNil() bool {
 
 // ScalarBaseMult sets e to g*k where g is the generator of the group and then
 // returns e.
-func (e *G1) ScalarBaseMult(k *big.Int) *G1 {
-	if e.p == nil {
-		e.p = &curvePoint{}
+func (g *G1) ScalarBaseMult(k *big.Int) *G1 {
+	if g.p == nil {
+		g.p = &curvePoint{}
 	}
-	e.p.Mul(curveGen, k)
-	return e
+	g.p.Mul(curveGen, k)
+	return g
 }
 
 // ScalarMult sets e to a*k and then returns e.
-func (e *G1) ScalarMult(a *G1, k *big.Int) *G1 {
-	if e.p == nil {
-		e.p = &curvePoint{}
+func (g *G1) ScalarMult(a *G1, k *big.Int) *G1 {
+	if g.p == nil {
+		g.p = &curvePoint{}
 	}
-	e.p.Mul(a.p, k)
-	return e
+	g.p.Mul(a.p, k)
+	return g
 }
 
 // Add sets e to a+b and then returns e.
-func (e *G1) Add(a, b *G1) *G1 {
-	if e.p == nil {
-		e.p = &curvePoint{}
+func (g *G1) Add(a, b *G1) *G1 {
+	if g.p == nil {
+		g.p = &curvePoint{}
 	}
-	e.p.Add(a.p, b.p)
-	return e
+	g.p.Add(a.p, b.p)
+	return g
 }
 
 // Neg sets e to -a and then returns e.
-func (e *G1) Neg(a *G1) *G1 {
-	if e.p == nil {
-		e.p = &curvePoint{}
+func (g *G1) Neg(a *G1) *G1 {
+	if g.p == nil {
+		g.p = &curvePoint{}
 	}
-	e.p.Neg(a.p)
-	return e
+	g.p.Neg(a.p)
+	return g
 }
 
 // Set sets e to a and then returns e.
-func (e *G1) Set(a *G1) *G1 {
-	if e.p == nil {
-		e.p = &curvePoint{}
+func (g *G1) Set(a *G1) *G1 {
+	if g.p == nil {
+		g.p = &curvePoint{}
 	}
-	e.p.Set(a.p)
-	return e
+	g.p.Set(a.p)
+	return g
 }
 
 // Marshal converts e to a byte slice.
-func (e *G1) Marshal() []byte {
+func (g *G1) Marshal() []byte {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
 
-	e.p.MakeAffine()
+	g.p.MakeAffine()
 	ret := make([]byte, numBytes+1)
-	if e.p.IsInfinity() {
+	if g.p.IsInfinity() {
 		return ret
 	}
 
 	temp := &gfP{}
-	montDecode(temp, &e.p.x)
+	montDecode(temp, &g.p.x)
 	temp.Marshal(ret)
 
-	if e.p.y.IsOdd() == true {
+	if g.p.y.IsOdd() == true {
 		ret[numBytes] = 0x1
 	} else {
 		ret[numBytes] = 0x0
@@ -256,34 +256,34 @@ func (e *G1) Marshal() []byte {
 
 // Unmarshal sets e to the result of converting the output of Marshal back into
 // a group element and then returns e.
-func (e *G1) Unmarshal(m []byte) ([]byte, error) {
+func (g *G1) Unmarshal(m []byte) ([]byte, error) {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
 	if len(m) < numBytes+1 {
-		return nil, errors.New("bn_curve: not enough data")
+		return nil, errors.New("bncurve: not enough data")
 	}
 	// Unmarshal the points and check their caps
-	if e.p == nil {
-		e.p = &curvePoint{}
+	if g.p == nil {
+		g.p = &curvePoint{}
 	} else {
-		e.p.x, e.p.y = gfP{0}, gfP{0}
+		g.p.x, g.p.y = gfP{0}, gfP{0}
 	}
 	var err error
-	if err = e.p.x.Unmarshal(m); err != nil {
+	if err = g.p.x.Unmarshal(m); err != nil {
 		return nil, err
 	}
 	// Encode into Montgomery form and ensure it's on the curve
-	montEncode(&e.p.x, &e.p.x)
+	montEncode(&g.p.x, &g.p.x)
 
 	zero := gfP{0}
-	if e.p.x == zero && e.p.y == zero {
+	if g.p.x == zero && g.p.y == zero {
 		// This is the point at infinity.
-		e.p.y = *newGFp(1)
-		e.p.z = gfP{0}
-		e.p.t = gfP{0}
+		g.p.y = *newGFp(1)
+		g.p.z = gfP{0}
+		g.p.t = gfP{0}
 	} else {
-		e.p.z = *newGFp(1)
-		e.p.t = *newGFp(1)
+		g.p.z = *newGFp(1)
+		g.p.t = *newGFp(1)
 
 		isOdd := true
 		if m[numBytes] == 0x1 {
@@ -291,10 +291,10 @@ func (e *G1) Unmarshal(m []byte) ([]byte, error) {
 		} else {
 			isOdd = false
 		}
-		e.SetX(&e.p.x, isOdd)
+		g.SetX(&g.p.x, isOdd)
 
-		if !e.p.IsOnCurve() {
-			return nil, errors.New("bn_curve: malformed point")
+		if !g.p.IsOnCurve() {
+			return nil, errors.New("bncurve: malformed point")
 		}
 	}
 	return m[numBytes+1:], nil
@@ -321,7 +321,7 @@ func RandomG2(r io.Reader) (*big.Int, *G2, error) {
 }
 
 func (e *G2) String() string {
-	return "bn_curve.G2" + e.p.String()
+	return "bncurve.G2" + e.p.String()
 }
 
 // ScalarBaseMult sets e to g*k where g is the generator of the group and then
@@ -404,7 +404,7 @@ func (e *G2) Unmarshal(m []byte) ([]byte, error) {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
 	if len(m) < 4*numBytes {
-		return nil, errors.New("bn_curve: not enough data")
+		return nil, errors.New("bncurve: not enough data")
 	}
 	// Unmarshal the points and check their caps
 	if e.p == nil {
@@ -439,7 +439,7 @@ func (e *G2) Unmarshal(m []byte) ([]byte, error) {
 		e.p.t.SetOne()
 
 		if !e.p.IsOnCurve() {
-			return nil, errors.New("bn_curve: malformed point")
+			return nil, errors.New("bncurve: malformed point")
 		}
 	}
 	return m[4*numBytes:], nil
@@ -477,84 +477,84 @@ func Miller(g1 *G1, g2 *G2) *GT {
 	return &GT{miller(g2.p, g1.p)}
 }
 
-func (g *GT) String() string {
-	return "bn_curve.GT" + g.p.String()
+func (gt *GT) String() string {
+	return "bncurve.GT" + gt.p.String()
 }
 
 // ScalarMult sets e to a*k and then returns e.
-func (e *GT) ScalarMult(a *GT, k *big.Int) *GT {
-	if e.p == nil {
-		e.p = &gfP12{}
+func (gt *GT) ScalarMult(a *GT, k *big.Int) *GT {
+	if gt.p == nil {
+		gt.p = &gfP12{}
 	}
-	e.p.Exp(a.p, k)
-	return e
+	gt.p.Exp(a.p, k)
+	return gt
 }
 
 // Add sets e to a+b and then returns e.
-func (e *GT) Add(a, b *GT) *GT {
-	if e.p == nil {
-		e.p = &gfP12{}
+func (gt *GT) Add(a, b *GT) *GT {
+	if gt.p == nil {
+		gt.p = &gfP12{}
 	}
-	e.p.Mul(a.p, b.p)
-	return e
+	gt.p.Mul(a.p, b.p)
+	return gt
 }
 
 // Neg sets e to -a and then returns e.
-func (e *GT) Neg(a *GT) *GT {
-	if e.p == nil {
-		e.p = &gfP12{}
+func (gt *GT) Neg(a *GT) *GT {
+	if gt.p == nil {
+		gt.p = &gfP12{}
 	}
-	e.p.Conjugate(a.p)
-	return e
+	gt.p.Conjugate(a.p)
+	return gt
 }
 
 // Set sets e to a and then returns e.
-func (e *GT) Set(a *GT) *GT {
-	if e.p == nil {
-		e.p = &gfP12{}
+func (gt *GT) Set(a *GT) *GT {
+	if gt.p == nil {
+		gt.p = &gfP12{}
 	}
-	e.p.Set(a.p)
-	return e
+	gt.p.Set(a.p)
+	return gt
 }
 
 // Finalize is a linear function from F_p^12 to GT.
-func (e *GT) Finalize() *GT {
-	ret := finalExponentiation(e.p)
-	e.p.Set(ret)
-	return e
+func (gt *GT) Finalize() *GT {
+	ret := finalExponentiation(gt.p)
+	gt.p.Set(ret)
+	return gt
 }
 
 // Marshal converts e into a byte slice.
-func (e *GT) Marshal() []byte {
+func (gt *GT) Marshal() []byte {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
 
 	ret := make([]byte, numBytes*12)
 	temp := &gfP{}
 
-	montDecode(temp, &e.p.x.x.x)
+	montDecode(temp, &gt.p.x.x.x)
 	temp.Marshal(ret)
-	montDecode(temp, &e.p.x.x.y)
+	montDecode(temp, &gt.p.x.x.y)
 	temp.Marshal(ret[numBytes:])
-	montDecode(temp, &e.p.x.y.x)
+	montDecode(temp, &gt.p.x.y.x)
 	temp.Marshal(ret[2*numBytes:])
-	montDecode(temp, &e.p.x.y.y)
+	montDecode(temp, &gt.p.x.y.y)
 	temp.Marshal(ret[3*numBytes:])
-	montDecode(temp, &e.p.x.z.x)
+	montDecode(temp, &gt.p.x.z.x)
 	temp.Marshal(ret[4*numBytes:])
-	montDecode(temp, &e.p.x.z.y)
+	montDecode(temp, &gt.p.x.z.y)
 	temp.Marshal(ret[5*numBytes:])
-	montDecode(temp, &e.p.y.x.x)
+	montDecode(temp, &gt.p.y.x.x)
 	temp.Marshal(ret[6*numBytes:])
-	montDecode(temp, &e.p.y.x.y)
+	montDecode(temp, &gt.p.y.x.y)
 	temp.Marshal(ret[7*numBytes:])
-	montDecode(temp, &e.p.y.y.x)
+	montDecode(temp, &gt.p.y.y.x)
 	temp.Marshal(ret[8*numBytes:])
-	montDecode(temp, &e.p.y.y.y)
+	montDecode(temp, &gt.p.y.y.y)
 	temp.Marshal(ret[9*numBytes:])
-	montDecode(temp, &e.p.y.z.x)
+	montDecode(temp, &gt.p.y.z.x)
 	temp.Marshal(ret[10*numBytes:])
-	montDecode(temp, &e.p.y.z.y)
+	montDecode(temp, &gt.p.y.z.y)
 	temp.Marshal(ret[11*numBytes:])
 
 	return ret
@@ -562,67 +562,67 @@ func (e *GT) Marshal() []byte {
 
 // Unmarshal sets e to the result of converting the output of Marshal back into
 // a group element and then returns e.
-func (e *GT) Unmarshal(m []byte) ([]byte, error) {
+func (gt *GT) Unmarshal(m []byte) ([]byte, error) {
 	// Each value is a 256-bit number.
 	const numBytes = 256 / 8
 
 	if len(m) < 12*numBytes {
-		return nil, errors.New("bn_curve: not enough data")
+		return nil, errors.New("bncurve: not enough data")
 	}
 
-	if e.p == nil {
-		e.p = &gfP12{}
+	if gt.p == nil {
+		gt.p = &gfP12{}
 	}
 
 	var err error
-	if err = e.p.x.x.x.Unmarshal(m); err != nil {
+	if err = gt.p.x.x.x.Unmarshal(m); err != nil {
 		return nil, err
 	}
-	if err = e.p.x.x.y.Unmarshal(m[numBytes:]); err != nil {
+	if err = gt.p.x.x.y.Unmarshal(m[numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.x.y.x.Unmarshal(m[2*numBytes:]); err != nil {
+	if err = gt.p.x.y.x.Unmarshal(m[2*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.x.y.y.Unmarshal(m[3*numBytes:]); err != nil {
+	if err = gt.p.x.y.y.Unmarshal(m[3*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.x.z.x.Unmarshal(m[4*numBytes:]); err != nil {
+	if err = gt.p.x.z.x.Unmarshal(m[4*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.x.z.y.Unmarshal(m[5*numBytes:]); err != nil {
+	if err = gt.p.x.z.y.Unmarshal(m[5*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.y.x.x.Unmarshal(m[6*numBytes:]); err != nil {
+	if err = gt.p.y.x.x.Unmarshal(m[6*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.y.x.y.Unmarshal(m[7*numBytes:]); err != nil {
+	if err = gt.p.y.x.y.Unmarshal(m[7*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.y.y.x.Unmarshal(m[8*numBytes:]); err != nil {
+	if err = gt.p.y.y.x.Unmarshal(m[8*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.y.y.y.Unmarshal(m[9*numBytes:]); err != nil {
+	if err = gt.p.y.y.y.Unmarshal(m[9*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.y.z.x.Unmarshal(m[10*numBytes:]); err != nil {
+	if err = gt.p.y.z.x.Unmarshal(m[10*numBytes:]); err != nil {
 		return nil, err
 	}
-	if err = e.p.y.z.y.Unmarshal(m[11*numBytes:]); err != nil {
+	if err = gt.p.y.z.y.Unmarshal(m[11*numBytes:]); err != nil {
 		return nil, err
 	}
-	montEncode(&e.p.x.x.x, &e.p.x.x.x)
-	montEncode(&e.p.x.x.y, &e.p.x.x.y)
-	montEncode(&e.p.x.y.x, &e.p.x.y.x)
-	montEncode(&e.p.x.y.y, &e.p.x.y.y)
-	montEncode(&e.p.x.z.x, &e.p.x.z.x)
-	montEncode(&e.p.x.z.y, &e.p.x.z.y)
-	montEncode(&e.p.y.x.x, &e.p.y.x.x)
-	montEncode(&e.p.y.x.y, &e.p.y.x.y)
-	montEncode(&e.p.y.y.x, &e.p.y.y.x)
-	montEncode(&e.p.y.y.y, &e.p.y.y.y)
-	montEncode(&e.p.y.z.x, &e.p.y.z.x)
-	montEncode(&e.p.y.z.y, &e.p.y.z.y)
+	montEncode(&gt.p.x.x.x, &gt.p.x.x.x)
+	montEncode(&gt.p.x.x.y, &gt.p.x.x.y)
+	montEncode(&gt.p.x.y.x, &gt.p.x.y.x)
+	montEncode(&gt.p.x.y.y, &gt.p.x.y.y)
+	montEncode(&gt.p.x.z.x, &gt.p.x.z.x)
+	montEncode(&gt.p.x.z.y, &gt.p.x.z.y)
+	montEncode(&gt.p.y.x.x, &gt.p.y.x.x)
+	montEncode(&gt.p.y.x.y, &gt.p.y.x.y)
+	montEncode(&gt.p.y.y.x, &gt.p.y.y.x)
+	montEncode(&gt.p.y.y.y, &gt.p.y.y.y)
+	montEncode(&gt.p.y.z.x, &gt.p.y.z.x)
+	montEncode(&gt.p.y.z.y, &gt.p.y.z.y)
 
 	return m[12*numBytes:], nil
 }

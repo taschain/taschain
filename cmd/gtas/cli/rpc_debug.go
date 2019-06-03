@@ -128,7 +128,7 @@ func (s *GroupVerifySummary) addJumpHeight(h uint64) {
 			s.LastJumpHeight[0] = h
 		}
 	}
-	s.NumJump += 1
+	s.NumJump++
 }
 
 func (s *GroupVerifySummary) calJumpRate() {
@@ -152,7 +152,7 @@ func getAllGroup() map[string]*types.Group {
 	iterator := mediator.Proc.GroupChain.NewIterator()
 	gs := make(map[string]*types.Group)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre() {
-		id := groupsig.DeserializeId(coreGroup.Id)
+		id := groupsig.DeserializeID(coreGroup.ID)
 		gs[id.GetHexString()] = coreGroup
 	}
 
@@ -177,8 +177,8 @@ func selectNextVerifyGroup(gs map[string]*types.Group, preBH *types.BlockHeader,
 	}
 	value := hash.Big()
 	index := value.Mod(value, big.NewInt(int64(len(qualifiedGs))))
-	gid := qualifiedGs[index.Int64()].Id
-	return groupsig.DeserializeId(gid), qualifiedGs
+	gid := qualifiedGs[index.Int64()].ID
+	return groupsig.DeserializeID(gid), qualifiedGs
 }
 
 func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
@@ -200,7 +200,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 		summaryMap:  make(map[string]*GroupVerifySummary, 0),
 		allGroup:    allGroup,
 	}
-	nextGroupId, _ := selectNextVerifyGroup(allGroup, top, 1)
+	nextGroupID, _ := selectNextVerifyGroup(allGroup, top, 1)
 	preBH := chain.QueryBlockHeaderByHeight(from - 1)
 
 	t := float64(0)
@@ -212,7 +212,7 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 		bh := chain.QueryBlockHeaderByHeight(h)
 		if bh == nil {
 			expectGid, _ := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
-			gvs := summary.getGroupSummary(expectGid, topHeight, expectGid.IsEqual(nextGroupId))
+			gvs := summary.getGroupSummary(expectGid, topHeight, expectGid.IsEqual(nextGroupID))
 			gvs.addJumpHeight(h)
 			jump++
 		} else {
@@ -234,10 +234,10 @@ func (api *GtasAPI) DebugVerifySummary(from, to uint64) (*Result, error) {
 				}
 			}
 			//expectGid, gs := selectNextVerifyGroup(allGroup, preBH, h-preBH.Height)
-			gid := groupsig.DeserializeId(bh.GroupId)
+			gid := groupsig.DeserializeID(bh.GroupID)
 			preBH = bh
-			gvs := summary.getGroupSummary(gid, topHeight, gid.IsEqual(nextGroupId))
-			gvs.NumVerify += 1
+			gvs := summary.getGroupSummary(gid, topHeight, gid.IsEqual(nextGroupID))
+			gvs.NumVerify++
 		}
 
 	}
@@ -309,7 +309,7 @@ func (api *GtasAPI) DebugPrintCheckProve(height, preheight uint64, gids string) 
 		return failResult("nil pre block")
 	}
 	gidBytes := common.FromHex(gids)
-	gid := groupsig.DeserializeId(gidBytes)
+	gid := groupsig.DeserializeID(gidBytes)
 
 	common.DefaultLogger.Debugf("debug print check prove: %v %v %v %v", height, preheight, gids, gid.GetHexString())
 	ss := mediator.Proc.DebugPrintCheckProves(pre, height, gid)

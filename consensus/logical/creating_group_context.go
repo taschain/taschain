@@ -72,8 +72,8 @@ func newCreateGroupBaseContext(sgi *StaticGroupInfo, baseBH *types.BlockHeader, 
 }
 
 func newCreateGroupContext(baseCtx *createGroupBaseContext, kings []groupsig.ID, isKing bool, top uint64) *CreatingGroupContext {
-	pingIdBytes := baseCtx.baseBH.Hash.Bytes()
-	pingIdBytes = append(pingIdBytes, baseCtx.baseGroup.Id...)
+	pingIDBytes := baseCtx.baseBH.Hash.Bytes()
+	pingIDBytes = append(pingIDBytes, baseCtx.baseGroup.ID...)
 	cg := &CreatingGroupContext{
 		//gInfo: gInfo,
 		//createGroup:    creator,
@@ -83,7 +83,7 @@ func newCreateGroupContext(baseCtx *createGroupBaseContext, kings []groupsig.ID,
 		createTime:             time.Now(),
 		bKing:                  isKing,
 		createTopHeight:        top,
-		pingID:                 base.Data2CommonHash(pingIdBytes).Hex(),
+		pingID:                 base.Data2CommonHash(pingIDBytes).Hex(),
 		pongMap:                make(map[string]byte, 0),
 		gSignGenerator:         model.NewGroupSignGenerator(model.Param.GetGroupK(baseCtx.parentInfo.GetMemberCount())),
 	}
@@ -127,7 +127,7 @@ func (ctx *createGroupBaseContext) createGroupHeader(memIds []groupsig.ID) *type
 
 	gh := &types.GroupHeader{
 		Parent:       ctx.parentInfo.GroupID.Serialize(),
-		PreGroup:     ctx.baseGroup.Id,
+		PreGroup:     ctx.baseGroup.ID,
 		Name:         gn,
 		Authority:    777,
 		BeginTime:    theBH.CurTime,

@@ -15,7 +15,7 @@
 
 // +build !amd64,!arm64 generic
 
-package bn_curve
+package bncurve
 
 func gfpCarry(a *gfP, head uint64) {
 	b := &gfP{}

@@ -110,19 +110,19 @@ func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
 
 func explorerConvertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
-	if g.Id != nil && len(g.Id) != 0 {
-		gmap["id"] = groupsig.DeserializeId(g.Id).GetHexString()
+	if g.ID != nil && len(g.ID) != 0 {
+		gmap["id"] = groupsig.DeserializeID(g.ID).GetHexString()
 		gmap["hash"] = g.Header.Hash
 	}
-	gmap["parent_id"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
-	gmap["pre_id"] = groupsig.DeserializeId(g.Header.PreGroup).GetHexString()
+	gmap["parent_id"] = groupsig.DeserializeID(g.Header.Parent).GetHexString()
+	gmap["pre_id"] = groupsig.DeserializeID(g.Header.PreGroup).GetHexString()
 	gmap["begin_time"] = g.Header.BeginTime
 	gmap["create_height"] = g.Header.CreateHeight
 	gmap["work_height"] = g.Header.WorkHeight
 	gmap["dismiss_height"] = g.Header.DismissHeight
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr := groupsig.DeserializeId(mem).GetHexString()
+		memberStr := groupsig.DeserializeID(mem).GetHexString()
 		mems = append(mems, memberStr)
 	}
 	gmap["members"] = mems
@@ -138,7 +138,7 @@ func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	bh := b.Header
 
 	ret := &ExploreBlockBonus{
-		ProposalId: groupsig.DeserializeId(bh.Castor).GetHexString(),
+		ProposalID: groupsig.DeserializeID(bh.Castor).GetHexString(),
 	}
 	bonusNum := uint64(0)
 	if b.Transactions != nil {

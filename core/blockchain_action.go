@@ -65,7 +65,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 		Height:     height,
 		ProveValue: proveValue,
 		Castor:     castor,
-		GroupId:    groupid,
+		GroupID:    groupid,
 		TotalQN:    latestBlock.TotalQN + qn, //todo:latestBlock != nil?
 		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
 		//ProveRoot:  proveRoot,
@@ -323,12 +323,11 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		if ok {
 			ret = types.AddBlockSucc
 			return
-		} else {
-			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, e)
-			ret = types.AddBlockFailed
-			err = ErrCommitBlockFail
-			return
 		}
+		Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, e)
+		ret = types.AddBlockFailed
+		err = ErrCommitBlockFail
+		return
 	}
 
 	cmpWeight := chain.compareChainWeight(bh)
@@ -364,12 +363,11 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		if ok {
 			ret = types.AddBlockSucc
 			return
-		} else {
-			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, e)
-			ret = types.AddBlockFailed
-			err = ErrCommitBlockFail
-			return
 		}
+		Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.String(), bh.Height, e)
+		ret = types.AddBlockFailed
+		err = ErrCommitBlockFail
+		return
 	}
 }
 

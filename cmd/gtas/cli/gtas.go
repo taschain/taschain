@@ -60,7 +60,7 @@ const (
 
 	statisticsSection = "statistics"
 
-	redis_prefix = "aliyun_"
+	redisPrefix = "aliyun_"
 )
 
 var walletManager wallets
@@ -78,9 +78,8 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 		if len(walletManager) == 0 {
 			common.DefaultLogger.Infof("Please new account or assign a account")
 			return
-		} else {
-			from = walletManager[0].Address
 		}
+		from = walletManager[0].Address
 	}
 	config, err := configVote.ToVoteConfig()
 	if err != nil {
@@ -100,9 +99,9 @@ func (gtas *Gtas) vote(from, modelNum string, configVote VoteConfigKvs) {
 }
 
 // miner 起旷工节点
-func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIp string, natPort uint16, seedIp string, seedId string, rpcPort uint, light bool, apply string, keystore string, enableLog bool, chainId uint16) {
+func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIP string, natPort uint16, seedIP string, seedID string, rpcPort uint, light bool, apply string, keystore string, enableLog bool, chainID uint16) {
 	gtas.runtimeInit()
-	err := gtas.fullInit(super, testMode, natIp, natPort, seedIp, seedId, light, keystore, enableLog, chainId)
+	err := gtas.fullInit(super, testMode, natIP, natPort, seedIP, seedID, light, keystore, enableLog, chainID)
 	if err != nil {
 		fmt.Println(err.Error())
 		common.DefaultLogger.Error(err.Error())
@@ -217,8 +216,8 @@ func (gtas *Gtas) Run() {
 	// rpc解析
 	rpc := mineCmd.Flag("rpc", "start rpc server").Bool()
 	enableLogSrv := mineCmd.Flag("monitor", "enable monitor").Default("false").Bool()
-	addrRpc := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("0.0.0.0").IP()
-	portRpc := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
+	addrRPC := mineCmd.Flag("rpcaddr", "rpc host").Short('r').Default("0.0.0.0").IP()
+	portRPC := mineCmd.Flag("rpcport", "rpc port").Short('p').Default("8088").Uint()
 	super := mineCmd.Flag("super", "start super node").Bool()
 	instanceIndex := mineCmd.Flag("instance", "instance index").Short('i').Default("0").Int()
 	apply := mineCmd.Flag("apply", "apply heavy or light miner").String()
@@ -233,11 +232,11 @@ func (gtas *Gtas) Run() {
 
 	//在测试模式下 P2P的NAT关闭
 	testMode := mineCmd.Flag("test", "test mode").Bool()
-	seedIp := mineCmd.Flag("seed", "seed ip").String()
-	seedId := mineCmd.Flag("seedid", "seed id").Default("").String()
+	seedIP := mineCmd.Flag("seed", "seed ip").String()
+	seedID := mineCmd.Flag("seedid", "seed id").Default("").String()
 	nat := mineCmd.Flag("nat", "nat server address").String()
 	natPort := mineCmd.Flag("natport", "nat server port").Default("0").Uint16()
-	chainId := mineCmd.Flag("chainid", "chain id").Default("0").Uint16()
+	chainID := mineCmd.Flag("chainid", "chain id").Default("0").Uint16()
 
 	clearCmd := app.Command("clear", "Clear the data of blockchain")
 
@@ -257,7 +256,7 @@ func (gtas *Gtas) Run() {
 	case consoleCmd.FullCommand():
 		err := ConsoleInit(*keystore, *remoteHost, *remotePort, *showRequest, *rpcPort)
 		if err != nil {
-			fmt.Errorf(err.Error())
+			fmt.Println(err.Error())
 		}
 
 		//case tCmd.FullCommand():
@@ -300,7 +299,7 @@ func (gtas *Gtas) Run() {
 		}
 		lightMiner = *light
 		//轻重节点一样
-		gtas.miner(*rpc, *super, *testMode, addrRpc.String(), *nat, *natPort, *seedIp, *seedId, *portRpc, *light, *apply, *keystore, *enableLogSrv, *chainId)
+		gtas.miner(*rpc, *super, *testMode, addrRPC.String(), *nat, *natPort, *seedIP, *seedID, *portRPC, *light, *apply, *keystore, *enableLogSrv, *chainID)
 	case clearCmd.FullCommand():
 		err := ClearBlock(*light)
 		if err != nil {
@@ -327,7 +326,7 @@ func (gtas *Gtas) simpleInit(configPath string) {
 }
 
 func (gtas *Gtas) checkAddress(keystore, address string) error {
-	aop, err := InitAccountManager(keystore, true)
+	aop, err := initAccountManager(keystore, true)
 	if err != nil {
 		return err
 	}
@@ -335,27 +334,26 @@ func (gtas *Gtas) checkAddress(keystore, address string) error {
 
 	acm := aop.(*AccountManager)
 	if address != "" {
-		if aci, err := acm.getAccountInfo(address); err != nil {
+		aci, err := acm.getAccountInfo(address)
+		if err != nil {
 			return fmt.Errorf("cannot get miner, err:%v", err.Error())
-		} else {
-			if aci.Miner == nil {
-				return fmt.Errorf("the address is not a miner account: %v", address)
-			}
-			gtas.account = aci.Account
-			return nil
 		}
-	} else {
-		aci := acm.getFirstMinerAccount()
-		if aci != nil {
-			gtas.account = *aci
-			return nil
-		} else {
-			return fmt.Errorf("please create a miner account first")
+		if aci.Miner == nil {
+			return fmt.Errorf("the address is not a miner account: %v", address)
 		}
+		gtas.account = aci.Account
+		return nil
+
 	}
+	aci := acm.getFirstMinerAccount()
+	if aci != nil {
+		gtas.account = *aci
+		return nil
+	}
+	return fmt.Errorf("please create a miner account first")
 }
 
-func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16, seedIp string, seedId string, light bool, keystore string, enableLog bool, chainId uint16) error {
+func (gtas *Gtas) fullInit(isSuper, testMode bool, natIP string, natPort uint16, seedIP string, seedID string, light bool, keystore string, enableLog bool, chainID uint16) error {
 	var err error
 
 	// 椭圆曲线初始化
@@ -388,12 +386,12 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIp string, natPort uint16,
 
 	netCfg := network.NetworkConfig{IsSuper: isSuper,
 		TestMode:        testMode,
-		NatIp:           natIp,
+		NatIP:           natIP,
 		NatPort:         natPort,
-		SeedIp:          seedIp,
-		SeedId:          seedId,
+		SeedIP:          seedIP,
+		SeedID:          seedID,
 		NodeIDHex:       id,
-		ChainId:         chainId,
+		ChainID:         chainID,
 		ProtocolVersion: common.ProtocalVersion}
 
 	err = network.Init(common.GlobalConf, chandler.MessageHandler, netCfg)
@@ -487,7 +485,7 @@ func (gtas *Gtas) autoApplyMiner(mtype int) {
 	}
 
 	tm := &types.Miner{
-		Id:           miner.ID.Serialize(),
+		ID:           miner.ID.Serialize(),
 		PublicKey:    miner.PK.Serialize(),
 		VrfPublicKey: miner.VrfPK,
 		Stake:        common.VerifyStake,
@@ -500,7 +498,7 @@ func (gtas *Gtas) autoApplyMiner(mtype int) {
 	}
 
 	nonce := core.BlockChainImpl.GetNonce(miner.ID.ToAddress()) + 1
-	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 100, 100, nonce, types.TransactionTypeMinerApply, common.ToHex(data))
+	ret, err := GtasAPIImpl.TxUnSafe(gtas.account.Sk, "", 0, 20000, 100, nonce, types.TransactionTypeMinerApply, common.ToHex(data))
 	common.DefaultLogger.Debugf("apply result", ret, err)
 
 }

@@ -85,17 +85,16 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	}
 
-	worker := p.GetVrfWorker()
+	worker := p.getVrfWorker()
 
 	if worker != nil && worker.workingOn(top, castHeight) {
 		//blog.log("already working on that block height=%v, status=%v", castHeight, worker.getStatus())
 		return false
-	} else {
-		blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
-		worker = NewVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime, p.ts)
-		p.setVrfWorker(worker)
-		p.blockProposal()
 	}
+	blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
+	worker = newVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime, p.ts)
+	p.setVrfWorker(worker)
+	p.blockProposal()
 	return true
 }
 
@@ -281,7 +280,7 @@ func (p *Processor) updateGlobalGroups() bool {
 	top := p.MainChain.Height()
 	iter := p.GroupChain.NewIterator()
 	for g := iter.Current(); g != nil && !IsGroupDissmisedAt(g.Header, top); g = iter.MovePre() {
-		gid := groupsig.DeserializeId(g.Id)
+		gid := groupsig.DeserializeID(g.ID)
 		if g, _ := p.globalGroups.getGroupFromCache(gid); g != nil {
 			continue
 		}

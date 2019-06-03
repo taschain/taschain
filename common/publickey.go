@@ -42,11 +42,11 @@ func (pk PublicKey) GetAddress() Address {
 	y := pk.PubKey.Y.Bytes()
 	x = append(x, y...)
 
-	addr_buf := sha3.Sum256(x)
-	if len(addr_buf) != AddressLength {
+	addrBuf := sha3.Sum256(x)
+	if len(addrBuf) != AddressLength {
 		panic("地址长度错误")
 	}
-	Addr := BytesToAddress(addr_buf[:])
+	Addr := BytesToAddress(addrBuf[:])
 	return Addr
 }
 
