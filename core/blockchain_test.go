@@ -52,7 +52,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	//BlockChainImpl.Clear()
 
 	queryAddr := "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"
-	b := BlockChainImpl.GetBalance(common.StringToAddress(queryAddr));
+	b := BlockChainImpl.GetBalance(common.HexToAddress(queryAddr));
 	addr := genHash("1")
 	fmt.Printf("balance = %d \n",b)
 	fmt.Printf("addr = %s \n",common.BytesToAddress(addr))
@@ -132,7 +132,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	//txpool.AddTransaction(genContractTx(1, 20000000, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
-	fmt.Println(contractAddr.GetHexString())
+	fmt.Println(contractAddr.Hex())
 	// 铸块2
 	block2 := BlockChainImpl.CastBlock(2,  common.Hex2Bytes("123"), 0, *castor, *groupid)
 	
@@ -417,7 +417,7 @@ func genTestTx(price uint64, source string, target string, nonce uint64, value u
 		Value:    value,
 	}
 	tx.Hash = tx.GenHash()
-	sk := common.HexStringToSecKey(privateKey)
+	sk := common.HexToSecKey(privateKey)
 	sign := sk.Sign(tx.Hash.Bytes())
 	tx.Sign = sign.Bytes()
 

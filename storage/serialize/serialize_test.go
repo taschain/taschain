@@ -46,5 +46,5 @@ func TestSerialize(t *testing.T) {
 }
 
 func accountDump(a Account) {
-	fmt.Printf("Account nounce:%d,Root:%s,CodeHash:%v,Balance:%v\n", a.Nonce, a.Root.String(), a.CodeHash, a.Balance.Sign())
+	fmt.Printf("Account nounce:%d,Root:%s,CodeHash:%v,Balance:%v\n", a.Nonce, a.Root.Hex(), a.CodeHash, a.Balance.Sign())
 }
