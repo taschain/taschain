@@ -331,18 +331,18 @@ type Member struct {
 }
 
 type GroupHeader struct {
-	Hash          common.Hash //组头hash
-	Parent        []byte      //父亲组 的组ID
-	PreGroup      []byte      //前一块的ID
-	Authority     uint64      //权限相关数据（父亲组赋予）
-	Name          string      //父亲组取的名字
+	Hash          common.Hash // Group header hash
+	Parent        []byte      // Parent group ID, which create the current group
+	PreGroup      []byte      // Previous group ID on group chain
+	Authority     uint64      // The authority given by the parent group
+	Name          string      // The name given by the parent group
 	BeginTime     time.TimeStamp
-	MemberRoot    common.Hash //成员列表hash
-	CreateHeight  uint64      //建组高度
-	ReadyHeight   uint64      //准备就绪最迟高度
-	WorkHeight    uint64      //组开始参与铸块的高度
-	DismissHeight uint64      //组解散的高度
-	Extends       string      //带外数据
+	MemberRoot    common.Hash // Group members list hash
+	CreateHeight  uint64      // Height of the group created
+	ReadyHeight   uint64      // Latest height of ready
+	WorkHeight    uint64      // Height of work
+	DismissHeight uint64      // Height of dismiss
+	Extends       string      // Extend data
 }
 
 func (gh *GroupHeader) GenHash() common.Hash {

@@ -79,7 +79,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 			success = executor.executeBonusTx(accountdb, transaction, castor)
 			if !success {
 				evictedTxs = append(evictedTxs, transaction.Hash)
-				//failed bonus tx should not be included in block
+				// Failed bonus tx should not be included in block
 				continue
 			}
 		case types.TransactionTypeMinerApply:
@@ -471,9 +471,7 @@ func createContract(accountdb *account.AccountDB, transaction *types.Transaction
 	return contractAddr, nil
 }
 
-/**
-交易固定消耗gas
-*/
+// intrinsicGas means transaction consumption intrinsic gas
 func intrinsicGas(transaction *types.Transaction) (gas uint64, err *types.TransactionError) {
 	gas = uint64(float32(len(transaction.Data)+len(transaction.ExtraData)) * CodeBytePrice)
 	gas = TransactionGasCost + gas
@@ -489,8 +487,9 @@ func canTransfer(db vm.AccountDB, addr common.Address, amount *big.Int, gasFee *
 }
 
 func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int) {
+
+	// Escape if amount is zero
 	if amount.Sign() == 0 {
-		//escape if amount is zero
 		return
 	}
 	db.SubBalance(sender, amount)

@@ -32,7 +32,7 @@ type peerMeter struct {
 	id            string
 	timeoutMeter  int
 	lastHeard     time.Time
-	reqBlockCount int //每次请求块的最大数量
+	reqBlockCount int // Maximum number of blocks per request
 }
 
 func (m *peerMeter) isEvil() bool {

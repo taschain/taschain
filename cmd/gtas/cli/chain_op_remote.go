@@ -14,12 +14,6 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/12/20 下午2:32
-**  Description:
- */
-
 type RemoteChainOpImpl struct {
 	host string
 	port int
@@ -126,8 +120,6 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 	sign := privateKey.Sign(tranx.Hash.Bytes())
 	tranx.Sign = sign.Bytes()
 	tx.Sign = sign.GetHexString()
-	//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
-	//fmt.Printf("%+v\n", tranx)
 
 	jsonByte, err := json.Marshal(tx)
 	if err != nil {
@@ -135,7 +127,7 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 	}
 
 	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
-	//此处要签名
+	// Signature is required here
 	return ca.request("tx", string(jsonByte))
 }
 

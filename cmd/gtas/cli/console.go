@@ -15,12 +15,6 @@ import (
 	"github.com/taschain/taschain/tvm"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/12/20 下午1:06
-**  Description:
- */
-
 type baseCmd struct {
 	name string
 	help string
@@ -67,14 +61,12 @@ func (c *newAccountCmd) parse(args []string) bool {
 type unlockCmd struct {
 	baseCmd
 	addr string
-	//password string
 }
 
 func genUnlockCmd() *unlockCmd {
 	c := &unlockCmd{
 		baseCmd: *genbaseCmd("unlock", "unlock the account"),
 	}
-	//c.fs.StringVar(&c.password, "password", "", "password for the account")
 	c.fs.StringVar(&c.addr, "addr", "", "the account address")
 	return c
 }
@@ -306,20 +298,20 @@ func (c *sendTxCmd) parse(args []string) bool {
 		return false
 	}
 
-	if c.txType == 1 { //发布合约预处理
-		if strings.TrimSpace(c.contractName) == "" { //合约名字非空
+	if c.txType == 1 { // Release contract preprocessing
+		if strings.TrimSpace(c.contractName) == "" { // Contract name is not empty
 			fmt.Println("please input the contractName")
 			c.fs.PrintDefaults()
 			return false
 		}
 
-		if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
+		if strings.TrimSpace(c.contractPath) == "" { // Contract file path is not empty
 			fmt.Println("please input the contractPath")
 			c.fs.PrintDefaults()
 			return false
 		}
 
-		f, err := ioutil.ReadFile(c.contractPath) //读取文件
+		f, err := ioutil.ReadFile(c.contractPath) // Read file
 		if err != nil {
 			fmt.Println("read the "+c.contractPath+"file failed ", err)
 			c.fs.PrintDefaults()
@@ -335,14 +327,14 @@ func (c *sendTxCmd) parse(args []string) bool {
 		}
 		c.data = string(jsonBytes)
 
-	} else if c.txType == 2 { //调用合约预处理
-		if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
+	} else if c.txType == 2 { // Release contract preprocessing
+		if strings.TrimSpace(c.contractPath) == "" { // Contract file path is not empty
 			fmt.Println("please input the contractPath")
 			c.fs.PrintDefaults()
 			return false
 		}
 
-		f, err := ioutil.ReadFile(c.contractPath) //读取文件
+		f, err := ioutil.ReadFile(c.contractPath) // Read file
 		if err != nil {
 			fmt.Println("read the "+c.contractPath+"file failed ", err)
 			c.fs.PrintDefaults()
@@ -353,98 +345,6 @@ func (c *sendTxCmd) parse(args []string) bool {
 
 	return true
 }
-
-//type exportAbiCmd struct {
-//	baseCmd
-//	contractName string
-//	contractPath string
-//	contract tvm.Contract
-//}
-
-//func genExportAbiCmd() *exportAbiCmd {
-//	c := &exportAbiCmd{
-//		baseCmd: *genbaseCmd("exportabi", "export contract ABI"),
-//	}
-//
-//	c.fs.StringVar(&c.contractName, "contractname", "", "the name of the contract.")
-//	c.fs.StringVar(&c.contractPath, "contractpath", "", "the path to the contract file.")
-//
-//	return c
-//}
-
-//func (c *exportAbiCmd) parse(args []string) bool {
-//	if err := c.fs.Parse(args); err != nil {
-//		fmt.Println(err.Error())
-//		return false
-//	}
-//
-//	if strings.TrimSpace(c.contractName) == "" { //合约名字非空
-//		fmt.Println("please input the contractName")
-//		c.fs.PrintDefaults()
-//		return false
-//	}
-//
-//	if strings.TrimSpace(c.contractPath) == "" { //合约文件路径非空
-//		fmt.Println("please input the contractPath")
-//		c.fs.PrintDefaults()
-//		return false
-//	}
-//
-//	f, err := ioutil.ReadFile(c.contractPath) //读取文件
-//	if err != nil {
-//		fmt.Println("read the "+c.contractPath+"file failed ", err)
-//		c.fs.PrintDefaults()
-//		return false
-//	}
-//	c.contract = tvm.Contract{string(f), c.contractName, nil}
-//
-//	return true
-//}
-
-//func (c *exportAbiCmd) export () {
-//	vm := tvm.NewTvm(nil, &c.contract, common.GlobalConf.GetString("tvm", "pylib", "py"))
-//	defer func() {
-//		vm.DelTvm()
-//	}()
-//	str := `
-//class Register(object):
-//    def __init__(self):
-//        self.funcinfo = {}
-//        self.abiinfo = []
-//
-//    def public(self , *dargs):
-//        def wrapper(func):
-//            paranametuple = func.__para__
-//            paraname = list(paranametuple)
-//            paraname.remove("self")
-//            paratype = []
-//            for i in range(len(paraname)):
-//                paratype.append(dargs[i])
-//            self.funcinfo[func.__name__] = [paraname,paratype]
-//            tmp = {}
-//            tmp["FuncName"] = func.__name__
-//            tmp["Args"] = paratype
-//            self.abiinfo.append(tmp)
-//            abiexport(str(self.abiinfo))
-//
-//            def _wrapper(*args , **kargs):
-//                return func(*args, **kargs)
-//            return _wrapper
-//        return wrapper
-//
-//import builtins
-//builtins.register = Register()
-//`
-//	fmt.Println(str)
-//	errorCode, errorMsg := vm.ExecutedScriptVMSucceed(str)
-//	if errorCode == types.SUCCESS {
-//		result := vm.ExecutedScriptKindFile(c.contract.Code)
-//		fmt.Println(result.Abi)
-//	} else {
-//		fmt.Println(errorMsg)
-//	}
-//
-//}
 
 type minerApplyCmd struct {
 	gasBaseCmd
@@ -609,7 +509,6 @@ var cmdTx = genTxCmd()
 var cmdBlock = genBlockCmd()
 var cmdSendTx = genSendTxCmd()
 
-//var cmdExportAbi = genExportAbiCmd()
 var cmdMinerApply = genMinerApplyCmd()
 var cmdMinerAbort = genMinerAbortCmd()
 var cmdMinerRefund = genMinerRefundCmd()
@@ -634,7 +533,6 @@ func init() {
 	list = append(list, &cmdTx.baseCmd)
 	list = append(list, &cmdBlock.baseCmd)
 	list = append(list, &cmdSendTx.baseCmd)
-	//list = append(list, &cmdExportAbi.baseCmd)
 	list = append(list, &cmdMinerApply.baseCmd)
 	list = append(list, &cmdMinerAbort.baseCmd)
 	list = append(list, &cmdMinerRefund.baseCmd)
@@ -714,8 +612,6 @@ func loop(acm accountOp, chainOp chainOp) {
 
 	re, _ := regexp.Compile("\\s{2，}")
 
-	//reader := bufio.NewReader(os.Stdin)
-
 	line := liner.NewLiner()
 	defer line.Close()
 
@@ -740,7 +636,6 @@ func loop(acm accountOp, chainOp chainOp) {
 		if ep == ":0" {
 			ep = "not connected"
 		}
-		//input, err := reader.ReadString('\n')
 		input, err := line.Prompt(fmt.Sprintf("gtas:%v > ", ep))
 		if err != nil {
 			if err == liner.ErrPromptAborted {
@@ -771,7 +666,6 @@ func loop(acm accountOp, chainOp chainOp) {
 					return acm.NewAccount(cmd.password, cmd.miner)
 				})
 			}
-			//fmt.Printf("pass %v, miner %v\n", cmd.password, cmd.miner)
 		case cmdExit.name, "quit":
 			fmt.Printf("thank you, bye\n")
 			line.Close()
@@ -850,12 +744,6 @@ func loop(acm accountOp, chainOp chainOp) {
 					return chainOp.SendRaw(cmd.toTxRaw())
 				})
 			}
-		//case cmdExportAbi.name:
-		//	cmd := genExportAbiCmd()
-		//	if cmd.parse(inputArr[1:]) {
-		//		cmd.export()
-		//	}
-
 		case cmdMinerApply.name:
 			cmd := genMinerApplyCmd()
 			if cmd.parse(args) {

@@ -10,12 +10,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/6/25 下午12:14
-**  Description:
- */
-
 const (
 	waitingPong = 1
 	waitingSign = 2
@@ -60,8 +54,6 @@ func newCreateGroupContext(baseCtx *createGroupBaseContext, kings []groupsig.ID,
 	pingIDBytes := baseCtx.baseBH.Hash.Bytes()
 	pingIDBytes = append(pingIDBytes, baseCtx.baseGroup.ID...)
 	cg := &CreatingGroupContext{
-		//gInfo: gInfo,
-		//createGroup:    creator,
 		createGroupBaseContext: *baseCtx,
 		kings:                  kings,
 		status:                 waitingPong,

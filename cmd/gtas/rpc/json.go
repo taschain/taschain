@@ -75,13 +75,13 @@ type jsonNotification struct {
 // jsonCodec reads and writes JSON-RPC messages to the underlying connection. It
 // also has support for parsing arguments and serializing (result) objects.
 type jsonCodec struct {
-	closer sync.Once          // close closed channel once
-	closed chan interface{}   // closed on Close
-	decMu  sync.Mutex         // guards d
-	d      *json.Decoder      // decodes incoming requests
-	encMu  sync.Mutex         // guards e
-	e      *json.Encoder      // encodes responses
-	rw     io.ReadWriteCloser // connection
+	closer sync.Once          // Close closed channel once
+	closed chan interface{}   // Closed on Close
+	decMu  sync.Mutex         // Guards d
+	d      *json.Decoder      // Decodes incoming requests
+	encMu  sync.Mutex         // Guards e
+	e      *json.Encoder      // Encodes responses
+	rw     io.ReadWriteCloser // Connection
 }
 
 func (err *jsonError) Error() string {
@@ -105,7 +105,7 @@ func NewJSONCodec(rwc io.ReadWriteCloser) ServerCodec {
 // isBatch returns true when the first non-whitespace characters is '['
 func isBatch(msg json.RawMessage) bool {
 	for _, c := range msg {
-		// skip insignificant whitespace (http://www.ietf.org/rfc/rfc4627.txt)
+		// Skip insignificant whitespace (http://www.ietf.org/rfc/rfc4627.txt)
 		if c == 0x20 || c == 0x09 || c == 0x0a || c == 0x0d {
 			continue
 		}

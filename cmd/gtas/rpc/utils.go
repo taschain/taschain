@@ -36,13 +36,13 @@ var (
 	subscriptionIDGen   = idGenerator()
 )
 
-// Is this an exported - upper case - name?
+// isExported means this an exported - upper case - name?
 func isExported(name string) bool {
 	rune, _ := utf8.DecodeRuneInString(name)
 	return unicode.IsUpper(rune)
 }
 
-// Is this type exported or a builtin?
+// isExportedOrBuiltinType means this type exported or a builtin?
 func isExportedOrBuiltinType(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -64,7 +64,7 @@ func isContextType(t reflect.Type) bool {
 
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
 
-// Implements this type the error interface
+// isErrorType Implements this type the error interface
 func isErrorType(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -162,7 +162,7 @@ METHODS:
 			continue METHODS
 		}
 
-		// determine method arguments, ignore first arg since it's the receiver type
+		// Determine method arguments, ignore first arg since it's the receiver type
 		// Arguments must be exported or builtin types
 		h.argTypes = make([]reflect.Type, numIn-firstArg)
 		for i := firstArg; i < numIn; i++ {
@@ -173,14 +173,14 @@ METHODS:
 			h.argTypes[i-firstArg] = argType
 		}
 
-		// check that all returned values are exported or builtin types
+		// Check that all returned values are exported or builtin types
 		for i := 0; i < mtype.NumOut(); i++ {
 			if !isExportedOrBuiltinType(mtype.Out(i)) {
 				continue METHODS
 			}
 		}
 
-		// when a method returns an error it must be the last returned value
+		// When a method returns an error it must be the last returned value
 		h.errPos = -1
 		for i := 0; i < mtype.NumOut(); i++ {
 			if isErrorType(mtype.Out(i)) {

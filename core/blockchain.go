@@ -80,20 +80,17 @@ type FullBlockChain struct {
 
 	transactionPool TransactionPool
 
-	//已上链的最新块
-	latestBlock   *types.BlockHeader
+	latestBlock   *types.BlockHeader // Latest block on chain
 	latestStateDB *account.AccountDB
 
 	topBlocks *lru.Cache
 
-	// 读写锁
-	rwLock sync.RWMutex
-	//互斥锁
-	mu      sync.Mutex
-	batchMu sync.Mutex //批量上链锁
+	rwLock sync.RWMutex // Read-write lock
 
-	// 是否可以工作
-	init bool
+	mu      sync.Mutex // Mutex lock
+	batchMu sync.Mutex // Batch mutex for add block on blockchain
+
+	init bool // Init means where blockchain can work
 
 	executor *TVMExecutor
 
@@ -102,7 +99,7 @@ type FullBlockChain struct {
 
 	//verifiedBodyCache *lru.Cache
 
-	isAdujsting bool
+	isAdujsting bool // IsAdujsting which means there may be a fork
 
 	consensusHelper types.ConsensusHelper
 
@@ -112,7 +109,7 @@ type FullBlockChain struct {
 	config        *BlockChainConfig
 	//castedBlock  *lru.Cache
 
-	ticker *ticker.GlobalTicker //全局定时器
+	ticker *ticker.GlobalTicker //Ticker is a global time ticker
 	ts     time2.TimeService
 }
 
@@ -234,7 +231,8 @@ func (chain *FullBlockChain) buildCache(size int) {
 	}
 }
 
-// 创始块
+// insertGenesisBlock creates the genesis block and some necessary information，
+// and commitit
 func (chain *FullBlockChain) insertGenesisBlock() {
 	stateDB, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil != err {
@@ -288,7 +286,7 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	Logger.Debugf("GenesisBlock %+v", block.Header)
 }
 
-//清除链所有数据
+// Clear clear blockchain all data
 func (chain *FullBlockChain) Clear() error {
 	//gchain.mu.Lock()
 	//defer gchain.mu.Unlock()

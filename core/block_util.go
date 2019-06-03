@@ -85,17 +85,17 @@ func calcReceiptsTree(receipts types.Receipts) common.Hash {
 func setupGenesisStateDB(stateDB *account.AccountDB, genesisInfo *types.GenesisInfo) {
 	tenThousandTasBi := big.NewInt(0).SetUint64(common.TAS2RA(10000))
 
-	//管理员账户
+	// Administrator account
 	stateDB.SetBalance(common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"), big.NewInt(0).SetUint64(common.TAS2RA(5000000)))
 	stateDB.SetBalance(common.HexStringToAddress("0xb055a3ffdc9eeb0c5cf0c1f14507a40bdcbff98c03286b47b673c02d2efe727e"), big.NewInt(0).SetUint64(common.TAS2RA(5000000)))
 
-	//创世账户
+	// Genesis account
 	for _, mem := range genesisInfo.Group.Members {
 		addr := common.BytesToAddress(mem)
 		stateDB.SetBalance(addr, tenThousandTasBi)
 	}
 
-	// 交易脚本账户
+	// Script trading account
 	for _, acc := range testTxAccount {
 		stateDB.SetBalance(common.HexStringToAddress(acc), tenThousandTasBi)
 	}

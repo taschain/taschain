@@ -27,7 +27,7 @@ type executePostState struct {
 	txs       []*types.Transaction
 }
 
-//构建一个铸块（组内当前铸块人同步操作）
+// CastBlock cast a block, current casters synchronization operation in the group
 func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint64, castor []byte, groupid []byte) *types.Block {
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
@@ -96,7 +96,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v,stateTree:%s,prestatetree:%s",
 		height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(),
 		chain.consensusHelper.VRFProve2Value(block.Header.ProveValue), block.Header.StateTree.String(), preRoot.String())
-	//自己铸的块 自己不需要验证
+	// Blocks that you cast yourself do not need to be verified
 	chain.verifiedBlocks.Add(block.Header.Hash, &executePostState{
 		state:     state,
 		receipts:  receipts,
@@ -146,12 +146,13 @@ func (chain *FullBlockChain) verifyTxs(bh *types.BlockHeader, txs []*types.Trans
 	return ps, 0
 }
 
-//铸块成功，上链
-//返回值: 0,上链成功
-//       -1，验证失败
-//        1, 丢弃该块(链上已存在该块）
-//        2,丢弃该块（链上存在QN值更大的相同高度块)
-//        3,分叉调整
+// AddBlockOnChain add a block on blockchain, there are five cases of return value：
+//
+// 		0, successfully add block on blockchain
+// 		-1, verification failed
+//		1, the block already exist on the blockchain, then we should discard it
+// 		2, the same height block with a larger QN value on the chain, then we should discard it
+// 		3, need adjust the blockchain, there will be a fork
 func (chain *FullBlockChain) AddBlockOnChain(source string, b *types.Block) types.AddBlockResult {
 	ret, _ := chain.addBlockOnChain(source, b)
 	return ret
@@ -179,7 +180,7 @@ func (chain *FullBlockChain) processFutureBlock(b *types.Block, source string) {
 		return
 	}
 	eh := chain.GetConsensusHelper().EstimatePreHeight(b.Header)
-	if eh <= chain.Height() { //pre高度小于当前高度，则判断为产生分叉
+	if eh <= chain.Height() { // If pre height is less than the current height, it is judged to be fork
 		bh := b.Header
 		top := chain.latestBlock
 		Logger.Warnf("detect fork. hash=%v, height=%v, preHash=%v, topHash=%v, topHeight=%v, topPreHash=%v", bh.Hash.String(), bh.Height, bh.PreHash.String(), top.Hash.String(), top.Height, top.PreHash.String())
@@ -300,7 +301,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	}
 	slog.EndStage()
 
-	//直接链上
+	// Add directly to the blockchain
 	if bh.PreHash == topBlock.Hash {
 		slog.AddStage("commitBlock")
 		ok, e := chain.commitBlock(b, ps)
@@ -316,7 +317,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	}
 
 	cmpWeight := chain.compareChainWeight(bh)
-	if cmpWeight > 0 { //本地权重更大，丢弃
+	if cmpWeight > 0 { // the local block's weight is greater, then discard the new one
 		ret = types.BlockTotalQnLessThanLocal
 		err = ErrLocalMoreWeight
 		return
@@ -324,7 +325,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		ret = types.BlockExisted
 		err = ErrBlockExist
 		return
-	} else { //分叉
+	} else { // there is a fork
 		newTop := chain.queryBlockHeaderByHash(bh.PreHash)
 		old := chain.latestBlock
 		slog.AddStage("resetTop")
@@ -356,7 +357,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	}
 }
 
-//check tx sign and recover source
+// validateTxs check tx sign and recover source
 func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
 	if txs == nil || len(txs) == 0 {
 		return true
@@ -476,7 +477,7 @@ func (chain *FullBlockChain) batchAddBlockOnChain(source string, module string, 
 		Logger.Errorf("%v blocks not chained! size %v", module, len(blocks))
 		return
 	}
-	//先预处理恢复交易source
+	// First pre-recovery transaction source
 	for _, b := range blocks {
 		if b.Transactions != nil && len(b.Transactions) > 0 {
 			go chain.transactionPool.AsyncAddTxs(b.Transactions)
@@ -506,7 +507,7 @@ func (chain *FullBlockChain) batchAddBlockOnChain(source string, module string, 
 			Logger.Debugf("%v batchAdd reset top:old %v %v %v, new %v %v %v, last %v %v %v", module, localTop.Hash.ShortS(), localTop.Height, localTop.TotalQN, pre.Hash.ShortS(), pre.Height, pre.TotalQN, last.Hash.ShortS(), last.Height, last.TotalQN)
 			chain.ResetTop(pre)
 		} else {
-			//大分叉了
+			// There will fork, we have to deal with it
 			Logger.Debugf("%v batchAdd detect fork from %v: local %v %v, peer %v %v", module, source, localTop.Hash.ShortS(), localTop.Height, firstBH.Header.Hash.ShortS(), firstBH.Header.Height)
 			go chain.forkProcessor.tryToProcessFork(source, firstBH)
 			return

@@ -9,12 +9,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/10/16 下午3:05
-**  Description:
- */
-
 func convertTransaction(tx *types.Transaction) *Transaction {
 	trans := &Transaction{
 		Hash:          tx.Hash,
@@ -35,22 +29,20 @@ func convertTransaction(tx *types.Transaction) *Transaction {
 func convertBlockHeader(b *types.Block) *Block {
 	bh := b.Header
 	block := &Block{
-		Height:  bh.Height,
-		Hash:    bh.Hash,
-		PreHash: bh.PreHash,
-		CurTime: bh.CurTime.Local(),
-		PreTime: bh.PreTime().Local(),
-		Castor:  groupsig.DeserializeID(bh.Castor),
-		GroupID: groupsig.DeserializeID(bh.GroupID),
-		Prove:   common.ToHex(bh.ProveValue),
-		TotalQN: bh.TotalQN,
-		TxNum:   uint64(len(b.Transactions)),
-		//Qn: mediator.Proc.CalcBlockHeaderQN(bh),
+		Height:      bh.Height,
+		Hash:        bh.Hash,
+		PreHash:     bh.PreHash,
+		CurTime:     bh.CurTime.Local(),
+		PreTime:     bh.PreTime().Local(),
+		Castor:      groupsig.DeserializeID(bh.Castor),
+		GroupID:     groupsig.DeserializeID(bh.GroupID),
+		Prove:       common.ToHex(bh.ProveValue),
+		TotalQN:     bh.TotalQN,
+		TxNum:       uint64(len(b.Transactions)),
 		StateRoot:   bh.StateTree,
 		TxRoot:      bh.TxTree,
 		ReceiptRoot: bh.ReceiptTree,
-		//ProveRoot:   bh.ProveRoot,
-		Random: common.ToHex(bh.Random),
+		Random:      common.ToHex(bh.Random),
 	}
 	return block
 }
@@ -101,8 +93,6 @@ func sendTransaction(trans *types.Transaction) error {
 	if trans.Sign == nil {
 		return fmt.Errorf("transaction sign is empty")
 	}
-
-	//common.DefaultLogger.Debugf(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
 
 	if ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(trans); err != nil || !ok {
 		common.DefaultLogger.Errorf("AddTransaction not ok or error:%s", err.Error())

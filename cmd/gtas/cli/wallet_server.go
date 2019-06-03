@@ -6,12 +6,6 @@ import (
 	"github.com/taschain/taschain/common"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/12/20 下午1:43
-**  Description:
- */
-
 type WalletServer struct {
 	Port int
 	aop  accountOp
@@ -41,15 +35,6 @@ func (ws *WalletServer) Start() error {
 	return err
 }
 
-//func response(w http.ResponseWriter, ret *Result) {
-//	w.Header().Set("content-type", "application/json")
-//	fmt.Fprintln(w, ret)
-//}
-//
-//func responseError(w http.ResponseWriter, err string) {
-//	ret, _ := failResult(err)
-//	response(w, ret)
-//}
 func (ws *WalletServer) SignData(source, target, unlockPassword string, value float64, gas uint64, gaspriceStr string, txType int, nonce uint64, data string) *Result {
 	gp, err := common.ParseCoin(gaspriceStr)
 	if err != nil {
@@ -75,7 +60,6 @@ func (ws *WalletServer) SignData(source, target, unlockPassword string, value fl
 	}
 	aci := r.Data.(*Account)
 
-	//ws.aop.Lock(source)
 	privateKey := common.HexStringToSecKey(aci.Sk)
 	pubkey := common.HexStringToPubKey(aci.Pk)
 	if privateKey.GetPubKey().GetHexString() != pubkey.GetHexString() {
@@ -91,13 +75,5 @@ func (ws *WalletServer) SignData(source, target, unlockPassword string, value fl
 	sign := privateKey.Sign(tranx.Hash.Bytes())
 	tranx.Sign = sign.Bytes()
 	txRaw.Sign = sign.GetHexString()
-	//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
-	//fmt.Printf("%+v\n", tranx)
-	//
-	//jsonByte, err := json.MarshalIndent(txRaw, "", "\t")
-	//fmt.Println(string(jsonByte))
-	//if err != nil {
-	//	return opError(err)
-	//}
 	return opSuccess(txRaw)
 }
