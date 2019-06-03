@@ -51,14 +51,6 @@ func TestGenesisGroup(t *testing.T) {
 	middleware.InitMiddleware()
 	common.InitConf(confPathPrefix + "/tas1.ini")
 
-	// block初始化
-	//err := core.InitCore(false, mediator.NewConsensusHelper(groupsig.ID{}))
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	//network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
-
 	InitConsensus()
 
 	procs, _ := processors()
@@ -75,18 +67,18 @@ func TestGenesisGroup(t *testing.T) {
 		GInfo: model.ConsensusGroupInitInfo{GI: *gis, Mems: mems},
 	}
 
+	ids := make([]groupsig.ID, 0)
+	for _, p := range procs {
+		ids = append(ids, p.GetMinerID())
+	}
+
 	procSpms := make(map[string][]*model.ConsensusSharePieceMessage)
 
 	model.Param.GroupMemberMax = len(mems)
 	model.Param.GroupMemberMin = len(mems)
 
 	for _, p := range procs {
-		//if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
-		//	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
-		//	//dummy 组写入组链 add by 小熊
-		//	//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
-		//}
-		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, nil, p.mi)
+		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, ids, p.mi)
 		shares := gc.GenSharePieces()
 		for id, share := range shares {
 			spms := procSpms[id]
@@ -114,7 +106,7 @@ func TestGenesisGroup(t *testing.T) {
 		p := procs[id]
 		for _, spm := range spms {
 			gc := p.joiningGroups.GetGroup(spm.GHash)
-			ret := gc.PieceMessage(p.GetMinerID(), &spm.Share)
+			ret := gc.PieceMessage(spm.SI.GetID(), &spm.Share)
 			if ret == 1 {
 				jg := gc.GetGroupInfo()
 				p.joinGroup(jg)
@@ -146,19 +138,6 @@ func TestGenesisGroup(t *testing.T) {
 			jg := p.belongGroups.getJoinedGroup(spkm.GroupID)
 			p.belongGroups.addMemSignPk(spkm.SI.GetID(), spkm.GroupID, spkm.SignPK)
 			log.Printf("processor %v join group gid %v\n", p.getPrefix(), jg.GroupID.ShortS())
-			//if gc.SignPKMessage(spkm) == 1 {
-			//	jg := gc.GetGroupInfo()
-			//	p.joinGroup(jg, true)
-			//	var msg = &model.ConsensusGroupInitedMessage{
-			//		GHash: spkm.GHash,
-			//		GroupID: jg.GroupID,
-			//		GroupPK: jg.GroupPK,
-			//	}
-			//	ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
-			//	msg.GenSign(ski, msg)
-			//
-			//	initedMsgs[id] = msg
-			//}
 		}
 	}
 
@@ -178,14 +157,7 @@ func TestGenesisGroup(t *testing.T) {
 			}
 			if initingGroup.receive(msg.SI.GetID(), msg.GroupPK) == INIT_SUCCESS {
 				staticGroup := NewSGIFromStaticGroupSummary(msg.GroupID, msg.GroupPK, initingGroup)
-				add := p.globalGroups.AddStaticGroup(staticGroup)
-				if add {
-					//p.groupManager.AddGroupOnChain(staticGroup, false)
-
-					//if p.IsMinerGroup(msg.GI.GroupID) && p.GetBlockContext(msg.GI.GroupID) == nil {
-					//	p.prepareForCast(msg.GI.GroupID)
-					//}
-				}
+				p.globalGroups.AddStaticGroup(staticGroup)
 			}
 		}
 	}
