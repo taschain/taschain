@@ -26,7 +26,7 @@ func TestFullBlockChain_QueryBlockFloor(t *testing.T) {
 
 	fmt.Println("=====")
 	bh := chain.queryBlockHeaderByHeight(0)
-	fmt.Println(bh, bh.Hash.String())
+	fmt.Println(bh, bh.Hash.Hex())
 	//top := gchain.latestBlock
 	//t.Log(top.Height, top.Hash.String())
 	//
