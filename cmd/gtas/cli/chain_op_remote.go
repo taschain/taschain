@@ -141,7 +141,7 @@ func (ca *RemoteChainOpImpl) Balance(addr string) *Result {
 	return ca.request("balance", addr)
 }
 
-// Balance query miner info by address
+// MinerInfo query miner info by address
 func (ca *RemoteChainOpImpl) MinerInfo(addr string) *Result {
 	return ca.request("minerInfo", addr)
 }
