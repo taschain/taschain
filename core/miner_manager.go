@@ -44,10 +44,10 @@ var (
 	minerCountDecrease = MinerCountOperation{1}
 )
 
-type StakeStatus = int
+type stakeStatus = int
 
 const (
-	Staked StakeStatus = iota
+	Staked stakeStatus = iota
 	StakeFrozen
 )
 
@@ -330,7 +330,7 @@ func (mm *MinerManager) getMinerStakeDetailDatabase() common.Address {
 	return common.MinerStakeDetailDBAddress
 }
 
-func (mm *MinerManager) getDetailDBKey(from []byte, minerAddr []byte, _type byte, status StakeStatus) []byte {
+func (mm *MinerManager) getDetailDBKey(from []byte, minerAddr []byte, _type byte, status stakeStatus) []byte {
 	var pledgFlagByte = (_type << 4) | byte(status)
 	key := []byte{stakeFlagByte(pledgFlagByte)}
 	key = append(key, minerAddr...)
@@ -408,7 +408,7 @@ func (mm *MinerManager) CancelStake(from []byte, miner *types.Miner, amount uint
 
 // GetLatestCancelStakeHeight returns the block height of the property owner cancel the pledge stake for a miner or
 // a validator. The owner can refund the stake after several blocks later after cancel stake
-func (mm MinerManager) GetLatestCancelStakeHeight(from []byte, miner *types.Miner, accountdb vm.AccountDB) uint64 {
+func (mm *MinerManager) GetLatestCancelStakeHeight(from []byte, miner *types.Miner, accountdb vm.AccountDB) uint64 {
 	dbAddr := mm.getMinerStakeDetailDatabase()
 	frozenKey := mm.getDetailDBKey(from, miner.ID, miner.Type, StakeFrozen)
 	frozenData := accountdb.GetData(dbAddr, string(frozenKey))
