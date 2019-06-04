@@ -6,12 +6,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/1/21 下午3:40
-**  Description:
- */
-
 type signPKReqRecord struct {
 	reqTime time.Time
 	reqUID  groupsig.ID
@@ -21,7 +15,8 @@ func (r *signPKReqRecord) reqTimeout() bool {
 	return time.Now().After(r.reqTime.Add(60 * time.Second))
 }
 
-var recordMap sync.Map //idHex -> signPKReqRecord
+//recordMap mapping idHex to signPKReqRecord
+var recordMap sync.Map
 
 func addSignPkReq(id groupsig.ID) bool {
 	r := &signPKReqRecord{

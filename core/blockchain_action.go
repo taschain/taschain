@@ -47,9 +47,8 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 		GroupID:    groupid,
 		TotalQN:    latestBlock.TotalQN + qn, //todo:latestBlock != nil?
 		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
-		//ProveRoot:  proveRoot,
-		PreHash: latestBlock.Hash,
-		Nonce:   common.ChainDataVersion,
+		PreHash:    latestBlock.Hash,
+		Nonce:      common.ChainDataVersion,
 	}
 	block.Header.Elapsed = int32(block.Header.CurTime.Since(latestBlock.CurTime))
 
@@ -77,15 +76,12 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block.Header, txs, true)
 
 	block.Transactions = transactions
-	//block.Header.Transactions = transactionHashes
 	block.Header.TxTree = calcTxTree(block.Transactions)
 
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 
 	block.Header.Hash = block.Header.GenHash()
-
-	//Logger.Errorf("receiptes cast bh %v, %+v", block.Header.Hash.String(), receipts)
 
 	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v,stateTree:%s,prestatetree:%s",
 		height, block.Header.Hash.Hex(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(),
@@ -197,10 +193,6 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 	if chain.compareChainWeight(b.Header) > 0 {
 		return false, ErrLocalMoreWeight
 	}
-
-	//if check, err := chain.GetConsensusHelper().CheckProveRoot(b.Header); !check {
-	//	return false, fmt.Errorf("check prove root fail, err=%v", err.Error())
-	//}
 
 	groupValidateResult, err := chain.consensusVerifyBlock(b.Header)
 	if !groupValidateResult {
@@ -407,9 +399,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 	}
 
 	preRoot := preBlock.StateTree
-	if len(block.Transactions) > 0 {
-		//Logger.Debugf("NewAccountDB height:%d StateTree:%s preHash:%s preRoot:%s", block.Header.Height, block.Header.StateTree.Hex(), preBlock.Hash.Hex(), preRoot.Hex())
-	}
+
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		Logger.Errorf("Fail to new stateDb, error:%s", err)
@@ -424,7 +414,6 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 	receiptsTree := calcReceiptsTree(receipts)
 	if receiptsTree != block.Header.ReceiptTree {
 		Logger.Errorf("fail to verify receipt, hash1:%s hash2:%s", receiptsTree.Hex(), block.Header.ReceiptTree.Hex())
-		//Logger.Errorf("receiptes verify bh %v, %+v", block.Header.Hash.String(), receipts)
 		return false, nil
 	}
 

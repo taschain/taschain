@@ -6,12 +6,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/28 上午10:20
-**  Description:
- */
-
 var SlowLogger Logger
 
 func InitSlowLogger(index int) {

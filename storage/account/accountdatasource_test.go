@@ -42,5 +42,3 @@ func TestExpandTrie(t *testing.T) {
 		}
 	}
 }
-
-

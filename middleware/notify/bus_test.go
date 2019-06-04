@@ -60,7 +60,6 @@ func consumer2(ch <-chan int) {
 	}
 }
 
-
 func TestBus(t *testing.T) {
 	bus := NewBus()
 	bus.Subscribe("topic1", handler1)

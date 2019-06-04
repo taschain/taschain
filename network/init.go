@@ -24,7 +24,6 @@ import (
 )
 
 const (
-
 	seedDefaultID = "0x10b94f335f1842befc329f996b9bee0d3f4fe034306842bb301023ca38711779"
 
 	seedDefaultIP = "47.105.51.161"
@@ -32,15 +31,15 @@ const (
 	seedDefaultPort = 1122
 )
 
-//网络配置
+// NetworkConfig is the network configuration
 type NetworkConfig struct {
 	NodeIDHex       string
 	NatIP           string
 	NatPort         uint16
 	SeedIP          string
 	SeedID          string
-	ChainID         uint16
-	ProtocolVersion uint16
+	ChainID         uint16 // Chain id
+	ProtocolVersion uint16 // Protocol version
 	TestMode        bool
 	IsSuper         bool
 }

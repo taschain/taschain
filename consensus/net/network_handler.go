@@ -51,14 +51,6 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 			return e
 		}
 
-		//belongGroup := m.GInfo.MemberExists(c.processor.GetMinerID())
-
-		//var machines *StateMachines
-		//if belongGroup {
-		//	machines = &GroupInsideMachines
-		//} else {
-		//	machines = &GroupOutsideMachines
-		//}
 		GroupInsideMachines.GetMachine(m.GInfo.GI.GetHash().Hex(), len(m.GInfo.Mems)).Transform(NewStateMsg(code, m, sourceID))
 	case network.KeyPieceMsg:
 		m, e := unMarshalConsensusSharePieceMessage(body)
@@ -84,13 +76,6 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 		}
 		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s, groupId:%v", sourceID, m.GHash.Hex(), m.GroupID.GetHexString())
 
-		//belongGroup := c.processor.ExistInGroup(m.GHash)
-		//var machines *StateMachines
-		//if belongGroup {
-		//	machines = &GroupInsideMachines
-		//} else {
-		//	machines = &GroupOutsideMachines
-		//}
 		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
 
 	case network.CurrentGroupCastMsg:
@@ -211,5 +196,3 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 
 	return nil
 }
-
-//----------------------------------------------------------------------------------------------------------------------

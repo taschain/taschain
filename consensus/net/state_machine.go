@@ -50,7 +50,6 @@ type stateNode struct {
 
 	//future state msgs cached in the queue
 	queue []*StateMsg
-	//lock       sync.RWMutex
 }
 
 type StateMsg struct {
@@ -62,10 +61,9 @@ type StateMsg struct {
 type StateMachine struct {
 	ID      string
 	Current *stateNode
-	//Current atomic.Value
-	Head *stateNode
-	Time time.Time
-	lock sync.Mutex
+	Head    *stateNode
+	Time    time.Time
+	lock    sync.Mutex
 }
 
 type StateMachines struct {
@@ -73,12 +71,9 @@ type StateMachines struct {
 	machines  *lru.Cache
 	generator StateMachineGenerator
 	ticker    *ticker.GlobalTicker
-	//machines map[string]*StateMachine
 }
 
 var GroupInsideMachines StateMachines
-
-//var GroupOutsideMachines StateMachines
 
 var logger taslog.Logger
 
@@ -122,8 +117,6 @@ func newStateMachine(id string) *StateMachine {
 }
 
 func (n *stateNode) queueSize() int32 {
-	//n.lock.RLock()
-	//defer n.lock.RUnlock()
 	return int32(len(n.queue))
 }
 
@@ -132,8 +125,6 @@ func (n *stateNode) state() string {
 }
 
 func (n *stateNode) dataIndex(id string) int32 {
-	//n.lock.RLock()
-	//defer n.lock.RUnlock()
 	for idx, d := range n.queue {
 		if d.ID == id {
 			return int32(idx)
@@ -147,8 +138,6 @@ func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
 	if idx >= 0 {
 		return idx, false
 	}
-	//n.lock.Lock()
-	//defer n.lock.Unlock()
 	n.queue = append(n.queue, stateMsg)
 	return int32(len(n.queue)) - 1, true
 }
@@ -221,7 +210,6 @@ func (m *StateMachine) transform() {
 	node := m.currentNode()
 	qs := node.queueSize()
 
-	//node.lock.Lock()
 	d := qs - node.currentIdx
 	switch d {
 	case 0:
@@ -229,7 +217,8 @@ func (m *StateMachine) transform() {
 	case 1:
 		msg := node.queue[node.currentIdx]
 		node.handler(msg.Data)
-		node.queue[node.currentIdx].Data = true //释放内存
+		// Free memory
+		node.queue[node.currentIdx].Data = true
 		node.currentIdx++
 		node.execNum++
 		logger.Debugf("machine %v handling exec state %v, from %v", m.ID, node.state(), msg.ID)
@@ -241,7 +230,8 @@ func (m *StateMachine) transform() {
 			go func() {
 				defer wg.Done()
 				node.handler(msg.Data)
-				msg.Data = true //释放内存
+				// Free memory
+				msg.Data = true
 			}()
 			node.currentIdx++
 			node.execNum++
@@ -249,8 +239,6 @@ func (m *StateMachine) transform() {
 		}
 		wg.Wait()
 	}
-
-	//node.lock.Unlock()
 
 	if node.leastFinished() && node.next != nil {
 		m.setCurrent(node.next)

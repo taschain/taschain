@@ -50,7 +50,6 @@ type AccountDB struct {
 	db   AccountDatabase
 	trie Trie
 
-	//accountObjects      map[common.Address]*accountObject
 	accountObjects      *sync.Map
 	accountObjectsDirty map[common.Address]struct{}
 
@@ -74,7 +73,6 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
-
 // Create a new account from a given trie.
 func NewAccountDB(root common.Hash, db AccountDatabase) (*AccountDB, error) {
 	tr, err := db.OpenTrie(root)
@@ -82,14 +80,13 @@ func NewAccountDB(root common.Hash, db AccountDatabase) (*AccountDB, error) {
 		return nil, err
 	}
 	accountDb := &AccountDB{
-		db:   db,
-		trie: tr,
+		db:                  db,
+		trie:                tr,
 		accountObjects:      new(sync.Map),
 		accountObjectsDirty: make(map[common.Address]struct{}),
 	}
 	return accountDb, nil
 }
-
 
 // setError remembers the first non-nil error it is called with.
 func (adb *AccountDB) setError(err error) {
@@ -99,8 +96,8 @@ func (adb *AccountDB) setError(err error) {
 }
 
 // RemoveData set data nil
-func (adb *AccountDB) RemoveData(addr common.Address,key string) {
-	adb.SetData(addr,key,nil)
+func (adb *AccountDB) RemoveData(addr common.Address, key string) {
+	adb.SetData(addr, key, nil)
 }
 
 // Error get the first non-nil error it is called with.
@@ -409,7 +406,9 @@ func (adb *AccountDB) DataNext(iterator uintptr) string {
 		key = string(iter.Key)
 		value = string(iter.Value)
 	}
-	if !iter.Next() { //no data
+
+	// Means no data
+	if !iter.Next() {
 		hasValue = 0
 	}
 	if key == "" {
@@ -417,7 +416,7 @@ func (adb *AccountDB) DataNext(iterator uintptr) string {
 	}
 	if len(value) > 0 {
 		valueType := value[0:1]
-		if valueType == "0" { //this is map node
+		if valueType == "0" { // This is map node
 			hasValue = 2
 		} else {
 			value = value[1:]
@@ -463,7 +462,7 @@ func (adb *AccountDB) GetRefund() uint64 {
 func (adb *AccountDB) Finalise(deleteEmptyObjects bool) {
 	for addr := range adb.accountObjectsDirty {
 		object, exist := adb.accountObjects.Load(addr)
-		if !exist{
+		if !exist {
 			continue
 		}
 		accountObject := object.(*accountObject)
@@ -497,14 +496,15 @@ func (adb *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err err
 	defer adb.clearJournalAndRefund()
 	var e *error
 	adb.accountObjects.Range(func(key, value interface{}) bool {
-		//for addr, accountObject := range adb.accountObjects {
 		addr := key.(common.Address)
 		_, isDirty := adb.accountObjectsDirty[addr]
 		accountObject := value.(*accountObject)
 		switch {
 		case accountObject.suicided || (isDirty && deleteEmptyObjects && accountObject.empty()):
+
 			adb.deleteAccountObject(accountObject)
 		case isDirty:
+
 			if accountObject.code != nil && accountObject.dirtyCode {
 				adb.db.TrieDB().InsertBlob(common.BytesToHash(accountObject.CodeHash()), accountObject.code)
 				accountObject.dirtyCode = false

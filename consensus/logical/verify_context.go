@@ -27,59 +27,58 @@ import (
 	"sync/atomic"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/5/29 上午10:19
-**  Description:
- */
-
 const (
-	svWorking  = iota //正在铸块,等待分片
-	svSuccess         //块签名已聚合
-	svNotified        //块已通知提案者
-	svTimeout         //组铸块超时
+	// svWorking Casting blocks, waiting for shards
+	svWorking = iota
+	// svSuccess indicate block signature has been aggregated
+	svSuccess
+	// svNotified means block has notified the sponsor
+	svNotified
+	// svTimeout means Group cast block timeout
+	svTimeout
 )
 
 const (
-	pieceNormal    = 1 //收到一个分片，接收正常
-	pieceThreshold = 2 //收到一个分片且达到阈值，组签名成功
+	// pieceNormal means received a shard and received normal
+	pieceNormal = 1
+
+	// pieceThreshold means received a shard and reached the threshold,
+	// the group signature succeeded
+	pieceThreshold = 2
 	pieceFail      = -1
 )
 
 type VerifyContext struct {
 	prevBH           *types.BlockHeader
 	castHeight       uint64
-	signedMaxWeight  atomic.Value //**types.BlockWeight
+	signedMaxWeight  atomic.Value // *types.BlockWeight
 	signedBlockHashs set.Interface
-	expireTime       time.TimeStamp //铸块超时时间
+	expireTime       time.TimeStamp // cast block timeout
 	createTime       time.TimeStamp
-	consensusStatus  int32 //铸块状态
+	consensusStatus  int32 // cast state
 	slots            map[common.Hash]*SlotContext
 	proposers        map[string]common.Hash
 	successSlot      *SlotContext
-	//castedQNs []int64 //自己铸过的qn
-	group     *StaticGroupInfo
-	signedNum int32 //签名数量
-	verifyNum int32 //验证签名数量
-	aggrNum   int32 //聚合出组签名数量
-	lock      sync.RWMutex
-	ts        time.TimeService
+	group            *StaticGroupInfo
+	signedNum        int32 // Numbers of signatures
+	verifyNum        int32 // Numbers of Verify signatures
+	aggrNum          int32 // Numbers of aggregate group signatures
+	lock             sync.RWMutex
+	ts               time.TimeService
 }
 
 func newVerifyContext(group *StaticGroupInfo, castHeight uint64, expire time.TimeStamp, preBH *types.BlockHeader) *VerifyContext {
 	ctx := &VerifyContext{
-		prevBH:          preBH,
-		castHeight:      castHeight,
-		group:           group,
-		expireTime:      expire,
-		consensusStatus: svWorking,
-		//signedMaxWeight: 	*types.NewBlockWeight(),
+		prevBH:           preBH,
+		castHeight:       castHeight,
+		group:            group,
+		expireTime:       expire,
+		consensusStatus:  svWorking,
 		slots:            make(map[common.Hash]*SlotContext),
 		ts:               time.TSInstance,
 		createTime:       time.TSInstance.Now(),
 		proposers:        make(map[string]common.Hash),
 		signedBlockHashs: set.New(set.ThreadSafe),
-		//castedQNs:       make([]int64, 0),
 	}
 	return ctx
 }
@@ -92,10 +91,6 @@ func (vc *VerifyContext) isWorking() bool {
 func (vc *VerifyContext) castSuccess() bool {
 	return atomic.LoadInt32(&vc.consensusStatus) == svSuccess
 }
-
-//func (vc *VerifyContext) broadCasted() bool {
-//	return atomic.LoadInt32(&vc.consensusStatus) == svSuccess
-//}
 
 func (vc *VerifyContext) isNotified() bool {
 	return atomic.LoadInt32(&vc.consensusStatus) == svNotified
@@ -115,16 +110,12 @@ func (vc *VerifyContext) markNotified() {
 	atomic.StoreInt32(&vc.consensusStatus, svNotified)
 }
 
-//func (vc *VerifyContext) markBroadcast() bool {
-//	return atomic.CompareAndSwapInt32(&vc.consensusStatus, svBlocked, svSuccess)
-//}
-
-//铸块是否过期
+// castExpire means whether the ingot has expired
 func (vc *VerifyContext) castExpire() bool {
 	return vc.ts.NowAfter(vc.expireTime)
 }
 
-//分红交易签名是否过期
+// castRewardSignExpire means whether the reward transaction signature expires
 func (vc *VerifyContext) castRewardSignExpire() bool {
 	return vc.ts.NowAfter(vc.expireTime.Add(int64(30 * model.Param.MaxGroupCastTime)))
 }
@@ -175,12 +166,12 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 	if bh.Height > 1 && !vc.ts.NowAfter(begin) {
 		return fmt.Errorf("block too early: begin %v, now %v", begin, vc.ts.Now())
 	}
-	gid := groupsig.DeserializeId(bh.GroupID)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	if !vc.group.GroupID.IsEqual(gid) {
 		return fmt.Errorf("groupId error:vc-%v, bh-%v", vc.group.GroupID.ShortS(), gid.ShortS())
 	}
 
-	//只签qn不小于已签出的最高块的块
+	// Only sign qn not less than the block of the highest block that has been signed
 	if vc.hasSignedMoreWeightThan(bh) {
 		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxWeight().String(), bh.TotalQN)
 		return
@@ -255,34 +246,10 @@ func (vc *VerifyContext) PrepareSlot(bh *types.BlockHeader) (*SlotContext, error
 			return nil, fmt.Errorf("comming block weight less than min block weight")
 		}
 	}
-	//sc.init(bh)
 	vc.slots[bh.Hash] = sc
 	return sc, nil
 
 }
-
-//（网络接收）新到交易集通知
-//返回不再缺失交易的QN槽列表
-//func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 {
-//
-//	if !slot.IsValid() {
-//		return TRANS_INVALID_SLOT
-//	}
-//	accept := slot.AcceptTrans(ths)
-//	if !accept {
-//		return TRANS_DENY
-//	}
-//	if slot.HasTransLost() {
-//		return TRANS_ACCEPT_NOT_FULL
-//	}
-//	st := slot.GetSlotStatus()
-//
-//	if st == slRecoverd || st == slVerified {
-//		return TRANS_ACCEPT_FULL_THRESHOLD
-//	} else {
-//		return TRANS_ACCEPT_FULL_PIECE
-//	}
-//}
 
 func (vc *VerifyContext) Clear() {
 	vc.lock.Lock()
@@ -292,19 +259,20 @@ func (vc *VerifyContext) Clear() {
 	vc.successSlot = nil
 }
 
-//判断该context是否可以删除，主要考虑是否发送了分红交易
+// shouldRemove determine whether the context can be deleted,
+// mainly consider whether to send a dividend transaction
 func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
-	//交易签名超时, 可以删除
+	// Transaction signature timed out, can be deleted
 	if vc.castRewardSignExpire() {
 		return true
 	}
 
-	//自己广播的且已经发送过分红交易，可以删除
+	// Self-broadcast and already sent reward transaction, can be deleted
 	if vc.successSlot != nil && vc.successSlot.IsRewardSent() {
 		return true
 	}
 
-	//未出过块, 但高度已经低于200块, 可以删除
+	// No block, but the height is already less than 200, can be deleted
 	if vc.castHeight+200 < topHeight {
 		return true
 	}

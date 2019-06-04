@@ -30,7 +30,9 @@ func id2String(ids []groupsig.ID) []string {
 	return idStrs
 }
 
-//------------------------------------组网络管理-----------------------
+/*
+Group network management
+*/
 
 func (ns *NetworkServerImpl) BuildGroupNet(gid string, mems []groupsig.ID) {
 	memStrs := id2String(mems)
@@ -45,9 +47,11 @@ func (ns *NetworkServerImpl) send2Self(self groupsig.ID, m network.Message) {
 	go MessageHandler.Handle(self.GetHexString(), m)
 }
 
-//----------------------------------------------------组初始化-----------------------------------------------------------
+/*
+Group initialization
+*/
 
-//广播 组初始化消息  全网广播
+// SendGroupInitMessage broadcast group initialization message
 func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(grm)
 	if e != nil {
@@ -56,20 +60,15 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 	}
 
 	m := network.Message{Code: network.GroupInitMsg, Body: body}
-	//给自己发
-	//ns.send2Self(grm.SI.GetID(), m)
-	//memIds := id2String(grm.GInfo.Mems)
-	//e = ns.net.Broadcast(m)
-	//e = ns.net.SpreadToGroup(grm.GInfo.GroupHash().String(), memIds, m, grm.GInfo.GroupHash().Bytes())
-	//目标组还未建成，需要点对点发送
+	// The target group has not been built and needs to be sent point to point.
 	for _, mem := range grm.GInfo.Mems {
 		logger.Debugf("%v SendGroupInitMessage gHash %v to %v", grm.SI.GetID().GetHexString(), grm.GInfo.GroupHash().Hex(), mem.GetHexString())
 		ns.net.Send(mem.GetHexString(), m)
 	}
-	//logger.Debugf("SendGroupInitMessage hash:%s,  gHash %v", m.Hash(), grm.GInfo.GroupHash().String())
 }
 
-//组内广播密钥   for each定向发送 组内广播
+// SendKeySharePiece means intra-group broadcast key, for each
+// directed transmission, intra-group broadcast
 func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMessage) {
 
 	body, e := marshalConsensusSharePieceMessage(spm)
@@ -88,7 +87,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, gHash:%v, cost time:%v", spm.Dest.GetHexString(), m.Hash(), spm.GHash.Hex(), time.Since(begin))
 }
 
-//组内广播签名公钥
+// SendSignPubKey means group broadcast signature public key
 func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessage) {
 	body, e := marshalConsensusSignPubKeyMessage(spkm)
 	if e != nil {
@@ -97,7 +96,7 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	}
 
 	m := network.Message{Code: network.SignPubkeyMsg, Body: body}
-	//给自己发
+	// Send to yourself
 	ns.send2Self(spkm.SI.GetID(), m)
 
 	begin := time.Now()
@@ -105,7 +104,8 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	logger.Debugf("SendSignPubKey hash:%s, dummyId:%v, cost time:%v", m.Hash(), spkm.GHash.Hex(), time.Since(begin))
 }
 
-//组初始化完成 广播组信息 全网广播
+// BroadcastGroupInfo means group initialization completed,
+// network broadcast group information
 func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedMessage) {
 	body, e := marshalConsensusGroupInitedMessage(cgm)
 	if e != nil {
@@ -114,7 +114,7 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 	}
 
 	m := network.Message{Code: network.GroupInitDoneMsg, Body: body}
-	//给自己发
+	// Send to yourself
 	ns.send2Self(cgm.SI.GetID(), m)
 
 	go ns.net.Broadcast(m)
@@ -122,12 +122,15 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 
 }
 
-//-----------------------------------------------------------------组铸币----------------------------------------------
+/*
+Group coinage
+*/
 
-//铸币节点完成铸币，将blockheader  签名后发送至组内其他节点进行验证。组内广播
+// SendCastVerify means the coinage node completes the coinage,
+// sends the blockheader signature, and sends it to other nodes
+// in the group for verification. Broadcast within a group
 func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gb *GroupBrief, proveHashs []common.Hash) {
 	bh := types.BlockHeaderToPb(&ccm.BH)
-	//groupId := m.GroupID.Serialize()
 	si := signDataToPb(&ccm.SI)
 
 	for idx, mem := range gb.MemIds {
@@ -140,10 +143,11 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gb 
 		m := network.Message{Code: network.CastVerifyMsg, Body: body}
 		go ns.net.Send(mem.GetHexString(), m)
 	}
-	//go ns.net.SpreadToGroup(groupId.GetHexString(), mems, m, ccm.BH.Hash.Bytes())
 }
 
-//组内节点  验证通过后 自身签名 广播验证块 组内广播  验证不通过 保持静默
+// SendVerifiedCast means the intra-group node starts its own signature
+// after the verification is passed, broadcasts the verification block
+// and broadcasts within the group. Verify not pass, keep silent
 func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage, receiver groupsig.ID) {
 	body, e := marshalConsensusVerifyMessage(cvm)
 	if e != nil {
@@ -152,16 +156,17 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage,
 	}
 	m := network.Message{Code: network.VerifiedCastMsg, Body: body}
 
-	//验证消息需要给自己也发一份，否则自己的分片中将不包含自己的签名，导致分红没有
+	// The verification message needs to be sent to itself, otherwise
+	// it will not contain its own signature in its own fragment,
+	// resulting in no rewards.
 	go ns.send2Self(cvm.SI.GetID(), m)
 
 	go ns.net.SpreadAmongGroup(receiver.GetHexString(), m)
 	logger.Debugf("[peer]send VARIFIED_CAST_MSG,hash:%s", cvm.BlockHash.Hex())
-	//statistics.AddBlockLog(common.BootId, statistics.SendVerified, cvm.BH.Height, cvm.BH.ProveValue.Uint64(), -1, -1,
-	//	time.Now().UnixNano(), "", "", common.InstanceIndex, cvm.BH.CurTime.UnixNano())
 }
 
-//对外广播经过组签名的block 全网广播
+// BroadcastNewBlock means the whole network broadcasts the block
+// signed by the group.
 func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief) {
 	body, e := types.MarshalBlock(&cbm.Block)
 	if e != nil {
@@ -169,12 +174,11 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 		return
 	}
 	blockMsg := network.Message{Code: network.NewBlockMsg, Body: body}
-	//blockHash := cbm.Block.Header.Hash
 
 	nextVerifyGroupID := group.Gid.GetHexString()
 	groupMembers := id2String(group.MemIds)
 
-	//广播给重节点的虚拟组
+	// Broadcast to a virtual group of heavy nodes
 	heavyMinerMembers := core.MinerManagerImpl.GetHeavyMiners()
 
 	validGroupMembers := make([]string, 0)
@@ -192,8 +196,11 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	}
 
 	go ns.net.SpreadToGroup(network.FullNodeVirtualGroupID, heavyMinerMembers, blockMsg, []byte(blockMsg.Hash()))
-	//广播给轻节点的下一个组
-	if len(validGroupMembers) > 0 { //防止重复广播
+
+	// Broadcast to the next group of light nodes
+	//
+	// Prevent duplicate broadcasts
+	if len(validGroupMembers) > 0 {
 		go ns.net.SpreadToGroup(nextVerifyGroupID, validGroupMembers, blockMsg, []byte(blockMsg.Hash()))
 	}
 
@@ -228,9 +235,11 @@ func (ns *NetworkServerImpl) AskSignPkMessage(msg *model.ConsensusSignPubkeyReqM
 	logger.Debugf("AskSignPkMessage %v, hash:%s, cost time:%v", receiver.GetHexString(), m.Hash(), time.Since(begin))
 }
 
-//====================================建组前共识=======================
+/*
+Pre-establishment consensus
+*/
 
-//开始建组
+// SendCreateGroupRawMessage start building a group
 func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage) {
 	body, e := marshalConsensusCreateGroupRawMessage(msg)
 	if e != nil {
@@ -262,7 +271,7 @@ func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSig
 	}
 	m := network.Message{Code: network.CastRewardSignReq, Body: body}
 
-	gid := groupsig.DeserializeId(msg.Reward.GroupID)
+	gid := groupsig.DeserializeID(msg.Reward.GroupID)
 
 	network.Logger.Debugf("send SendCastRewardSignReq to %v", gid.GetHexString())
 

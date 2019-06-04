@@ -68,7 +68,7 @@ func (nid NodeID) Bytes() []byte {
 	return nid[:]
 }
 
-//Node Kad node struct
+// Node Kad node struct
 type Node struct {
 	ID      NodeID
 	IP      nnet.IP
@@ -84,7 +84,7 @@ type Node struct {
 	pinged  bool
 }
 
-//NewNode make new kad node
+// NewNode create a new node
 func NewNode(id NodeID, ip nnet.IP, port int) *Node {
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4
@@ -101,7 +101,7 @@ func (n *Node) addr() *nnet.UDPAddr {
 	return &nnet.UDPAddr{IP: n.IP, Port: int(n.Port)}
 }
 
-//Incomplete is address is Incomplete
+// Incomplete is address is Incomplete
 func (n *Node) Incomplete() bool {
 	return n.IP == nil
 }
@@ -216,6 +216,7 @@ func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, er
 	return &n, nil
 }
 
+// getLocalIP is get intranet IP
 func getLocalIP() string {
 	addrs, err := nnet.InterfaceAddrs()
 
@@ -223,7 +224,7 @@ func getLocalIP() string {
 	}
 
 	for _, address := range addrs {
-		//check is local loopback ip
+		// Check the IP address to determine whether to loop the address
 		if ipnet, ok := address.(*nnet.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				return ipnet.IP.String()

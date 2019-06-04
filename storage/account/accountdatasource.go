@@ -79,25 +79,22 @@ type Trie interface {
 	NodeIterator(startKey []byte) trie.NodeIterator
 }
 
-
 // NewDatabase creates a backing store for state. The returned database
 // is safe for concurrent use and retains a lot of collapsed RLP trie nodes in a
 // large memory cache.
 func NewDatabase(db tasdb.Database) AccountDatabase {
 	csc, _ := lru.New(codeSizeCacheSize)
 	return &storageDB{
-			db:            trie.NewDatabase(db),
-			codeSizeCache: csc,
+		db:            trie.NewDatabase(db),
+		codeSizeCache: csc,
 	}
 }
 
-
 type storageDB struct {
-	db *trie.NodeDatabase
-	mu sync.Mutex
+	db            *trie.NodeDatabase
+	mu            sync.Mutex
 	codeSizeCache *lru.Cache
 }
-
 
 // TrieDB retrieves the low level trie database used for data storage.
 func (db *storageDB) TrieDB() *trie.NodeDatabase {
@@ -152,4 +149,3 @@ func (db *storageDB) CopyTrie(t Trie) Trie {
 		panic(fmt.Errorf("unknown trie type %T", t))
 	}
 }
-

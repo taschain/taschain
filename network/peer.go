@@ -188,7 +188,7 @@ func (sendList *SendList) getDataSize() int {
 	return size
 }
 
-//Peer 节点连接对象
+// Peer is node connection object
 type Peer struct {
 	ID             NodeID
 	relayID        NodeID
@@ -296,9 +296,9 @@ func (p *Peer) IsCompatible() bool {
 	return netCore.chainID == p.chainID
 }
 
-//PeerManager 节点连接管理
+// PeerManager is node connection management
 type PeerManager struct {
-	peers              map[uint64]*Peer //key为网络ID
+	peers              map[uint64]*Peer // Key is the network ID
 	mutex              sync.RWMutex
 	natTraversalEnable bool
 	natPort            uint16
@@ -338,11 +338,6 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		p.connecting = false
 		pm.addPeer(netID, p)
 	}
-	//test
-	//if time.Since(p.relayTestTime) > RelayTestTimeOut {
-	//	p.relayTestTime = time.Now()
-	//	netCore.RelayTest(toid)
-	//}
 	if p.relayID.IsValid() && relay {
 		relayPeer := pm.peerByID(p.relayID)
 
@@ -383,6 +378,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 	}
 }
 
+// newConnection handling callbacks for successful connections
 func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, isAccepted bool) {
 
 	p := pm.peerByNetID(id)
@@ -406,6 +402,7 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	Logger.Infof("new connection, node id:%v  netid :%v session:%v isAccepted:%v ", p.ID.GetHexString(), id, session, isAccepted)
 }
 
+// onSendWaited  when the send queue is idle
 func (pm *PeerManager) onSendWaited(id uint64, session uint32) {
 	p := pm.peerByNetID(id)
 	if p != nil {
@@ -413,7 +410,7 @@ func (pm *PeerManager) onSendWaited(id uint64, session uint32) {
 	}
 }
 
-
+// onDisconnected handles callbacks for disconnected connections
 func (pm *PeerManager) onDisconnected(id uint64, session uint32, p2pCode uint32) {
 	p := pm.peerByNetID(id)
 	if p != nil {
@@ -452,7 +449,6 @@ func (pm *PeerManager) onChecked(p2pType uint32, privateIP string, publicIP stri
 func (pm *PeerManager) checkPeers() {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	//	Logger.Infof("[PeerManager] [checkPeers] peers :%v ", len( pm.peers))
 	for _, p := range pm.peers {
 		if p.bytesReceived == 0 {
 			Logger.Infof("[PeerManager] [checkPeers] peer ip:%v port:%v bytes recv:%v ,bytes send:%v disconnect count:%v send wait count:%v ",

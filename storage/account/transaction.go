@@ -71,7 +71,6 @@ type (
 )
 
 func (ch createObjectChange) undo(s *AccountDB) {
-	//delete(s.accountObjects, *ch.account)
 	s.accountObjects.Delete(*ch.account)
 	delete(s.accountObjectsDirty, *ch.account)
 }

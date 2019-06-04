@@ -8,12 +8,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/11 下午3:24
-**  Description:
- */
-
 type MinerPoolReader struct {
 	minerPool       *core.MinerManager
 	blog            *bizLog
@@ -32,7 +26,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		return nil
 	}
 	md := &model.MinerDO{
-		ID:          groupsig.DeserializeId(miner.ID),
+		ID:          groupsig.DeserializeID(miner.ID),
 		PK:          groupsig.DeserializePubkeyBytes(miner.PublicKey),
 		VrfPK:       base.VRFPublicKey(miner.VrfPublicKey),
 		Stake:       miner.Stake,
@@ -50,7 +44,6 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 func (access *MinerPoolReader) getLightMiner(id groupsig.ID) *model.MinerDO {
 	miner := access.minerPool.GetMinerByID(id.Serialize(), types.MinerTypeLight, nil)
 	if miner == nil {
-		//access.blog.log("getMinerById error id %v", id.ShortS())
 		return nil
 	}
 	return convert2MinerDO(miner)
@@ -59,7 +52,6 @@ func (access *MinerPoolReader) getLightMiner(id groupsig.ID) *model.MinerDO {
 func (access *MinerPoolReader) getProposeMiner(id groupsig.ID) *model.MinerDO {
 	miner := access.minerPool.GetMinerByID(id.Serialize(), types.MinerTypeHeavy, nil)
 	if miner == nil {
-		//access.blog.log("getMinerById error id %v", id.ShortS())
 		return nil
 	}
 	return convert2MinerDO(miner)
@@ -84,7 +76,6 @@ func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO
 	rets := make([]model.MinerDO, 0)
 	access.blog.log("all light nodes size %v", len(miners))
 	for _, md := range miners {
-		//access.blog.log("%v %v %v %v", md.ID.ShortS(), md.ApplyHeight, md.NType, md.CanJoinGroupAt(h))
 		if md.CanJoinGroupAt(h) {
 			rets = append(rets, *md)
 		}
@@ -99,9 +90,4 @@ func (access *MinerPoolReader) getTotalStake(h uint64, cache bool) uint64 {
 	st := access.minerPool.GetTotalStake(h)
 	access.totalStakeCache = st
 	return st
-	//return 30
 }
-
-//func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {
-//    access.minerPool.AddGenesesMiner(miners)
-//}

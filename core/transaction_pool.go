@@ -27,31 +27,25 @@ import (
 )
 
 const (
-	maxTxPoolSize  = 50000
-	bonusTxMaxSize = 1000
-	//missTxCacheSize  = 60000
-
-	//broadcastListLength         = 100
-	//
-	//oldTxBroadcastTimerInterval = time.Second * 30
-	//oldTxInterval               = time.Second * 60
-
+	maxTxPoolSize   = 50000
+	bonusTxMaxSize  = 1000
 	txCountPerBlock = 3000
 	gasLimitMax     = 500000
 
-	txMaxSize = 64000 // Maximum size per transaction
+	// Maximum size per transaction
+	txMaxSize = 64000
 )
 
 var (
-	ErrNil = errors.New("nil transaction")
+	ErrNil  = errors.New("nil transaction")
 	ErrHash = errors.New("invalid transaction hash")
 )
 
 type txPool struct {
-	bonPool *bonusPool
-	received *simpleContainer
-	asyncAdds *lru.Cache    // Asynchronously added, accelerates validated transaction
-							// when add block on chain, does not participate in the broadcast
+	bonPool   *bonusPool
+	received  *simpleContainer
+	asyncAdds *lru.Cache // Asynchronously added, accelerates validated transaction
+	// when add block on chain, does not participate in the broadcast
 
 	receiptDb          *tasdb.PrefixedDatabase
 	batch              tasdb.Batch
@@ -111,7 +105,6 @@ func (pool *txPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
-	//Logger.Debugf("add transactions size %v, txsrc %v", len(txs), from)
 	for _, tx := range txs {
 		pool.tryAddTransaction(tx, from)
 	}
@@ -257,7 +250,7 @@ func (pool *txPool) tryAdd(tx *types.Transaction) (bool, error) {
 	return true, nil
 }
 
-func (pool *txPool) add(tx *types.Transaction) (bool) {
+func (pool *txPool) add(tx *types.Transaction) bool {
 	if tx.Type == types.TransactionTypeBonus {
 		pool.bonPool.add(tx)
 	} else {
@@ -279,9 +272,6 @@ func (pool *txPool) isTransactionExisted(tx *types.Transaction) (exists bool, wh
 		if pool.bonPool.contains(tx.Hash) {
 			return true, 1
 		}
-		//if pool.bonPool.hasBonus(tx.Data) {
-		//	return true, 2
-		//}
 	} else {
 		if pool.received.contains(tx.Hash) {
 			return true, 1

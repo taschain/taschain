@@ -51,7 +51,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	tlog := newMsgTraceLog("OnBlockAddSuccess", bh.Hash.ShortS(), "")
 	tlog.log("preHash=%v, height=%v", bh.PreHash.ShortS(), bh.Height)
 
-	gid := groupsig.DeserializeId(bh.GroupID)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	if p.IsMinerGroup(gid) {
 		p.blockContexts.addCastedHeight(bh.Height, bh.PreHash)
 		vctx := p.blockContexts.getVctxByHeight(bh.Height)
@@ -72,7 +72,6 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 	go p.checkSelfCastRoutine()
 
-	//p.triggerFutureBlockMsg(bh)
 	p.triggerFutureVerifyMsg(bh)
 	p.triggerFutureRewardSign(bh)
 	p.groupManager.CreateNextGroupRoutine()
@@ -81,7 +80,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(*types.Group)
-	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeId(group.ID).GetHexString(), group.Header.WorkHeight)
+	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeID(group.ID).GetHexString(), group.Header.WorkHeight)
 	if group.ID == nil || len(group.ID) == 0 {
 		return
 	}
@@ -95,7 +94,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	beginHeight := group.Header.WorkHeight
 	topHeight := p.MainChain.Height()
 
-	//当前块高已经超过生效高度了,组可能有点问题
+	// The current block height has exceeded the effective height, group may have a problem
 	if beginHeight > 0 && beginHeight <= topHeight {
 		stdLogger.Errorf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
 		pre := p.MainChain.QueryBlockHeaderFloor(beginHeight - 1)

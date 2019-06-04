@@ -70,7 +70,7 @@ func getInstance(file string) (*LDBDatabase, error) {
 	return instanceInner, err
 }
 
-// close db connection
+// Close close db connection
 func (db *PrefixedDatabase) Close() {
 	db.db.Close()
 }
@@ -221,7 +221,7 @@ func (b *prefixBatch) Reset() {
 	b.size = 0
 }
 
-// 加入前缀的key
+// generateKey generate a prefixed key
 func generateKey(raw []byte, prefix string) []byte {
 	bytesBuffer := bytes.NewBuffer([]byte(prefix))
 	if raw != nil {
@@ -268,7 +268,7 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	return ldb, nil
 }
 
-
+// newLevelDBInstance generate a leveldb instance
 func newLevelDBInstance(file string, cache int, handles int) (*leveldb.DB, error) {
 	db, err := leveldb.OpenFile(file, &opt.Options{
 		OpenFilesCacheCapacity: handles,
@@ -373,11 +373,11 @@ func (ldb *LDBDatabase) Close() {
 	}
 
 	ldb.db.Close()
-
 }
 
 func (ldb *LDBDatabase) NewBatch() Batch {
 	return &ldbBatch{db: ldb.db, b: new(leveldb.Batch)}
+	//return ldb.batch
 }
 
 type ldbBatch struct {

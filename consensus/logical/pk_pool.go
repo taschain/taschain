@@ -6,25 +6,16 @@ import (
 	"github.com/taschain/taschain/consensus/groupsig"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/11/21 上午10:06
-**  Description:
- */
-
 type pubkeyPool struct {
-	pkCache *lru.Cache
-	//vrfPKCache *lru.Cache		//idHex -> vrfPK
+	pkCache     *lru.Cache
 	minerAccess *MinerPoolReader
 }
 
 var pkPool pubkeyPool
 
 func init() {
-	//vrfc, _ := lru.New(100)
 	pkPool = pubkeyPool{
 		pkCache: common.MustNewLRUCache(100),
-		//vrfPKCache: vrfc,
 	}
 }
 

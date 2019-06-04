@@ -6,12 +6,6 @@ import (
 	"github.com/taschain/taschain/consensus/model"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/7/27 下午3:53
-**  Description:
- */
-
 type MessageProcessor interface {
 	Ready() bool
 

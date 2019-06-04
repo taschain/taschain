@@ -26,7 +26,7 @@ import (
 
 const GroupBaseConnectNodeCount = 2
 
-//Group represents a group object
+// Group represents a group object
 type Group struct {
 	id               string
 	members          []NodeID
@@ -195,7 +195,7 @@ func (g *Group) send(packet *bytes.Buffer, code uint32) {
 	return
 }
 
-//GroupManager represents group management
+// GroupManager represents group management
 type GroupManager struct {
 	groups map[string]*Group
 	mutex  sync.RWMutex
@@ -209,7 +209,7 @@ func newGroupManager() *GroupManager {
 	return gm
 }
 
-
+//buildGroup create a group, or rebuild the group network if the group already exists
 func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
@@ -227,6 +227,7 @@ func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	return g
 }
 
+//RemoveGroup remove the group
 func (gm *GroupManager) removeGroup(id string) {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
@@ -237,7 +238,6 @@ func (gm *GroupManager) removeGroup(id string) {
 }
 
 func (gm *GroupManager) doRefresh() {
-	//fmt.Printf("groupManager doRefresh ")
 	gm.mutex.RLock()
 	defer gm.mutex.RUnlock()
 
@@ -245,7 +245,6 @@ func (gm *GroupManager) doRefresh() {
 		go group.doRefresh()
 	}
 }
-
 
 func (gm *GroupManager) groupBroadcast(id string, packet *bytes.Buffer, code uint32) {
 	Logger.Infof("group broadcast, id:%v code:%v", id, code)

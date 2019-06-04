@@ -23,7 +23,6 @@ import (
 	"net/http"
 )
 
-
 // rpcPost provides a general rpc request method
 func rpcPost(addr string, port uint, method string, params ...interface{}) (*RPCResObj, error) {
 	obj := RPCReqObj{

@@ -50,18 +50,14 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 	evictedTxs := make([]common.Hash, 0)
 	castor := common.BytesToAddress(bh.Castor)
 
-	//errs := make([]*types.TransactionError, len(block.Transactions))
-
 	for _, transaction := range txs {
 		if pack && time.Since(beginTime).Seconds() > float64(MaxCastBlockTime) {
 			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.Hex())
 			break
 		}
-		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
 		var success = false
 		var contractAddress common.Address
 		var logs []*types.Log
-		//var err *types.TransactionError
 		var cumulativeGasUsed uint64
 
 		if !executor.validateNonce(accountdb, transaction) {
@@ -146,7 +142,6 @@ func (executor *TVMExecutor) executeTransferTx(accountdb *account.AccountDB, tra
 	} else {
 		err = types.TxErrorBalanceNotEnough
 	}
-	//Logger.Debugf("TVMExecutor Execute Transfer Source:%s Target:%s Value:%d Height:%d Type:%s,Gas:%d,Success:%t", transaction.Source.String(), transaction.Target.String(), transaction.Value, height, mark,cumulativeGasUsed,success)
 	return success, err, cumulativeGasUsed
 }
 
@@ -257,7 +252,6 @@ func (executor *TVMExecutor) executeBonusTx(accountdb *account.AccountDB, transa
 		accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().PackBonus())
 		success = true
 	}
-	//Logger.Debugf("TVMExecutor Execute Bonus Transaction:%s Group:%s,Success:%t", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS(),success)
 	return success
 }
 

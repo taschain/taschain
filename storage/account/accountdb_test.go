@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/storage/tasdb"
 	"math"
 	"math/big"
 	"math/rand"
@@ -26,8 +28,6 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/storage/tasdb"
 )
 
 func TestUpdateLeaks(t *testing.T) {
@@ -107,7 +107,6 @@ func TestIntermediateLeaks(t *testing.T) {
 		}
 	}
 }
-
 
 func TestSnapshotRandom(t *testing.T) {
 	config := &quick.Config{MaxCount: 1000}

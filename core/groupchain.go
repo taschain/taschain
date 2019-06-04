@@ -108,7 +108,6 @@ func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.Consen
 		config:          getGroupChainConfig(),
 		consensusHelper: consensusHelper,
 		topGroups:       common.MustNewLRUCache(10),
-		//preCache: new(sync.Map),
 	}
 
 	var err error
@@ -185,7 +184,6 @@ func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 		Logger.Debugf("add group id=%v, groupHeight=%v, err=%v", common.ToHex(group.ID), group.GroupHeight, err)
 	}()
 	if chain.hasGroup(group.ID) {
-		//notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: group,})
 		return errGroupExist
 	}
 

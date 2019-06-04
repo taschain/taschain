@@ -9,12 +9,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/2/18 下午3:51
-**  Description:
- */
-
 func (p *Processor) OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage) {
 	blog := newBizLog("OMCGPing")
 	var err error
@@ -192,10 +186,8 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 	}
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//组初始化相关消息
-//组初始化的相关消息都用（和组无关的）矿工ID和公钥验签
-
+// OnMessageGroupInit is group initialization related message
+// Group-initiated related messages are checked with the miner ID and public key (and group-independent)
 func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	blog := newBizLog("OMGI")
 	gHash := msg.GInfo.GroupHash()
@@ -208,7 +200,8 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	if msg.SI.DataHash != msg.GenHash() || gh.Hash != gh.GenHash() {
 		panic("msg gis hash diff")
 	}
-	//非组内成员不走后续流程
+
+	// Non-group members do not follow the follow-up process
 	if !msg.MemberExist(p.GetMinerID()) {
 		return
 	}
@@ -241,13 +234,6 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	}
 	candidates = cands
 
-	//if p.globalGroups.AddInitingGroup(CreateInitingGroup(msg)) {
-	//	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
-	//	//dummy 组写入组链 add by 小熊
-	//	//staticGroupInfo := NewDummySGIFromGroupRawMessage(msg)
-	//	//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
-	//}
-
 	tlog.logStart("%v", "")
 
 	groupContext = p.joiningGroups.ConfirmGroupFromRaw(msg, candidates, p.mi)
@@ -255,17 +241,16 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 		panic("Processor::OMGI failed, ConfirmGroupFromRaw return nil.")
 	}
 
-	//提前建立组网络
+	// Establish a group network in advance
 	p.NetServer.BuildGroupNet(gHash.Hex(), msg.GInfo.Mems)
 
 	gs := groupContext.GetGroupStatus()
 	blog.debug("joining group(%v) status=%v.", gHash.ShortS(), gs)
 	if groupContext.StatusTransfrom(GisInit, GisSendSharePiece) {
-		//blog.log("begin GenSharePieces in OMGI...")
 		desc = "send sharepiece"
 
-		shares := groupContext.GenSharePieces() //生成秘密分享
-		//blog.log("proc(%v) end GenSharePieces in OMGI, piece size=%v.", p.getPrefix(), len(shares))
+		// Generate secret sharing
+		shares := groupContext.GenSharePieces()
 
 		spm := &model.ConsensusSharePieceMessage{
 			GHash: gHash,
@@ -279,7 +264,6 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 				spm.Dest.SetHexString(id)
 				spm.Share = piece
 				if spm.GenSign(ski, spm) {
-					//blog.log("OMGI spm.GenSign result=%v.", sb)
 					blog.debug("piece to ID(%v), gHash=%v, share=%v, pub=%v.", spm.Dest.ShortS(), gHash.ShortS(), spm.Share.Share.ShortS(), spm.Share.Pub.ShortS())
 					tlog.log("sharepiece to %v", spm.Dest.ShortS())
 					blog.debug("call network service SendKeySharePiece...")
@@ -292,10 +276,8 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 				panic("GenSharePieces data not IsValid.")
 			}
 		}
-		//blog.log("end GenSharePieces.")
 	}
 
-	//blog.log("proc(%v) end OMGI, sender=%v.", p.getPrefix(), GetIDPrefix(msg.SI.GetID()))
 	return
 }
 
@@ -352,15 +334,16 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 	tlog := newHashTraceLog(mtype, gHash, si.GetID())
 	tlog.log("收到piece数 %v, 收齐分片%v, 缺少%v等", gc.node.groupInitPool.GetSize(), result == 1, waitPieceIds)
 
-	if result == 1 { //已聚合出签名私钥,组公钥，组id
+	// Already signed private key, group public key, group id
+	if result == 1 {
 		recover = true
 		groupLogger.Infof("OMSP收齐分片: gHash=%v, elapsed=%v.", gHash.ShortS(), time.Since(gc.createTime).String())
 		jg := gc.GetGroupInfo()
 		p.joinGroup(jg)
-		//这时还没有所有组成员的签名公钥
+		// At this time, there is no signature public key of all group members.
 		if jg.GroupPK.IsValid() && jg.SignKey.IsValid() {
 			ski := model.NewSecKeyInfo(p.mi.GetMinerID(), jg.SignKey)
-			//1. 先发送自己的签名公钥
+			// 1. Send your own signature public key first
 			if gc.StatusTransfrom(GisSendSharePiece, GisSendSignPk) {
 				msg := &model.ConsensusSignPubKeyMessage{
 					GroupID: jg.GroupID,
@@ -379,8 +362,9 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 					return
 				}
 			}
-			//2. 再发送初始化完成消息
-			//sharepiece请求的应答不需要发送GroupInitDone消息,因为此时组已经初始化完成了
+			// 2. Resend the initialization complete message
+			// The response to the sharepiece request does not need to send a GroupInitDone message
+			// because the group has already been initialized.
 			if !response && gc.StatusTransfrom(GisSendSignPk, GisSendInited) {
 				msg := &model.ConsensusGroupInitedMessage{
 					GHash:        gHash,
@@ -409,27 +393,21 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 	return
 }
 
-//收到组内成员发给我的秘密分享片段消息
+// OnMessageSharePiece received a secret sharing clip message sent to me by members of the group
 func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	blog := newBizLog("OMSP")
 
 	p.handleSharePieceMessage(blog, spm.GHash, &spm.Share, &spm.SI, false)
-	//blog.log("prov(%v) end OMSP, sender=%v.", p.getPrefix(), GetIDPrefix(spm.SI.GetID()))
 	return
 }
 
-//收到组内成员发给我的组成员签名公钥消息
+// OnMessageSignPK received the signature of the group member sent to me by the member of the group
 func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	blog := newBizLog("OMSPK")
 	tlog := newHashTraceLog("OMSPK", spkm.GHash, spkm.SI.GetID())
 
 	blog.log("proc(%v) begin , sender=%v, gHash=%v, gid=%v...", p.getPrefix(), spkm.SI.GetID().ShortS(), spkm.GHash.ShortS(), spkm.GroupID.ShortS())
 
-	//jg := p.belongGroups.getJoinedGroup(spkm.GroupID)
-	//if jg == nil {
-	//	blog.debug("failed, local node not found joinedGroup with group id=%v.", spkm.GroupID.ShortS())
-	//	return
-	//}
 	if spkm.GenHash() != spkm.SI.DataHash {
 		blog.log("spkm hash diff")
 		return
@@ -452,7 +430,6 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 		}
 	}
 
-	//blog.log("proc(%v) end OMSPK, sender=%v, dummy gid=%v.", p.getPrefix(), GetIDPrefix(spkm.SI.GetID()), GetIDPrefix(spkm.DummyID))
 	return
 }
 
@@ -484,15 +461,6 @@ func (p *Processor) OnMessageSignPKReq(msg *model.ConsensusSignPubkeyReqMessage)
 		return
 	}
 
-	//signPk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(jg.GroupID, p.GetMinerID()))
-	//if !ok {
-	//	err = fmt.Errorf("current node dosen't has signPk in group %v", jg.GroupID.ShortS())
-	//	return
-	//}
-	//if !signPk.IsValid() {
-	//	err = fmt.Errorf("current node signPK is invalid, pk=%v", signPk.GetHexString())
-	//	return
-	//}
 	resp := &model.ConsensusSignPubKeyMessage{
 		GHash:   jg.gHash,
 		GroupID: msg.GroupID,
@@ -516,9 +484,11 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 	}
 }
 
-//全网节点收到某组已初始化完成消息（在一个时间窗口内收到该组51%成员的消息相同，才确认上链）
-//最终版本修改为父亲节点进行验证（51%）和上链
-//全网节点处理函数->to do : 调整为父亲组节点处理函数
+// OnMessageGroupInited is a network-wide node processing function(Adjust to parent group
+// node handler),The entire network node receives a group of initialized completion messages
+// (the same message is received when 51% of the members of the group are received in a time window)
+//
+// The final version was modified to the parent node for verification (51%) and the winding
 func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage) {
 	blog := newBizLog("OMGIED")
 	gHash := msg.GHash
@@ -531,7 +501,8 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		panic("grm gis hash diff")
 	}
 
-	//此时组通过同步已上链了，但是后面的逻辑还是要执行，否则组数据状态有问题
+	// At this point, the group is already connected by synchronization, but the logic behind it still
+	// needs to be executed, otherwise the status of the group data is faulty.
 	g := p.GroupChain.GetGroupByID(msg.GroupID.Serialize())
 	if g != nil {
 		blog.log("group already onchain")
@@ -559,7 +530,6 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		}
 		gInfo.GI.Signature = msg.ParentSign
 		initedGroup = createInitedGroup(gInfo)
-		//initedGroup = p.globalGroups.generator.addInitedGroup(ig)
 		blog.log("add inited group")
 	}
 	if initedGroup.gInfo.GI.ReadyTimeout(p.MainChain.Height()) {
@@ -596,24 +566,19 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	tlog.log("ret:%v,收到消息数量 %v, 需要消息数 %v, 缺少%v等", result, initedGroup.receiveSize(), initedGroup.threshold, waitIds)
 
 	switch result {
-	case InitSuccess: //收到组内相同消息>=阈值，可上链
+	case InitSuccess: // Receive the same message in the group >= threshold, can add on chain
 		staticGroup := NewSGIFromStaticGroupSummary(msg.GroupID, msg.GroupPK, initedGroup)
 		gh := staticGroup.getGroupHeader()
 		blog.debug("SUCCESS accept a new group, gHash=%v, gid=%v, workHeight=%v, dismissHeight=%v.", gHash.ShortS(), msg.GroupID.ShortS(), gh.WorkHeight, gh.DismissHeight)
 
-		//p.acceptGroup(staticGroup)
 		p.groupManager.AddGroupOnChain(staticGroup)
 		p.globalGroups.removeInitedGroup(gHash)
 		p.joiningGroups.Clean(gHash)
 
-	case InitFail: //该组初始化异常，且无法恢复
+	case InitFail: // The group is initialized abnormally and cannot be recovered
 		tlog.log("初始化失败")
 		p.globalGroups.removeInitedGroup(gHash)
-
-	case Initing:
-		//继续等待下一包数据
 	}
-	//blog.log("proc(%v) end OMGIED, sender=%v...", p.getPrefix(), GetIDPrefix(msg.SI.GetID()))
 	return
 }
 
@@ -650,17 +615,6 @@ func (p *Processor) OnMessageSharePieceReq(msg *model.ReqSharePieceMessage) {
 func (p *Processor) OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage) {
 	blog := newBizLog("OMSPRP")
 
-	recover, _ := p.handleSharePieceMessage(blog, msg.GHash, &msg.Share, &msg.SI, true)
-	if recover {
-		//le := &monitor.LogEntry{
-		//	LogType: monitor.LogTypeGroupRecoverFromResponse,
-		//	Height: p.GroupChain.Height(),
-		//	Hash: msg.GHash.String(),
-		//	Proposer: "00",
-		//}
-		//monitor.Instance.AddLog(le)
-	}
-
+	p.handleSharePieceMessage(blog, msg.GHash, &msg.Share, &msg.SI, true)
 	return
-
 }

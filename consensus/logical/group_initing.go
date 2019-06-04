@@ -25,7 +25,8 @@ type InitedGroup struct {
 	lock         sync.RWMutex
 
 	threshold int
-	status    int32 // -1, Group initialization failed (timeout or unable to reach consensus, irreversible)
+
+	status int32 // -1, Group initialization failed (timeout or unable to reach consensus, irreversible)
 	// 0，Group is initializing
 	// 1，Group initialization succeeded
 	gpk groupsig.Pubkey // output generated group public key
@@ -244,7 +245,7 @@ func (gc *GroupContext) PieceMessage(id groupsig.ID, share *model.SharePiece) in
 	return result
 }
 
-//生成发送给组内成员的秘密分享: si = F(IDi)
+// GenSharePieces generate secret sharing sent to members of the group: si = F(IDi)
 func (gc *GroupContext) GenSharePieces() model.SharePieceMap {
 	shares := make(model.SharePieceMap, 0)
 	secs := gc.node.GenSharePiece(gc.getMembers())
@@ -258,16 +259,15 @@ func (gc *GroupContext) GenSharePieces() model.SharePieceMap {
 	return shares
 }
 
-//（收到所有组内成员的秘密共享后）取得组信息
+// GetGroupInfo get group information(After receiving secret sharing of all members in the group)
 func (gc *GroupContext) GetGroupInfo() *JoinedGroup {
 	return gc.node.GenInnerGroup(gc.gInfo.GroupHash())
 }
 
-//未初始化完成的加入组
+// JoiningGroups is a joined group that has not been initialized
 type JoiningGroups struct {
 	//groups sync.Map
 	groups *lru.Cache
-	//groups map[string]*GroupContext //group dummy id->*GroupContext
 }
 
 func NewJoiningGroups() *JoiningGroups {
@@ -292,22 +292,16 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessag
 	return v
 }
 
-//gid : group dummy id
 func (jgs *JoiningGroups) GetGroup(gHash common.Hash) *GroupContext {
 	if v, ok := jgs.groups.Get(gHash.Hex()); ok {
 		return v.(*GroupContext)
 	}
-
-	//fmt.Println("gc is NULL, gid:", gid.GetHexString())
-
 	return nil
 }
 
 func (jgs *JoiningGroups) Clean(gHash common.Hash) {
 	gc := jgs.GetGroup(gHash)
 	if gc != nil && gc.StatusTransfrom(GisSendInited, GisGroupInitDone) {
-		//gc.gInfo = nil
-		//gc.node = nil
 	}
 }
 

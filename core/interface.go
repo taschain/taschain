@@ -116,7 +116,7 @@ type ExecutedTransaction struct {
 type txSource int
 
 const (
-	txSync    txSource = 1
+	txSync txSource = 1
 )
 
 type TransactionPool interface {

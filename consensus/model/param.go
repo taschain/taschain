@@ -5,33 +5,57 @@ import (
 	"math"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/7/27 下午7:22
-**  Description:
- */
-
 const (
-	MaxGroupBlockTime   int = 10           //组铸块最大允许时间=10s
-	MaxWaitBlockTime    int = 2            //广播出块前等待最大时间=2s
-	ConsensusVersion        = 1            //共识版本号
-	MaxUnknownBlocks        = 5            //内存保存最大不能上链的未来块（中间块没有收到）
-	GroupInitMaxSeconds     = 60 * 60 * 24 //10分钟内完成初始化，否则该组失败。不再有初始化机会。(测试改成一天)
-	MaxSlotSize             = 3            //每一轮slot数
+	// MaxWaitBlockTime is group cast block maximum allowable time, it's 10s
+	MaxGroupBlockTime int = 10
 
-	SSSSThreshold       int = 51  //1-100
-	GroupMaxMembers     int = 100 //一个组最大的成员数量
-	GroupMinMembers     int = 10  //一个组最大的成员数量
-	MinerMaxJoinedGroup     = 5   //一个矿工最多加入的组数
-	CandidatesMinRatio      = 1   //最小的候选人相对于组成员数量的倍数
+	// MaxWaitBlockTime is Waiting for the maximum time before broadcasting the block,it's 2s
+	MaxWaitBlockTime int = 2
 
-	Epoch               int = 5
-	GroupCreateGap          = Epoch * 2
-	GroupWaitPongGap        = GroupCreateGap + Epoch*2
-	GroupReadyGap           = GroupCreateGap + Epoch*6 //组准备就绪(建成组)的间隔为1个epoch
-	GroupWorkGap            = GroupCreateGap + Epoch*8 //组准备就绪后, 等待可以铸块的间隔为4个epoch
-	GroupWorkDuration       = Epoch * 100              //组铸块的周期为100个epoch
-	GroupCreateInterval     = Epoch * 10
+	// ConsensusVersion is consensus version
+	ConsensusVersion = 1
+
+	// MaxUnknownBlocks means the memory saves the largest block that cannot be chained
+	// (the middle block is not received)
+	MaxUnknownBlocks = 5
+
+	// GroupInitMaxSeconds means there initialization must completed within 10 minutes,
+	// otherwise the group fails. There is no longer an opportunity for initialization.
+	GroupInitMaxSeconds = 60 * 60 * 24
+
+	// MaxSlotSize means number of slots per round
+	MaxSlotSize = 3
+
+	// SSSSThreshold means value range 1-100
+	SSSSThreshold int = 51
+
+	// GroupMaxMembers means the maximum number of members in a group
+	GroupMaxMembers int = 100
+
+	// GroupMinMembers means the minimum number of members in a group
+	GroupMinMembers int = 10
+
+	// MinerMaxJoinedGroup means the maximum number of groups each miner joins
+	MinerMaxJoinedGroup = 5
+
+	// CandidatesMinRatio means the multiple of the smallest candidate relative to the number of group members
+	CandidatesMinRatio = 1
+
+	Epoch int = 5
+
+	GroupCreateGap = Epoch * 2
+
+	GroupWaitPongGap = GroupCreateGap + Epoch*2
+
+	// GroupReadyGap means the group is ready (built group) with an interval of 6 epoch
+	GroupReadyGap = GroupCreateGap + Epoch*6
+
+	// GroupWorkGap after the group is ready, wait for the interval of the to work is 8 epoch
+	GroupWorkGap = GroupCreateGap + Epoch*8
+
+	// GroupWorkDuration the group work cycle is 100 epoch
+	GroupWorkDuration   = Epoch * 100
+	GroupCreateInterval = Epoch * 10
 )
 
 type ConsensusParam struct {
@@ -52,14 +76,13 @@ type ConsensusParam struct {
 	GroupworkDuration   uint64
 	GroupCreateGap      uint64
 	GroupWaitPongGap    uint64
-	//EffectGapAfterApply uint64	//矿工申请后，到生效的高度间隔
-	PotentialProposal int //潜在提案者
+	PotentialProposal   int // Potential proposer
 
-	ProposalBonus uint64 //提案奖励
-	PackBonus     uint64 //打包一个分红交易奖励
-	VerifyBonus   uint64 //验证者总奖励
+	ProposalBonus uint64 // Proposal reward
+	PackBonus     uint64 // Pack a bonus trading reward
+	VerifyBonus   uint64 // Verifier total reward
 
-	VerifierStake uint64 //
+	VerifierStake uint64
 
 	MaxSlotSize int
 }
@@ -82,7 +105,6 @@ func InitParam(cc common.SectionConfManager) {
 		GroupReadyGap:       uint64(cc.GetInt("group_ready_gap", GroupReadyGap)),
 		GroupWorkGap:        uint64(cc.GetInt("group_cast_qualify_gap", GroupWorkGap)),
 		GroupworkDuration:   uint64(cc.GetInt("group_cast_duration", GroupWorkDuration)),
-		//EffectGapAfterApply: Epoch,
 		PotentialProposal:   10,
 		ProposalBonus:       common.TAS2RA(12),
 		PackBonus:           common.TAS2RA(3),
@@ -95,19 +117,10 @@ func InitParam(cc common.SectionConfManager) {
 	}
 }
 
-//取得门限值
-//func  (p *ConsensusParam) GetThreshold() int {
-//	return p.GetGroupK(p.GroupMemberMax)
-//}
-
 func (p *ConsensusParam) GetGroupK(max int) int {
 	return int(math.Ceil(float64(max*p.SSSSThreshold) / 100))
 }
 
-//获取组成员个数
-//func (p *ConsensusParam) GetGroupMemberNum() int {
-//	return p.GroupMemberMax
-//}
 func (p *ConsensusParam) IsGroupMemberCountLegal(cnt int) bool {
 	return p.GroupMemberMin <= cnt && cnt <= p.GroupMemberMax
 }

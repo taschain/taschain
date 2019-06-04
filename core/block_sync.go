@@ -46,14 +46,10 @@ var blockSync *blockSyncer
 
 type blockSyncer struct {
 	chain *FullBlockChain
-	//syncing       int32
 
 	candidatePool map[string]*topBlockInfo
 	syncingPeers  map[string]uint64
 
-	//reqTimeoutTimer      *time.Timer
-	//syncTimer            *time.Timer
-	//blockInfoNotifyTimer *time.Timer
 	ticker *ticker.GlobalTicker
 
 	lock   sync.RWMutex
@@ -106,7 +102,7 @@ func (bs *blockSyncer) onGroupAddSuccess(msg notify.Message) {
 	beginHeight := g.Header.WorkHeight
 	topHeight := bs.chain.Height()
 
-	//当前块高已经超过生效高度了,组可能有点问题
+	// The current block height has exceeded the effective height, and the group may be a bit problematic.
 	if beginHeight < topHeight {
 		s := fmt.Sprintf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", common.Bytes2Hex(g.ID), g.GroupHeight, beginHeight, topHeight)
 		panic(s)
@@ -133,7 +129,6 @@ func (bs *blockSyncer) getBestCandidate(candidateID string) (string, *topBlockIn
 				delete(bs.candidatePool, id)
 			}
 		}
-		//bs.candidatePoolDump()
 		if len(bs.candidatePool) == 0 {
 			return "", nil
 		}
@@ -181,7 +176,6 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 
-	//bs.candidatePoolDump()
 	candidate, candidateTop := bs.getBestCandidate(from)
 	if candidate == "" {
 		bs.logger.Debugf("Get no candidate for sync!")
@@ -286,18 +280,9 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 		return
 	}
 
-	//if blockInfo.Height > bs.chain.Height()+2 {
-	//	bs.logger.Debugf("Rcv topBlock Notify from %v, topHash %v, height %v， localHeight %v", bnm.Peer, blockInfo.Hash.String(), blockInfo.Height, bs.chain.Height())
-	//}
-
 	source := bnm.Source()
 	peerManagerImpl.heardFromPeer(source)
 
-	//topBlock := bs.gchain.QueryTopBlock()
-	//localTotalQn, localTopHash := topBlock.TotalQN, topBlock.Hash
-	//if !bs.isUsefulCandidate(localTotalQn, localTopHash, blockInfo.TotalQn, blockInfo.Hash) {
-	//	return
-	//}
 	bs.addCandidatePool(source, blockInfo)
 }
 
@@ -367,7 +352,6 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 			return false
 		})
 
-		//权重还是比较低，继续同步(必须所有上链成功，否则会造成死循环）
 		// The weight is still low, continue to synchronize (must add blocks
 		// is successful, otherwise it will cause an infinite loop)
 		if allSuccess && peerTop != nil && peerTop.MoreWeight(&localTop.BlockWeight) {
@@ -379,10 +363,6 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 }
 
 func (bs *blockSyncer) addCandidatePool(source string, topBlockInfo *topBlockInfo) {
-	//if peerManagerImpl.isEvil(id) {
-	//	bs.logger.Debugf("Top block info notify id:%s is marked evil.Drop it!", id)
-	//	return
-	//}
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 

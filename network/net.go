@@ -30,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-//p2p proto version
+// Version is p2p proto version
 const Version = 1
 
 const (
@@ -66,7 +66,7 @@ const (
 	flowMeterInterval        = 1 * time.Minute
 )
 
-//NetCore p2p network
+// NetCore p2p network
 type NetCore struct {
 	ourEndPoint      RpcEndPoint
 	id               NodeID
@@ -85,8 +85,8 @@ type NetCore struct {
 	flowMeter      *FlowMeter
 	bufferPool     *BufferPool
 
-	chainID         uint16
-	protocolVersion uint16
+	chainID         uint16 // Chain id
+	protocolVersion uint16 // Protocol id
 }
 
 type pending struct {
@@ -109,13 +109,14 @@ type reply struct {
 
 func genNetID(id NodeID) uint64 {
 	h := fnv.New64a()
-	n,err := h.Write(id[:])
-	if n== 0 || err != nil {
+	n, err := h.Write(id[:])
+	if n == 0 || err != nil {
 		return 0
 	}
 	return uint64(h.Sum64())
 }
 
+//nodeFromRPC is RPC node transformation
 func (nc *NetCore) nodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) {
 	if rn.Port <= 1024 {
 		return nil, errors.New("low port")
@@ -142,7 +143,7 @@ type NetCoreConfig struct {
 	ProtocolVersion uint16
 }
 
-//MakeEndPoint create a network end point instence
+// MakeEndPoint create the node description object
 func MakeEndPoint(addr *nnet.UDPAddr, tcpPort int32) RpcEndPoint {
 	ip := addr.IP.To4()
 	if ip == nil {
@@ -155,7 +156,7 @@ func nodeToRPC(n *Node) RpcNode {
 	return RpcNode{Id: n.ID.GetHexString(), Ip: n.IP.String(), Port: int32(n.Port)}
 }
 
-//Init initialize net core
+// InitNetCore For initialization
 func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 
 	nc.id = cfg.ID
@@ -334,7 +335,8 @@ func (nc *NetCore) loop() {
 	defer timeout.Stop()
 	defer flowMeter.Stop()
 
-	<-timeout.C // ignore first timeout
+	// ignore first timeout
+	<-timeout.C
 
 	resetTimeout := func() {
 		if plist.Front() == nil || nextTimeout == plist.Front().Value {
@@ -456,7 +458,6 @@ func (nc *NetCore) broadcastRandom(data []byte, code uint32, relayCount int32) {
 	return
 }
 
-
 func (nc *NetCore) groupBroadcast(id string, data []byte, code uint32, broadcast bool, relayCount int32) {
 	dataType := DataType_DataNormal
 	if broadcast {
@@ -481,7 +482,7 @@ func (nc *NetCore) groupBroadcastWithMembers(id string, data []byte, code uint32
 	const MaxSendCount = 1
 	nodesHasSend := make(map[NodeID]bool)
 	count := 0
-	//先找已经连接的
+	// Find the one that's already connected
 	for i := 0; i < len(groupMembers) && count < MaxSendCount; i++ {
 		id := NewNodeID(groupMembers[i])
 		p := nc.peerManager.peerByID(id)
@@ -492,7 +493,7 @@ func (nc *NetCore) groupBroadcastWithMembers(id string, data []byte, code uint32
 		}
 	}
 
-	//已经连接的不够，通过穿透服务器连接
+	// The number of connections has not been enough, through the penetration server connection
 	for i := 0; i < len(groupMembers) && count < MaxSendCount && count < len(groupMembers); i++ {
 		id := NewNodeID(groupMembers[i])
 		if nodesHasSend[id] != true && id != nc.id {
@@ -528,28 +529,27 @@ func (nc *NetCore) sendToGroupMember(id string, data []byte, code uint32, member
 	return
 }
 
-
-//OnConnected callback when a peer is connected
+// OnConnected callback when a peer is connected
 func (nc *NetCore) onConnected(id uint64, session uint32, p2pType uint32) {
 	nc.peerManager.newConnection(id, session, p2pType, false)
 }
 
-//OnAccepted callback when Accepted a  peer
+// OnAccepted callback when Accepted a  peer
 func (nc *NetCore) onAccepted(id uint64, session uint32, p2pType uint32) {
 	nc.peerManager.newConnection(id, session, p2pType, true)
 }
 
-//OnDisconnected callback when peer is disconnected
+// OnDisconnected callback when peer is disconnected
 func (nc *NetCore) onDisconnected(id uint64, session uint32, p2pCode uint32) {
 	nc.peerManager.onDisconnected(id, session, p2pCode)
 }
 
-//OnSendWaited callback when send list is clear
+// OnSendWaited callback when send list is clear
 func (nc *NetCore) onSendWaited(id uint64, session uint32) {
 	nc.peerManager.onSendWaited(id, session)
 }
 
-//OnChecked callback when nat type is checked
+// OnChecked callback when nat type is checked
 func (nc *NetCore) onChecked(p2pType uint32, privateIP string, publicIP string) {
 	nc.ourEndPoint = MakeEndPoint(&nnet.UDPAddr{IP: nnet.ParseIP(publicIP), Port: 0}, 0)
 	nc.natType = p2pType
@@ -557,7 +557,7 @@ func (nc *NetCore) onChecked(p2pType uint32, privateIP string, publicIP string) 
 	Logger.Debugf("OnChecked, nat type :%v public ip: %v private ip :%v", p2pType, publicIP, privateIP)
 }
 
-//OnRecved callback when data is received
+// OnRecved callback when data is received
 func (nc *NetCore) onRecved(netID uint64, session uint32, data []byte) {
 	nc.recvData(netID, session, data)
 }
@@ -633,8 +633,6 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	}
 	fromID := p.ID
 
-	//	Logger.Debugf("handleMessage : msgType: %v ", msgType)
-
 	switch msgType {
 	case MessageType_MessagePing:
 		fromID.SetBytes(msg.(*MsgPing).NodeId)
@@ -645,11 +643,11 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	case MessageType_MessageFindnode:
 		err = nc.handleFindNode(msg.(*MsgFindNode), fromID)
 	case MessageType_MessageNeighbors:
-		err =nc.handleNeighbors(msg.(*MsgNeighbors), fromID)
+		err = nc.handleNeighbors(msg.(*MsgNeighbors), fromID)
 	case MessageType_MessageRelayTest:
-		err =nc.handleRelayTest(msg.(*MsgRelay), fromID)
+		err = nc.handleRelayTest(msg.(*MsgRelay), fromID)
 	case MessageType_MessageRelayNode:
-		err =nc.handleRelayNode(msg.(*MsgRelay), fromID)
+		err = nc.handleRelayNode(msg.(*MsgRelay), fromID)
 	case MessageType_MessageData:
 		nc.handleData(msg.(*MsgData), buf.Bytes()[0:packetSize], fromID)
 	default:
@@ -769,13 +767,13 @@ func (nc *NetCore) handlePing(req *MsgPing, fromID NodeID) error {
 	Logger.Debugf("ping from:%v id:%v port:%d", fromID.GetHexString(), ip, port)
 
 	if !nc.handleReply(fromID, MessageType_MessagePing, req) {
-		_,err:=nc.kad.onPingNode(fromID, &from)
+		_, err := nc.kad.onPingNode(fromID, &from)
 		if err != nil {
 			return err
 		}
 	}
 
-	if p!=nil && !p.isPinged {
+	if p != nil && !p.isPinged {
 		netCore.ping(fromID, nil)
 		p.isPinged = true
 	}
@@ -895,12 +893,12 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromID NodeID) {
 		bizID := nc.messageManager.byteToBizID(req.BizMessageId)
 		nc.messageManager.forwardBiz(bizID)
 	}
-	//需处理
+	// Need to deal with
 	if len(req.DestNodeId) == 0 || dstNodeID == nc.id {
 		nc.onHandleDataMessage(req, srcNodeID)
 	}
 	broadcast := false
-	//需广播
+	// Need to be broadcast
 	if len(req.DestNodeId) == 0 || dstNodeID != nc.id {
 		broadcast = true
 	}

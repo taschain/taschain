@@ -1,7 +1,5 @@
 package groupsig
 
-//Added by FlyingSquirrel-Xu. 2018-08-24.
-
 import (
 	"fmt"
 	"github.com/taschain/taschain/consensus/base"
@@ -10,11 +8,6 @@ import (
 )
 
 const PREFIX = "0x"
-
-// GetMaxOpUnitSize --
-//func GetMaxOpUnitSize() int {
-//	return 4
-//}
 
 func revertString(b string) string {
 	len := len(b)
@@ -39,15 +32,10 @@ func (bi *BnInt) IsEqual(b *BnInt) bool {
 	return 0 == bi.v.Cmp(&b.v)
 }
 
-// SetDecString --
 func (bi *BnInt) SetDecString(s string) error {
 	bi.v.SetString(s, 10)
 	return nil
 }
-
-//func (bi *BnInt) GetDecString () s string {
-//
-//}
 
 func (bi *BnInt) Add(b *BnInt) error {
 	bi.v.Add(&bi.v, &b.v)
@@ -88,7 +76,7 @@ func (bi *BnInt) SetHexString(s string) error {
 	return nil
 }
 
-//BlsInt导出为big.Int
+// GetBigInt export BlsInt as big.Int
 func (bi *BnInt) GetBigInt() *big.Int {
 	return new(big.Int).Set(&bi.v)
 }
@@ -121,7 +109,6 @@ func (bg *bnG2) Deserialize(b []byte) error {
 	return nil
 }
 
-//序列化
 func (bg *bnG2) Serialize() []byte {
 	return bg.v.Marshal()
 }
@@ -131,19 +118,18 @@ func (bg *bnG2) Add(bh *bnG2) error {
 	return nil
 }
 
-// GetMasterSecretKey --
 func (sec *Seckey) GetMasterSecretKey(k int) (msk []Seckey) {
 	msk = make([]Seckey, k)
 	msk[0] = *sec
 
-	r := base.NewRand() //生成随机数
+	// Generating random number
+	r := base.NewRand()
 	for i := 1; i < k; i++ {
 		msk[i] = *NewSeckeyFromRand(r.Deri(1))
 	}
 	return msk
 }
 
-// GetMasterPublicKey --
 func GetMasterPublicKey(msk []Seckey) (mpk []Pubkey) {
 	n := len(msk)
 	mpk = make([]Pubkey, n)

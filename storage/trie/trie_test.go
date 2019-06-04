@@ -33,9 +33,6 @@ import (
 	"testing/quick"
 )
 
-
-
-
 // Used for testing
 func newEmpty() *Trie {
 	db, _ := tasdb.NewMemDatabase()

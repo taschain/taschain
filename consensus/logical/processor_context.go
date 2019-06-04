@@ -11,11 +11,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/2/1 上午10:58
-**  Description:
- */
 type castedBlock struct {
 	height  uint64
 	preHash common.Hash
@@ -64,12 +59,12 @@ func (c *verifyMsgCache) removeVerifyMsgs() {
 }
 
 type castBlockContexts struct {
-	proposed        *lru.Cache //hash -> *Block
-	heightVctxs     *lru.Cache //height -> *VerifyContext
-	hashVctxs       *lru.Cache //hash -> *VerifyContext
-	reservedVctx    *lru.Cache //uint64 -> *VerifyContext 存储已经有签出块的verifyContext，待广播
-	verifyMsgCaches *lru.Cache //hash -> *verifyMsgCache 缓存验证消息
-	recentCasted    *lru.Cache //height -> *castedBlock
+	proposed        *lru.Cache // hash -> *Block
+	heightVctxs     *lru.Cache // height -> *VerifyContext
+	hashVctxs       *lru.Cache // hash -> *VerifyContext
+	reservedVctx    *lru.Cache // uint64 -> *VerifyContext, Store the verifyContext that already has the checked out block, to be broadcast
+	verifyMsgCaches *lru.Cache // hash -> *verifyMsgCache, Cache verification message
+	recentCasted    *lru.Cache // height -> *castedBlock
 	chain           core.BlockChain
 }
 
@@ -173,27 +168,27 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 	var vctx *VerifyContext
 	blog := newBizLog("getOrNewVctx")
 
-	//若该高度还没有verifyContext， 则创建一个
+	// If the height does not yet have a verifyContext, create one
 	if vctx = bctx.getVctxByHeight(height); vctx == nil {
 		vctx = newVerifyContext(group, height, expireTime, preBH)
 		bctx.addVctx(vctx)
 		blog.log("add vctx expire %v", expireTime)
 	} else {
-		// hash不一致的情况下，
+		// In case of hash inconsistency，
 		if vctx.prevBH.Hash != preBH.Hash {
 			blog.log("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, vctx.prevBH.Hash.ShortS(), preBH.Hash.ShortS())
 			preOld := bctx.chain.QueryBlockHeaderByHash(vctx.prevBH.Hash)
-			//原来的preBH可能被分叉调整干掉了，则此vctx已无效， 重新用新的preBH
+			// The original preBH may be removed by the fork adjustment, then the vctx is invalid, re-use the new preBH
 			if preOld == nil {
 				vctx = bctx.replaceVerifyCtx(group, height, expireTime, preBH)
 				return vctx
 			}
 			preNew := bctx.chain.QueryBlockHeaderByHash(preBH.Hash)
-			//新的preBH不存在了，也可能被分叉干掉了，此处直接返回nil
+			// The new preBH doesn't exist, it may be forked, and it returns nil directly here.
 			if preNew == nil {
 				return nil
 			}
-			//新旧preBH都非空， 取高度高的preBH？
+			// Both old and new preBH are not empty, take high preBH?
 			if preOld.Height < preNew.Height {
 				vctx = bctx.replaceVerifyCtx(group, height, expireTime, preNew)
 			}

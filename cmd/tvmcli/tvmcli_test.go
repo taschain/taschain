@@ -19,7 +19,7 @@ func TestTvm(t *testing.T) {
 	buf := bufio.NewReader(f)
 	for {
 		line, err := buf.ReadString('\n')
-		codeStr = fmt.Sprintf("%s%s \n",codeStr,line)
+		codeStr = fmt.Sprintf("%s%s \n", codeStr, line)
 		if err != nil {
 			if err == io.EOF {
 				break

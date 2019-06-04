@@ -32,13 +32,12 @@ func TestExampleDecode(t *testing.T) {
 
 	err := Decode(bytes.NewReader([]byte{0xC4, 0x01, 0x02, 0x03, 0x04}), &val)
 
-	if err != nil{
+	if err != nil {
 		t.Errorf("decode error")
 	}
 
-	if val.A != 1 && val.B != 2 && val.C[0] != 3 && val.C[1] != 4{
+	if val.A != 1 && val.B != 2 && val.C[0] != 3 && val.C[1] != 4 {
 		t.Errorf("decode not except value")
 	}
-
 
 }

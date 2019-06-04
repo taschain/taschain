@@ -46,9 +46,9 @@ func (s Storage) String() (str string) {
 	return
 }
 
-func (self Storage) Copy() Storage {
+func (s Storage) Copy() Storage {
 	cpy := make(Storage)
-	for key, value := range self {
+	for key, value := range s {
 		cpy[key] = value
 	}
 
@@ -63,7 +63,7 @@ func (self Storage) Copy() Storage {
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type accountObject struct {
 	address  common.Address
-	addrHash common.Hash  // hash of address of the account
+	addrHash common.Hash // hash of address of the account
 	data     Account
 	db       *AccountDB
 
@@ -132,6 +132,7 @@ func (ao *accountObject) setError(err error) {
 		ao.dbErr = err
 	}
 }
+
 // markSuicided only marked
 func (ao *accountObject) markSuicided() {
 	ao.suicided = true
@@ -141,29 +142,29 @@ func (ao *accountObject) markSuicided() {
 	}
 }
 
-func (c *accountObject) touch() {
-	c.db.transitions = append(c.db.transitions, touchChange{
-		account:   &c.address,
-		prev:      c.touched,
-		prevDirty: c.onDirty == nil,
+func (ao *accountObject) touch() {
+	ao.db.transitions = append(ao.db.transitions, touchChange{
+		account:   &ao.address,
+		prev:      ao.touched,
+		prevDirty: ao.onDirty == nil,
 	})
-	if c.onDirty != nil {
-		c.onDirty(c.Address())
-		c.onDirty = nil
+	if ao.onDirty != nil {
+		ao.onDirty(ao.Address())
+		ao.onDirty = nil
 	}
-	c.touched = true
+	ao.touched = true
 }
 
-func (c *accountObject) getTrie(db AccountDatabase) Trie {
-	if c.trie == nil {
+func (ao *accountObject) getTrie(db AccountDatabase) Trie {
+	if ao.trie == nil {
 		var err error
-		c.trie, err = db.OpenStorageTrie(c.addrHash, c.data.Root)
+		ao.trie, err = db.OpenStorageTrie(ao.addrHash, ao.data.Root)
 		if err != nil {
-			c.trie, _ = db.OpenStorageTrie(c.addrHash, common.Hash{})
-			c.setError(fmt.Errorf("can't create storage trie: %v", err))
+			ao.trie, _ = db.OpenStorageTrie(ao.addrHash, common.Hash{})
+			ao.setError(fmt.Errorf("can't create storage trie: %v", err))
 		}
 	}
-	return c.trie
+	return ao.trie
 }
 
 // GetData retrieves a value from the account storage trie.
@@ -200,18 +201,22 @@ func (ao *accountObject) SetData(db AccountDatabase, key string, value []byte) {
 	ao.setData(key, value)
 }
 
+func (ao *accountObject) RemoveData(db AccountDatabase, key string) {
+	ao.SetData(db, key, nil)
+}
 
-func (self *accountObject) setData(key string, value []byte) {
-	self.cachedLock.Lock()
-	self.cachedStorage[key] = value
-	self.cachedLock.Unlock()
-	self.dirtyStorage[key] = value
+func (ao *accountObject) setData(key string, value []byte) {
+	ao.cachedLock.Lock()
+	ao.cachedStorage[key] = value
+	ao.cachedLock.Unlock()
+	ao.dirtyStorage[key] = value
 
-	if self.onDirty != nil {
-		self.onDirty(self.Address())
-		self.onDirty = nil
+	if ao.onDirty != nil {
+		ao.onDirty(ao.Address())
+		ao.onDirty = nil
 	}
 }
+
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (ao *accountObject) updateTrie(db AccountDatabase) Trie {
 	tr := ao.getTrie(db)
@@ -244,6 +249,7 @@ func (ao *accountObject) CommitTrie(db AccountDatabase) error {
 	root, err := ao.trie.Commit(nil)
 	if err == nil {
 		ao.data.Root = root
+		//ao.db.db.PushTrie(root, ao.trie)
 	}
 	return err
 }
@@ -260,7 +266,6 @@ func (ao *accountObject) AddBalance(amount *big.Int) {
 	}
 	ao.SetBalance(new(big.Int).Add(ao.Balance(), amount))
 }
-
 
 // SubBalance is used to remove funds from the origin account of a transfer.
 func (ao *accountObject) SubBalance(amount *big.Int) {
@@ -331,11 +336,11 @@ func (ao *accountObject) DataIterator(db AccountDatabase, prefix []byte) *trie.I
 
 // SetCode set a value in contract storage.
 func (ao *accountObject) SetCode(codeHash common.Hash, code []byte) {
-	prevcode := ao.Code(ao.db.db)
+	prevCode := ao.Code(ao.db.db)
 	ao.db.transitions = append(ao.db.transitions, codeChange{
 		account:  &ao.address,
 		prevhash: ao.CodeHash(),
-		prevcode: prevcode,
+		prevcode: prevCode,
 	})
 	ao.setCode(codeHash, code)
 }
@@ -383,4 +388,3 @@ func (ao *accountObject) Nonce() uint64 {
 func (ao *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
 }
-

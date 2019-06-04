@@ -6,6 +6,9 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
+type MessageBase struct {
+}
+
 type blockResponseMessage struct {
 	Blocks []*types.Block
 }

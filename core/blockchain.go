@@ -60,7 +60,6 @@ type BlockChainConfig struct {
 	receipt     string
 }
 
-
 // FullBlockChain manages chain imports, reverts, chain reorganisations.
 type FullBlockChain struct {
 	blocks      *tasdb.PrefixedDatabase
@@ -90,8 +89,6 @@ type FullBlockChain struct {
 	futureBlocks   *lru.Cache
 	verifiedBlocks *lru.Cache
 
-	//verifiedBodyCache *lru.Cache
-
 	isAdjusting bool // isAdjusting which means there may be a fork
 
 	consensusHelper types.ConsensusHelper
@@ -100,9 +97,8 @@ type FullBlockChain struct {
 
 	forkProcessor *forkProcessor
 	config        *BlockChainConfig
-	//castedBlock  *lru.Cache
 
-	ticker *ticker.GlobalTicker //Ticker is a global time ticker
+	ticker *ticker.GlobalTicker // Ticker is a global time ticker
 	ts     time2.TimeService
 }
 
@@ -184,7 +180,6 @@ func initBlockChain(helper types.ConsensusHelper) error {
 
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain.ticker)
-	// 恢复链状态 height,latestBlock
 
 	chain.latestBlock = chain.loadCurrentBlock()
 	if nil != chain.latestBlock {
@@ -225,7 +220,7 @@ func (chain *FullBlockChain) buildCache(size int) {
 }
 
 // insertGenesisBlock creates the genesis block and some necessary information，
-// and commitit
+// and commit it
 func (chain *FullBlockChain) insertGenesisBlock() {
 	stateDB, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil != err {
@@ -240,8 +235,7 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 		ProveValue: []byte{},
 		Elapsed:    0,
 		TotalQN:    0,
-		//Transactions: make([]common.Hash, 0), //important!!
-		Nonce: common.ChainDataVersion,
+		Nonce:      common.ChainDataVersion,
 	}
 
 	block.Header.Signature = common.Sha256([]byte("tas"))
@@ -250,24 +244,18 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	genesisInfo := chain.consensusHelper.GenerateGenesisInfo()
 	setupGenesisStateDB(stateDB, genesisInfo)
 
-	//stage := stateDB.IntermediateRoot(false)
-	//Logger.Debugf("GenesisBlock Stage1 Root:%s", stage.Hex())
 	miners := make([]*types.Miner, 0)
 	for i, member := range genesisInfo.Group.Members {
 		miner := &types.Miner{ID: member, PublicKey: genesisInfo.Pks[i], VrfPublicKey: genesisInfo.VrfPKs[i], Stake: common.TAS2RA(100)}
 		miners = append(miners, miner)
 	}
 	MinerManagerImpl.addGenesesMiner(miners, stateDB)
-	//stage = stateDB.IntermediateRoot(false)
-	//Logger.Debugf("GenesisBlock Stage2 Root:%s", stage.Hex())
 	stateDB.SetNonce(common.BonusStorageAddress, 1)
 	stateDB.SetNonce(common.HeavyDBAddress, 1)
 	stateDB.SetNonce(common.LightDBAddress, 1)
 	stateDB.SetNonce(common.MinerStakeDetailDBAddress, 1)
 
 	root, _ := stateDB.Commit(true)
-	//Logger.Debugf("GenesisBlock final Root:%s", root.Hex())
-	//triedb.Commit(root, false)
 	block.Header.StateTree = common.BytesToHash(root.Bytes())
 	block.Header.Hash = block.Header.GenHash()
 
@@ -281,7 +269,6 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 
 // Clear clear blockchain all data. Not used now, should remove it latter
 func (chain *FullBlockChain) Clear() error {
-
 	return nil
 }
 

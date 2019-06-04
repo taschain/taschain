@@ -6,16 +6,10 @@ import (
 	"sync"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/8/17 下午2:04
-**  Description:
- */
-
 type GroupSignGenerator struct {
-	witnesses map[string]groupsig.Signature //见证人列表
-	threshold int                           //阈值
-	gSign     groupsig.Signature            //输出的组签名
+	witnesses map[string]groupsig.Signature // Witness list
+	threshold int                           // Threshold
+	gSign     groupsig.Signature            // Output group signature
 	lock      sync.RWMutex
 }
 
@@ -39,7 +33,7 @@ func (gs *GroupSignGenerator) GetWitness(id groupsig.ID) (groupsig.Signature, bo
 	return groupsig.Signature{}, false
 }
 
-//不检查是否已经recover，只是把分片加入
+// AddWitnessForce do not check if it has been recovered, just add the shard
 func (gs *GroupSignGenerator) AddWitnessForce(id groupsig.ID, signature groupsig.Signature) (add bool, generated bool) {
 	gs.lock.Lock()
 	defer gs.lock.Unlock()
@@ -74,9 +68,6 @@ func (gs *GroupSignGenerator) generate() bool {
 		return false
 	}
 	gs.gSign = *sig
-	if len(gs.gSign.Serialize()) == 0 {
-		//stdL("!!!!!!!!!!!!!!!!!!!!!!!!!!!1sign is empty!")
-	}
 	return true
 }
 

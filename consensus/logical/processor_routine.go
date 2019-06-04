@@ -10,12 +10,6 @@ import (
 	time2 "time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/11/28 下午2:03
-**  Description:
- */
-
 func (p *Processor) getCastCheckRoutineName() string {
 	return "self_cast_check_" + p.getPrefix()
 }
@@ -28,7 +22,7 @@ func (p *Processor) getReleaseRoutineName() string {
 	return "release_routine_" + p.getPrefix()
 }
 
-//检查是否当前组铸块
+// checkSelfCastRoutine check if the current group cast block
 func (p *Processor) checkSelfCastRoutine() bool {
 	if !p.Ready() {
 		return false
@@ -43,10 +37,6 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	}
 
 	top := p.MainChain.QueryTopBlock()
-	//if time.Since(top.CurTime).Seconds() < 1.0 {
-	//	blog.log("too quick, slow down. preTime %v, now %v", top.CurTime.String(), time.Now().String())
-	//	return false
-	//}
 
 	var (
 		expireTime  time.TimeStamp
@@ -73,7 +63,6 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	worker := p.getVrfWorker()
 
 	if worker != nil && worker.workingOn(top, castHeight) {
-		//blog.log("already working on that block height=%v, status=%v", castHeight, worker.getStatus())
 		return false
 	}
 	blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
@@ -96,7 +85,9 @@ func (p *Processor) releaseRoutine() bool {
 	if topHeight <= model.Param.CreateGroupInterval {
 		return true
 	}
-	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证该组解散前夕建的块有效
+	// Groups that are currently highly disbanded should not be deleted from
+	// the cache immediately, delaying the deletion of a build cycle. Ensure that
+	// the block built on the eve of the dissolution of the group is valid
 	groups := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
 	ids := make([]groupsig.ID, 0)
 	for _, g := range groups {
@@ -119,7 +110,7 @@ func (p *Processor) releaseRoutine() bool {
 		}
 	}
 
-	//释放超时未建成组的组网络和相应的dummy组
+	// Release the group network of the uncompleted group and the corresponding dummy group
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {
 		if gc.gInfo == nil || gc.is == GisGroupInitDone {
 			return true
@@ -144,7 +135,7 @@ func (p *Processor) releaseRoutine() bool {
 					waitIds = append(waitIds, mem)
 				}
 			}
-			//发送日志
+			// Send log
 			le := &monitor.LogEntry{
 				LogType:  monitor.LogTypeInitGroupRevPieceTimeout,
 				Height:   p.GroupChain.Height(),
@@ -183,7 +174,7 @@ func (p *Processor) releaseRoutine() bool {
 			if gctx != nil && gctx.gInfo != nil {
 				gHash = gctx.gInfo.GroupHash().Hex()
 			}
-			//发送日志
+			// Send log
 			le := &monitor.LogEntry{
 				LogType:  monitor.LogTypeCreateGroupSignTimeout,
 				Height:   p.GroupChain.Height(),
@@ -197,16 +188,7 @@ func (p *Processor) releaseRoutine() bool {
 		}
 		p.groupManager.removeContext()
 	}
-	//p.groupManager.creatingGroups.forEach(func(cg *CreatingGroupContext) bool {
-	//	gis := &cg.gInfo.GI
-	//	gHash := gis.GetHash()
-	//	if gis.ReadyTimeout(topHeight) {
-	//		blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash %v", gHash.ShortS())
-	//		p.NetServer.ReleaseGroupNet(gHash.String())
-	//		p.groupManager.creatingGroups.removeGroup(gHash)
-	//	}
-	//	return true
-	//})
+
 	p.globalGroups.generator.forEach(func(ig *InitedGroup) bool {
 		hash := ig.gInfo.GroupHash()
 		if ig.gInfo.GI.ReadyTimeout(topHeight) {
@@ -217,7 +199,7 @@ func (p *Processor) releaseRoutine() bool {
 		return true
 	})
 
-	//释放futureVerifyMsg
+	// Release futureVerifyMsg
 	p.futureVerifyMsgs.forEach(func(key common.Hash, arr []interface{}) bool {
 		for _, msg := range arr {
 			b := msg.(*model.ConsensusCastMessage)
@@ -229,7 +211,7 @@ func (p *Processor) releaseRoutine() bool {
 		}
 		return true
 	})
-	//释放futureRewardMsg
+	// Release futureRewardMsg
 	p.futureRewardReqs.forEach(func(key common.Hash, arr []interface{}) bool {
 		for _, msg := range arr {
 			b := msg.(*model.CastRewardTransSignReqMessage)
@@ -242,7 +224,7 @@ func (p *Processor) releaseRoutine() bool {
 		return true
 	})
 
-	//清理超时的签名公钥请求
+	// Clean up the timeout signature public key request
 	cleanSignPkReqRecord()
 
 	for _, h := range p.blockContexts.verifyMsgCaches.Keys() {
@@ -265,7 +247,7 @@ func (p *Processor) updateGlobalGroups() bool {
 	top := p.MainChain.Height()
 	iter := p.GroupChain.NewIterator()
 	for g := iter.Current(); g != nil && !IsGroupDissmisedAt(g.Header, top); g = iter.MovePre() {
-		gid := groupsig.DeserializeId(g.ID)
+		gid := groupsig.DeserializeID(g.ID)
 		if g, _ := p.globalGroups.getGroupFromCache(gid); g != nil {
 			continue
 		}
