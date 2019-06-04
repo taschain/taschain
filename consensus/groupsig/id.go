@@ -159,8 +159,8 @@ func NewIDFromString(s string) *ID {
 	return NewIDFromBigInt(bi)
 }
 
-// DeserializeId construct ID with the input byte array
-func DeserializeId(bs []byte) ID {
+// DeserializeID construct ID with the input byte array
+func DeserializeID(bs []byte) ID {
 	var id ID
 	if err := id.Deserialize(bs); err != nil {
 		return ID{}

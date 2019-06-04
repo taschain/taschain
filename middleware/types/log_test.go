@@ -82,7 +82,7 @@ var unmarshalLogTests = map[string]struct {
 			Address:     common.HexToAddress("0xe75051bf0048decaffa55e3a9fa33e87ed802aaba5038b0fd7f49401f5d8b019"),
 			BlockHash:   common.HexToHash("0x656c34545f90a730a19008c0e7a7cd4fb3895064b48d6d69761bd5abad681056"),
 			BlockNumber: 2019236,
-			Data:       []byte{},
+			Data:        []byte{},
 			Index:       2,
 			TxIndex:     3,
 			TxHash:      common.HexToHash("0x3b198bfd5d2907285af009e9ae84a0ecd63677110d89d7e030251acb87f6487e"),
@@ -98,12 +98,11 @@ var unmarshalLogTests = map[string]struct {
 	//},
 }
 
-
 func TestMarshalLog(t *testing.T) {
 	for name, test := range unmarshalLogTests {
-		bytes,err := json.Marshal(test.want)
+		bytes, err := json.Marshal(test.want)
 		if err != nil {
-			t.Errorf("test %q:\n er:%v,GOT:%s", name,err, string(bytes))
+			t.Errorf("test %q:\n er:%v,GOT:%s", name, err, string(bytes))
 		}
 
 	}

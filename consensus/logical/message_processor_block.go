@@ -35,8 +35,8 @@ func (p *Processor) thresholdPieceVerify(vctx *VerifyContext, slot *SlotContext)
 func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *types.BlockHeader) (ok bool, err error) {
 	bh := &msg.BH
 	si := &msg.SI
-	castor := groupsig.DeserializeId(bh.Castor)
-	groupID := groupsig.DeserializeId(bh.GroupID)
+	castor := groupsig.DeserializeID(bh.Castor)
+	groupID := groupsig.DeserializeID(bh.GroupID)
 
 	defer func() {
 		if ok {
@@ -167,11 +167,11 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		Hash:     bh.Hash.Hex(),
 		PreHash:  bh.PreHash.Hex(),
 		Proposer: ccm.SI.GetID().GetHexString(),
-		Verifier: groupsig.DeserializeId(bh.GroupID).GetHexString(),
+		Verifier: groupsig.DeserializeID(bh.GroupID).GetHexString(),
 		Ext:      fmt.Sprintf("external:qn:%v,totalQN:%v", 0, bh.TotalQN),
 	}
 	slog.AddStage("getGroup")
-	group := p.GetGroup(groupsig.DeserializeId(bh.GroupID))
+	group := p.GetGroup(groupsig.DeserializeID(bh.GroupID))
 	slog.EndStage()
 
 	slog.AddStage("addLog")
@@ -185,8 +185,8 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 
 	si := &ccm.SI
 	traceLog := newHashTraceLog(mtype, bh.Hash, si.GetID())
-	castor := groupsig.DeserializeId(bh.Castor)
-	groupID := groupsig.DeserializeId(bh.GroupID)
+	castor := groupsig.DeserializeID(bh.Castor)
+	groupID := groupsig.DeserializeID(bh.GroupID)
 
 	traceLog.logStart("%v:height=%v, castor=%v", mtype, bh.Height, castor.ShortS())
 	blog.debug("proc(%v) begin hash=%v, height=%v, sender=%v, castor=%v, groupID=%v", p.getPrefix(), bh.Hash.ShortS(), bh.Height, si.GetID().ShortS(), castor.ShortS(), groupID.ShortS())
@@ -380,7 +380,7 @@ func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 }
 
 func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader, slog *taslog.SlowLog) (send bool, err error) {
-	gid := groupsig.DeserializeId(bh.GroupID)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	group := p.GetGroup(gid)
 	reward := &msg.Reward
 	if group == nil {
@@ -565,7 +565,7 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		return
 	}
 
-	gid := groupsig.DeserializeId(bh.GroupID)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	group := p.GetGroup(gid)
 	if group == nil {
 		panic("group is nil")
@@ -615,7 +615,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	}
 
 	if pb.maxResponseCount == 0 {
-		gid := groupsig.DeserializeId(pb.block.Header.GroupID)
+		gid := groupsig.DeserializeID(pb.block.Header.GroupID)
 		group, err := p.globalGroups.GetGroupByID(gid)
 		if err != nil {
 			blog.log("block proposal response, GetGroupByID err= %v,  hash=%v", err, msg.Hash.ShortS())

@@ -63,7 +63,7 @@ func (s Storage) Copy() Storage {
 // Finally, call CommitTrie to write the modified storage trie into a database.
 type accountObject struct {
 	address  common.Address
-	addrHash common.Hash  // hash of address of the account
+	addrHash common.Hash // hash of address of the account
 	data     Account
 	db       *AccountDB
 
@@ -132,6 +132,7 @@ func (ao *accountObject) setError(err error) {
 		ao.dbErr = err
 	}
 }
+
 // markSuicided only marked
 func (ao *accountObject) markSuicided() {
 	ao.suicided = true
@@ -215,6 +216,7 @@ func (ao *accountObject) setData(key string, value []byte) {
 		ao.onDirty = nil
 	}
 }
+
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (ao *accountObject) updateTrie(db AccountDatabase) Trie {
 	tr := ao.getTrie(db)
@@ -264,7 +266,6 @@ func (ao *accountObject) AddBalance(amount *big.Int) {
 	}
 	ao.SetBalance(new(big.Int).Add(ao.Balance(), amount))
 }
-
 
 // SubBalance is used to remove funds from the origin account of a transfer.
 func (ao *accountObject) SubBalance(amount *big.Int) {

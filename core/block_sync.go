@@ -362,7 +362,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 	}
 }
 
-func (bs *blockSyncer) addCandidatePool(source string, topBlockInfo *TopBlockInfo) {
+func (bs *blockSyncer) addCandidatePool(source string, topBlockInfo *topBlockInfo) {
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
 

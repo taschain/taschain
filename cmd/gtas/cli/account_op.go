@@ -38,7 +38,6 @@ type AccountManager struct {
 	mu            sync.Mutex
 }
 
-
 type AccountInfo struct {
 	Account
 	Status       int8

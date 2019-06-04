@@ -60,7 +60,6 @@ type BlockChainConfig struct {
 	receipt     string
 }
 
-
 // FullBlockChain manages chain imports, reverts, chain reorganisations.
 type FullBlockChain struct {
 	blocks      *tasdb.PrefixedDatabase

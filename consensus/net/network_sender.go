@@ -271,7 +271,7 @@ func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSig
 	}
 	m := network.Message{Code: network.CastRewardSignReq, Body: body}
 
-	gid := groupsig.DeserializeId(msg.Reward.GroupID)
+	gid := groupsig.DeserializeID(msg.Reward.GroupID)
 
 	network.Logger.Debugf("send SendCastRewardSignReq to %v", gid.GetHexString())
 

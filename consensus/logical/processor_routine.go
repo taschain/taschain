@@ -30,7 +30,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 
 	blog := newBizLog("checkSelfCastRoutine")
 
-	if p.MainChain.IsAdujsting() {
+	if p.MainChain.IsAdjusting() {
 		blog.log("isAdjusting, return...")
 		p.triggerCastCheck()
 		return false

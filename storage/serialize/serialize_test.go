@@ -36,7 +36,6 @@ func TestSerialize(t *testing.T) {
 		t.Errorf("encoding error")
 	}
 
-
 	var b = Account{}
 	decodeErr := DecodeBytes(byte, &b)
 	if decodeErr != nil {

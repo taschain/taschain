@@ -51,7 +51,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	tlog := newMsgTraceLog("OnBlockAddSuccess", bh.Hash.ShortS(), "")
 	tlog.log("preHash=%v, height=%v", bh.PreHash.ShortS(), bh.Height)
 
-	gid := groupsig.DeserializeId(bh.GroupID)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	if p.IsMinerGroup(gid) {
 		p.blockContexts.addCastedHeight(bh.Height, bh.PreHash)
 		vctx := p.blockContexts.getVctxByHeight(bh.Height)
@@ -80,7 +80,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(*types.Group)
-	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeId(group.ID).GetHexString(), group.Header.WorkHeight)
+	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeID(group.ID).GetHexString(), group.Header.WorkHeight)
 	if group.ID == nil || len(group.ID) == 0 {
 		return
 	}

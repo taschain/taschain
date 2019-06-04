@@ -34,11 +34,11 @@ func TestAccountDB_AddBalance(t *testing.T) {
 	triedb.TrieDB().Commit(root, true)
 	state, _ = NewAccountDB(root, triedb)
 	balance := state.GetBalance(common.BytesToAddress([]byte("1")))
-	if balance.Cmp(big.NewInt(999998)) != 0{
+	if balance.Cmp(big.NewInt(999998)) != 0 {
 		t.Errorf("wrong value: %s,expect value 999998", balance)
 	}
 	balance = state.GetBalance(common.BytesToAddress([]byte("2")))
-	if balance.Cmp(big.NewInt(1)) != 0{
+	if balance.Cmp(big.NewInt(1)) != 0 {
 		t.Errorf("wrong value: %s,expect value 1", balance)
 	}
 }
@@ -48,7 +48,7 @@ func TestAccountDB_SetData(t *testing.T) {
 	defer db.Close()
 	triedb := NewDatabase(db)
 	state, _ := NewAccountDB(common.Hash{}, triedb)
-	state.SetData(common.BytesToAddress([]byte("1")), "aa",[]byte("v1"))
+	state.SetData(common.BytesToAddress([]byte("1")), "aa", []byte("v1"))
 	state.SetData(common.BytesToAddress([]byte("1")), "bb", []byte("v2"))
 	snapshot := state.Snapshot()
 	state.SetData(common.BytesToAddress([]byte("1")), "bb", []byte("v3"))
@@ -59,19 +59,18 @@ func TestAccountDB_SetData(t *testing.T) {
 
 	state, _ = NewAccountDB(root, triedb)
 	sta := state.GetData(common.BytesToAddress([]byte("1")), "aa")
-	if string(sta) != "v1"{
+	if string(sta) != "v1" {
 		t.Errorf("wrong value: %s,expect value v1", sta)
 	}
 	sta = state.GetData(common.BytesToAddress([]byte("1")), "bb")
-	if string(sta) != "v2"{
+	if string(sta) != "v2" {
 		t.Errorf("wrong value: %s,expect value v2", sta)
 	}
 	sta = state.GetData(common.BytesToAddress([]byte("2")), "cc")
-	if string(sta) != "v4"{
+	if string(sta) != "v4" {
 		t.Errorf("wrong value: %s,expect value v4", sta)
 	}
 }
-
 
 func TestAccountDB_SetCode(t *testing.T) {
 	db, _ := tasdb.NewMemDatabase()
@@ -84,9 +83,7 @@ func TestAccountDB_SetCode(t *testing.T) {
 
 	state, _ = NewAccountDB(root, triedb)
 	sta := state.GetCode(common.BytesToAddress([]byte("2")))
-	if string(sta) != "code"{
+	if string(sta) != "code" {
 		t.Errorf("wrong value: %s,expect value code", sta)
 	}
 }
-
-

@@ -64,7 +64,7 @@ func NewSelfMinerDO(address common.Address) SelfMinerDO {
 	mi.SecretSeed = base.RandFromString(address.Hex())
 	mi.SK = *groupsig.NewSeckeyFromRand(mi.SecretSeed)
 	mi.PK = *groupsig.NewPubkeyFromSeckey(mi.SK)
-	mi.ID = groupsig.DeserializeId(address.Bytes())
+	mi.ID = groupsig.DeserializeID(address.Bytes())
 
 	var err error
 	mi.VrfPK, mi.VrfSK, err = base.VRFGenerateKey(&mi)

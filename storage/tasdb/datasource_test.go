@@ -30,7 +30,7 @@ func TestCreateLDB(t *testing.T) {
 		return
 	}
 	defer func() {
-		if ldb!=nil{
+		if ldb != nil {
 			ldb.Close()
 		}
 	}()
@@ -142,7 +142,6 @@ func TestBatchPutVisiableBeforeWrite(t *testing.T) {
 	batch := ldb.CreateLDBBatch()
 	_, err = ldb.Get(key)
 
-
 	ldb.AddKv(batch, key, []byte("i am handsome"))
 	_, err = ldb.Get(key)
 
@@ -151,7 +150,6 @@ func TestBatchPutVisiableBeforeWrite(t *testing.T) {
 		t.Fatal("write fail", err)
 	}
 	_, err = ldb.Get(key)
-
 
 	ldb.AddKv(batch, key, nil)
 	err = batch.Write()

@@ -235,11 +235,11 @@ func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
 func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.ID != nil && len(g.ID) != 0 {
-		gmap["group_id"] = groupsig.DeserializeId(g.ID).GetHexString()
+		gmap["group_id"] = groupsig.DeserializeID(g.ID).GetHexString()
 		gmap["g_hash"] = g.Header.Hash.Hex()
 	}
-	gmap["parent"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
-	gmap["pre"] = groupsig.DeserializeId(g.Header.PreGroup).GetHexString()
+	gmap["parent"] = groupsig.DeserializeID(g.Header.Parent).GetHexString()
+	gmap["pre"] = groupsig.DeserializeID(g.Header.PreGroup).GetHexString()
 	gmap["begin_height"] = g.Header.WorkHeight
 	gmap["dismiss_height"] = g.Header.DismissHeight
 	gmap["create_height"] = g.Header.CreateHeight
@@ -247,7 +247,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["mem_size"] = len(g.Members)
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr := groupsig.DeserializeId(mem).GetHexString()
+		memberStr := groupsig.DeserializeID(mem).GetHexString()
 		mems = append(mems, memberStr[0:6]+"-"+memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
@@ -414,11 +414,11 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	gmap := make(map[string]int32)
 
 	for key, v := range proposerStat {
-		id := groupsig.DeserializeId([]byte(key))
+		id := groupsig.DeserializeID([]byte(key))
 		pmap[id.GetHexString()] = v
 	}
 	for key, v := range groupStat {
-		id := groupsig.DeserializeId([]byte(key))
+		id := groupsig.DeserializeID([]byte(key))
 		gmap[id.GetHexString()] = v
 	}
 	ret := make(map[string]map[string]int32)
@@ -542,14 +542,14 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 
 		mems := make([]string, 0)
 		for _, mem := range g.Members {
-			mems = append(mems, groupsig.DeserializeId(mem).ShortS())
+			mems = append(mems, groupsig.DeserializeID(mem).ShortS())
 		}
 
 		group := &Group{
 			Height:        uint64(b + 1),
-			ID:            groupsig.DeserializeId(g.ID),
-			PreID:         groupsig.DeserializeId(g.Header.PreGroup),
-			ParentID:      groupsig.DeserializeId(g.Header.Parent),
+			ID:            groupsig.DeserializeID(g.ID),
+			PreID:         groupsig.DeserializeID(g.Header.PreGroup),
+			ParentID:      groupsig.DeserializeID(g.Header.Parent),
 			BeginHeight:   g.Header.WorkHeight,
 			DismissHeight: g.Header.DismissHeight,
 			Members:       mems,
