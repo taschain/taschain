@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// selectParentGroup determine the parent group randomly and the result is deterministic because of the base BlockHeader
 func (gm *GroupManager) selectParentGroup(baseBH *types.BlockHeader, preGroupID []byte) (*StaticGroupInfo, error) {
 	return gm.processor.globalGroups.getGenesisGroup(), nil
 }
@@ -34,6 +35,8 @@ func (gm *GroupManager) generateCreateGroupContext(baseHeight uint64) (*createGr
 	return newCreateGroupBaseContext(sgi, baseBH, lastGroup, candidates), nil
 }
 
+// checkCreateGroupRoutine check if the height meets the conditions for creating a group
+// if so then start the group-create process
 func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 	blog := newBizLog("checkCreateGroupRoutine")
 	create := false
@@ -53,12 +56,14 @@ func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 		return
 	}
 
+	// generate the basic context
 	baseCtx, err2 := gm.generateCreateGroupContext(baseHeight)
 	if err2 != nil {
 		err = err2
 		return
 	}
 
+	// if current node doesn't belong to the selected parent group, it won't start the routine
 	if !gm.processor.IsMinerGroup(baseCtx.parentInfo.GroupID) {
 		err = fmt.Errorf("next select group id %v, not belong to the group", baseCtx.parentInfo.GroupID.GetHexString())
 		return
@@ -74,6 +79,8 @@ func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 
 }
 
+// pingNodes send ping messages to the new members，
+// in order to avoid too much ping messages, the current node does this only when he is one of kings.
 func (gm *GroupManager) pingNodes() {
 	ctx := gm.creatingGroupCtx
 	if ctx == nil || !ctx.isKing() {
@@ -168,14 +175,18 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	return true
 }
 
+// checkGroupInfo check whether the group info is legal
 func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]groupsig.ID, bool, error) {
 	gh := gInfo.GI.GHeader
 	if gh.Hash != gh.GenHash() {
 		return nil, false, fmt.Errorf("gh hash error, hash=%v, genHash=%v", gh.Hash.ShortS(), gh.GenHash().ShortS())
 	}
+	// check if the member count is legal
 	if !model.Param.IsGroupMemberCountLegal(len(gInfo.Mems)) {
 		return nil, false, fmt.Errorf("group member size error %v(%v-%v)", len(gInfo.Mems), model.Param.GroupMemberMin, model.Param.GroupMemberMax)
 	}
+
+	// check if the create height is legal
 	if !checkCreate(gh.CreateHeight) {
 		return nil, false, fmt.Errorf("cannot create at the height %v", gh.CreateHeight)
 	}
@@ -192,6 +203,8 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if parentGroup == nil {
 		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeID(gh.Parent).ShortS())
 	}
+
+	// check if it is the specified parent group
 	sgi, err := gm.selectParentGroup(baseBH, gh.PreGroup)
 	if err != nil {
 		return nil, false, fmt.Errorf("select parent group err %v", err)
@@ -202,10 +215,12 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	}
 	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeID(gh.Parent))
 
+	// check the signature of the parent group
 	if !groupsig.VerifySig(gpk, gh.Hash.Bytes(), gInfo.GI.Signature) {
 		return nil, false, fmt.Errorf("verify parent sign fail")
 	}
 
+	// check if the candidates are legal
 	enough, candidates := gm.checker.selectCandidates(baseBH)
 	if !enough {
 		return nil, false, fmt.Errorf("not enough candidates")
@@ -227,6 +242,7 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	return candidates, true, nil
 }
 
+// recoverGroupInitInfo recover group info from mask
 func (gm *GroupManager) recoverGroupInitInfo(baseHeight uint64, mask []byte) (*model.ConsensusGroupInitInfo, error) {
 	ctx, err := gm.generateCreateGroupContext(baseHeight)
 	if err != nil {

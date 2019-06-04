@@ -203,9 +203,9 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 }
 
 func (bctx *castBlockContexts) getOrNewVerifyContext(group *StaticGroupInfo, bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
-	deltaHeightByTime := DeltaHeightByTime(bh, preBH)
+	deltaHeightByTime := deltaHeightByTime(bh, preBH)
 
-	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)
+	expireTime := getCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)
 
 	vctx := bctx.getOrNewVctx(group, bh.Height, expireTime, preBH)
 	return vctx

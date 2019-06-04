@@ -84,7 +84,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	if group.ID == nil || len(group.ID) == 0 {
 		return
 	}
-	sgi := NewSGIFromCoreGroup(group)
+	sgi := newSGIFromCoreGroup(group)
 	p.acceptGroup(sgi)
 
 	p.groupManager.onGroupAddSuccess(sgi)

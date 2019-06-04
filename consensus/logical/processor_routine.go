@@ -54,7 +54,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	} else {
 		castHeight = uint64(1)
 	}
-	expireTime = GetCastExpireTime(top.CurTime, deltaHeight, castHeight)
+	expireTime = getCastExpireTime(top.CurTime, deltaHeight, castHeight)
 
 	if !p.canProposalAt(castHeight) {
 		return false
@@ -100,7 +100,7 @@ func (p *Processor) releaseRoutine() bool {
 
 	if len(ids) > 0 {
 		blog.log("clean group %v\n", len(ids))
-		p.globalGroups.RemoveGroups(ids)
+		p.globalGroups.removeGroups(ids)
 		p.belongGroups.leaveGroups(ids)
 		for _, g := range groups {
 			gid := g.GroupID
@@ -246,12 +246,12 @@ func (p *Processor) getUpdateGlobalGroupsRoutineName() string {
 func (p *Processor) updateGlobalGroups() bool {
 	top := p.MainChain.Height()
 	iter := p.GroupChain.NewIterator()
-	for g := iter.Current(); g != nil && !IsGroupDissmisedAt(g.Header, top); g = iter.MovePre() {
-		gid := groupsig.DeserializeID(g.ID)
+	for g := iter.Current(); g != nil && !isGroupDissmisedAt(g.Header, top); g = iter.MovePre() {
+		gid := groupsig.DeserializeId(g.ID)
 		if g, _ := p.globalGroups.getGroupFromCache(gid); g != nil {
 			continue
 		}
-		sgi := NewSGIFromCoreGroup(g)
+		sgi := newSGIFromCoreGroup(g)
 		stdLogger.Debugf("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
 		p.acceptGroup(sgi)
 	}

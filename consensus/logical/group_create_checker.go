@@ -10,6 +10,7 @@ import (
 	"sync"
 )
 
+// GroupCreateChecker is responsible for legality verification
 type GroupCreateChecker struct {
 	processor      *Processor
 	access         *MinerPoolReader
@@ -86,6 +87,7 @@ func (gchecker *GroupCreateChecker) availableGroupsAt(h uint64) []*types.Group {
 	return gs
 }
 
+// selectCandidates randomly select a sufficient number of miners from the miners' pool as new group candidates
 func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (enough bool, cands []groupsig.ID) {
 	min := model.Param.CreateGroupMinCandidates()
 	blog := newBizLog("selectCandidates")

@@ -64,7 +64,7 @@ func (ig *InitedGroup) receiveSize() int {
 	return len(ig.receivedGPKs)
 }
 
-func (ig *InitedGroup) hasRecived(id groupsig.ID) bool {
+func (ig *InitedGroup) hasReceived(id groupsig.ID) bool {
 	ig.lock.RLock()
 	defer ig.lock.RUnlock()
 
