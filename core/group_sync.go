@@ -175,7 +175,7 @@ func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
 
 	source := groupHeightMsg.Source()
 	height := utility.ByteToUInt64(groupHeightMsg.Body())
-	PeerManager.heardFromPeer(source)
+	peerManagerImpl.heardFromPeer(source)
 
 	localGroupHeight := gs.gchain.Height()
 	if height > localGroupHeight+1 {
@@ -219,8 +219,8 @@ func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
 	gs.logger.Debugf("Local group height:%d", localGroupHeight)
 
 	for id := range gs.candidatePool {
-		if PeerManager.isEvil(id) {
-			gs.logger.Debugf("peer meter evil id:%+v", PeerManager.getOrAddPeer(id))
+		if peerManagerImpl.isEvil(id) {
+			gs.logger.Debugf("peer meter evil id:%+v", peerManagerImpl.getOrAddPeer(id))
 			delete(gs.candidatePool, id)
 		}
 	}
@@ -275,13 +275,13 @@ func (gs *groupSyncer) trySyncRoutine() bool {
 
 func (gs *groupSyncer) syncComplete(id string, timeout bool) bool {
 	if timeout {
-		PeerManager.timeoutPeer(id)
+		peerManagerImpl.timeoutPeer(id)
 		gs.logger.Warnf("sync group from %v timeout", id)
 	} else {
-		PeerManager.heardFromPeer(id)
+		peerManagerImpl.heardFromPeer(id)
 	}
 	gs.ticker.RemoveRoutine(gs.syncTimeoutRoutineName(id))
-	PeerManager.updateReqBlockCnt(id, !timeout)
+	peerManagerImpl.updateReqBlockCnt(id, !timeout)
 
 	gs.lock.Lock()
 	defer gs.lock.Unlock()
@@ -302,7 +302,7 @@ func (gs *groupSyncer) requestGroups(ci *SyncCandidateInfo) {
 	}, syncGroupNeightborTimeout)
 
 	gr := &syncRequest{
-		ReqSize:   int32(PeerManager.getPeerReqBlockCount(id)),
+		ReqSize:   int32(peerManagerImpl.getPeerReqBlockCount(id)),
 		ReqHeight: ci.ReqHeight,
 	}
 	body, err := marshalSyncRequest(gr)

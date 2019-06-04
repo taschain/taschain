@@ -51,17 +51,11 @@ const (
 	StakeFrozen
 )
 
-type StakeFlagByte = byte
-
-const (
-	LightStaked      StakeFlagByte = (types.MinerTypeLight << 4) | byte(Staked)
-	LightStakeFrozen StakeFlagByte = (types.MinerTypeLight << 4) | byte(StakeFrozen)
-	HeavyStaked      StakeFlagByte = (types.MinerTypeHeavy << 4) | byte(Staked)
-	HeavyStakeFrozen StakeFlagByte = (types.MinerTypeHeavy << 4) | byte(StakeFrozen)
-)
+type stakeFlagByte = byte
 
 var MinerManagerImpl *MinerManager
 
+// MinerManager manage all the miner related actions
 type MinerManager struct {
 	hasNewHeavyMiner bool
 	heavyMiners      []string
@@ -338,10 +332,19 @@ func (mm *MinerManager) getMinerStakeDetailDatabase() common.Address {
 
 func (mm *MinerManager) getDetailDBKey(from []byte, minerAddr []byte, _type byte, status StakeStatus) []byte {
 	var pledgFlagByte = (_type << 4) | byte(status)
-	key := []byte{StakeFlagByte(pledgFlagByte)}
+	key := []byte{stakeFlagByte(pledgFlagByte)}
 	key = append(key, minerAddr...)
 	key = append(key, from...)
 	Logger.Debugf("getDetailDBKey: toHex-> %s", common.ToHex(key))
+
+	/**
+	 *	key's available values:
+	 *	LightStaked      stakeFlagByte = (types.MinerTypeLight << 4) | byte(Staked)
+	 *	LightStakeFrozen stakeFlagByte = (types.MinerTypeLight << 4) | byte(StakeFrozen)
+	 *	HeavyStaked      stakeFlagByte = (types.MinerTypeHeavy << 4) | byte(Staked)
+	 *	HeavyStakeFrozen stakeFlagByte = (types.MinerTypeHeavy << 4) | byte(StakeFrozen)
+	 */
+
 	return key
 }
 

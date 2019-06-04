@@ -128,8 +128,8 @@ func (bs *blockSyncer) isSyncing() bool {
 func (bs *blockSyncer) getBestCandidate(candidateID string) (string, *topBlockInfo) {
 	if candidateID == "" {
 		for id := range bs.candidatePool {
-			if PeerManager.isEvil(id) {
-				bs.logger.Debugf("peer meter evil id:%+v", PeerManager.getOrAddPeer(id))
+			if peerManagerImpl.isEvil(id) {
+				bs.logger.Debugf("peer meter evil id:%+v", peerManagerImpl.getOrAddPeer(id))
 				delete(bs.candidatePool, id)
 			}
 		}
@@ -240,7 +240,7 @@ func (bs *blockSyncer) requestBlock(ci *SyncCandidateInfo) {
 
 	br := &syncRequest{
 		ReqHeight: height,
-		ReqSize:   int32(PeerManager.getPeerReqBlockCount(id)),
+		ReqSize:   int32(peerManagerImpl.getPeerReqBlockCount(id)),
 	}
 
 	body, err := marshalSyncRequest(br)
@@ -291,7 +291,7 @@ func (bs *blockSyncer) topBlockInfoNotifyHandler(msg notify.Message) {
 	//}
 
 	source := bnm.Source()
-	PeerManager.heardFromPeer(source)
+	peerManagerImpl.heardFromPeer(source)
 
 	//topBlock := bs.gchain.QueryTopBlock()
 	//localTotalQn, localTopHash := topBlock.TotalQN, topBlock.Hash
@@ -307,12 +307,12 @@ func (bs *blockSyncer) syncTimeoutRoutineName(id string) string {
 
 func (bs *blockSyncer) syncComplete(id string, timeout bool) bool {
 	if timeout {
-		PeerManager.timeoutPeer(id)
+		peerManagerImpl.timeoutPeer(id)
 		bs.logger.Warnf("sync block from %v timeout", id)
 	} else {
-		PeerManager.heardFromPeer(id)
+		peerManagerImpl.heardFromPeer(id)
 	}
-	PeerManager.updateReqBlockCnt(id, !timeout)
+	peerManagerImpl.updateReqBlockCnt(id, !timeout)
 	bs.chain.ticker.RemoveRoutine(bs.syncTimeoutRoutineName(id))
 
 	bs.lock.Lock()
@@ -379,7 +379,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 }
 
 func (bs *blockSyncer) addCandidatePool(source string, topBlockInfo *topBlockInfo) {
-	//if PeerManager.isEvil(id) {
+	//if peerManagerImpl.isEvil(id) {
 	//	bs.logger.Debugf("Top block info notify id:%s is marked evil.Drop it!", id)
 	//	return
 	//}

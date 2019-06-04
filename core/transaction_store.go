@@ -12,11 +12,11 @@ import (
 **  Description:
  */
 
-func (pool *TxPool) saveReceipt(txHash common.Hash, dataBytes []byte) error {
-	return pool.receiptdb.AddKv(pool.batch, txHash.Bytes(), dataBytes)
+func (pool *txPool) saveReceipt(txHash common.Hash, dataBytes []byte) error {
+	return pool.receiptDb.AddKv(pool.batch, txHash.Bytes(), dataBytes)
 }
 
-func (pool *TxPool) saveReceipts(bhash common.Hash, receipts types.Receipts) error {
+func (pool *txPool) saveReceipts(bhash common.Hash, receipts types.Receipts) error {
 	if nil == receipts || 0 == len(receipts) {
 		return nil
 	}
@@ -32,7 +32,7 @@ func (pool *TxPool) saveReceipts(bhash common.Hash, receipts types.Receipts) err
 	return nil
 }
 
-func (pool *TxPool) deleteReceipts(txs []common.Hash) error {
+func (pool *txPool) deleteReceipts(txs []common.Hash) error {
 	if nil == txs || 0 == len(txs) {
 		return nil
 	}
@@ -47,7 +47,7 @@ func (pool *TxPool) deleteReceipts(txs []common.Hash) error {
 }
 
 // GetTransactionStatus returns the execute result status by hash
-func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
+func (pool *txPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	executedTx := pool.loadReceipt(hash)
 	if executedTx == nil {
 		return 0, ErrNil
@@ -55,8 +55,8 @@ func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	return executedTx.Status, nil
 }
 
-func (pool *TxPool) loadReceipt(hash common.Hash) *types.Receipt {
-	txBytes, _ := pool.receiptdb.Get(hash.Bytes())
+func (pool *txPool) loadReceipt(hash common.Hash) *types.Receipt {
+	txBytes, _ := pool.receiptDb.Get(hash.Bytes())
 	if txBytes == nil {
 		return nil
 	}
@@ -69,13 +69,13 @@ func (pool *TxPool) loadReceipt(hash common.Hash) *types.Receipt {
 	return &rs
 }
 
-func (pool *TxPool) hasReceipt(hash common.Hash) bool {
-	ok, _ := pool.receiptdb.Has(hash.Bytes())
+func (pool *txPool) hasReceipt(hash common.Hash) bool {
+	ok, _ := pool.receiptDb.Has(hash.Bytes())
 	return ok
 }
 
 // GetReceipt returns the transaction's recipe by hash
-func (pool *TxPool) GetReceipt(hash common.Hash) *types.Receipt {
+func (pool *txPool) GetReceipt(hash common.Hash) *types.Receipt {
 	rs := pool.loadReceipt(hash)
 	if rs == nil {
 		return nil

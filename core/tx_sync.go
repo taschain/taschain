@@ -125,7 +125,7 @@ func (indexer *txSimpleIndexer) persistOldest() (int, error) {
 }
 
 type txSyncer struct {
-	pool          *TxPool
+	pool          *txPool
 	chain         *FullBlockChain
 	rctNotifiy    *lru.Cache
 	indexer       *txSimpleIndexer
@@ -186,7 +186,7 @@ func (ptk *peerTxsKeys) forEach(f func(k uint64) bool) {
 	}
 }
 
-func initTxSyncer(chain *FullBlockChain, pool *TxPool) {
+func initTxSyncer(chain *FullBlockChain, pool *txPool) {
 	s := &txSyncer{
 		rctNotifiy:    common.MustNewLRUCache(1000),
 		indexer:       buildTxSimpleIndexer(),
