@@ -157,8 +157,8 @@ func (fp *forkProcessor) reqPieceTimeout(id string) {
 	if fp.syncCtx.target != id {
 		return
 	}
-	PeerManager.timeoutPeer(fp.syncCtx.target)
-	PeerManager.updateReqBlockCnt(fp.syncCtx.target, false)
+	peerManagerImpl.timeoutPeer(fp.syncCtx.target)
+	peerManagerImpl.updateReqBlockCnt(fp.syncCtx.target, false)
 	fp.reset()
 }
 
@@ -174,7 +174,7 @@ func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
 		return
 	}
 
-	reqCnt := PeerManager.getPeerReqBlockCount(fp.syncCtx.target)
+	reqCnt := peerManagerImpl.getPeerReqBlockCount(fp.syncCtx.target)
 
 	pieceReq := &chainPieceReq{
 		ChainPiece: chainPieceInfo,
@@ -260,9 +260,9 @@ func (fp *forkProcessor) reqFinished(id string, reset bool) {
 	if fp.syncCtx == nil || fp.syncCtx.target != id {
 		return
 	}
-	PeerManager.heardFromPeer(id)
+	peerManagerImpl.heardFromPeer(id)
 	fp.chain.ticker.RemoveRoutine(tickerReqPieceBlock)
-	PeerManager.updateReqBlockCnt(id, true)
+	peerManagerImpl.updateReqBlockCnt(id, true)
 	if reset {
 		fp.syncCtx = nil
 	}

@@ -24,7 +24,7 @@ import (
 	"github.com/taschain/taschain/storage/vm"
 )
 
-// BonusManager manager the bonus transactions
+// BonusManager manage the bonus transactions
 type BonusManager struct {
 	lock sync.RWMutex
 }

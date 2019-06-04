@@ -178,7 +178,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	}
 	chain.bonusManager = newBonusManager()
 	chain.batch = chain.blocks.CreateLDBBatch()
-	chain.transactionPool = NewTransactionPool(chain, receiptdb)
+	chain.transactionPool = newTransactionPool(chain, receiptdb)
 
 	chain.stateCache = account.NewDatabase(chain.stateDb)
 
