@@ -24,97 +24,16 @@ package tvm
 #include <unistd.h>
 #include <string.h>
 
-// The gateway function
-int callOnMeGo_cgo(int in)
-{
-	//printf("C.callOnMeGo_cgo(): called with arg = %d\n", in);
-	int callOnMeGo(int);
-	return callOnMeGo(in);
-}
-
-
-void wrap_testAry(void* p)
-{
-    void go_testAry(void*);
-    go_testAry(p);
-}
-
 void wrap_transfer(const char* p2, const char* value)
 {
     void Transfer(const char*, const char* value);
     Transfer(p2, value);
 }
 
-void wrap_create_account(const char* address)
-{
-	void CreateAccount(const char*);
-	CreateAccount(address);
-}
-
-void wrap_sub_balance(const char* address, const char* value)
-{
-	void SubBalance(const char*, const char*);
-	SubBalance(address, value);
-}
-
-void wrap_add_balance(const char* address, const char* value)
-{
-	void AddBalance(const char*, const char*);
-	AddBalance(address, value);
-}
-
 char* wrap_get_balance(const char* address)
 {
 	char* GetBalance(const char*);
 	return GetBalance(address);
-}
-
-unsigned long long wrap_get_nonce(const char* address)
-{
-	unsigned long long GetNonce(const char*);
-	return GetNonce(address);
-}
-
-void wrap_set_nonce(const char* address, unsigned long long nonce)
-{
-	void SetNonce(const char*, unsigned long long);
-	SetNonce(address, nonce);
-}
-
-char* wrap_get_code_hash(char* address)
-{
-	char* GetCodeHash(char*);
-	return GetCodeHash(address);
-}
-
-char* wrap_get_code(char* address)
-{
-	char* GetCode(char*);
-	return GetCode(address);
-}
-
-void wrap_set_code(char* address, char* code)
-{
-	void SetCode(char*, char*);
-	SetCode(address, code);
-}
-
-int wrap_get_code_size(char* address)
-{
-	int GetCodeSize(char*);
-	return GetCodeSize(address);
-}
-
-void wrap_add_refund(unsigned long long refund)
-{
-	void AddRefund(unsigned long long);
-	AddRefund(refund);
-}
-
-unsigned long long wrap_get_refund()
-{
-	unsigned long long GetRefund();
-	return GetRefund();
 }
 
 void wrap_remove_data(char* key)
@@ -135,64 +54,10 @@ void wrap_set_data(char* key, char* value)
 	SetData(key, value);
 }
 
-_Bool wrap_suicide(char* address)
-{
-	_Bool Suicide(char*);
-	return Suicide(address);
-}
-
-_Bool wrap_has_suicide(char* address)
-{
-	_Bool HasSuicided(char*);
-	return HasSuicided(address);
-}
-
-_Bool wrap_exists(char* address)
-{
-	_Bool Exist(char*);
-	return Exist(address);
-}
-
-_Bool wrap_empty(char* address)
-{
-	_Bool Empty(char*);
-	return Empty(address);
-}
-
-void wrap_revert_to_snapshot(int i)
-{
-	void RevertToSnapshot(int);
-	RevertToSnapshot(i);
-}
-
-int wrap_snapshot()
-{
-	int Snapshot();
-	return Snapshot();
-}
-
-void wrap_add_preimage(char* hash, char* preimage)
-{
-	void AddPreimage(char*, char*);
-	AddPreimage(hash, preimage);
-}
-
 char* wrap_block_hash(unsigned long long height)
 {
 	char* BlockHash(unsigned long long);
 	return BlockHash(height);
-}
-
-char* wrap_coin_base()
-{
-	char* CoinBase();
-	return CoinBase();
-}
-
-unsigned long long wrap_difficulty()
-{
-	unsigned long long Difficulty();
-	return Difficulty();
 }
 
 unsigned long long wrap_number()
@@ -205,12 +70,6 @@ unsigned long long wrap_timestamp()
 {
 	unsigned long long Timestamp();
 	return Timestamp();
-}
-
-char* wrap_tx_origin()
-{
-	char* TxOrigin();
-	return TxOrigin();
 }
 
 unsigned long long wrap_tx_gas_limit()
@@ -229,24 +88,6 @@ char* wrap_event_call(const char* address, const char* func_name, const char* js
 {
     char* EventCall();
     return EventCall(address, func_name, json_parms);
-}
-
-void wrap_set_bytecode(const char* code, int len)
-{
-	void SetBytecode();
-	SetBytecode(code, len);
-}
-
-unsigned long long wrap_get_data_iter(const char*prefix)
-{
-	unsigned long long DataIterator(const char*);
-	return DataIterator(prefix);
-}
-
-char* wrap_get_data_iter_next(char* iter)
-{
-	char* DataNext(char*);
-	return DataNext(iter);
 }
 
 _Bool wrap_miner_stake(const char* minerAddr, int _type, const char* value) {
@@ -364,48 +205,21 @@ func RunByteCode(code *C.char, len C.int) {
 }
 
 func bridgeInit() {
-	C.tvm_setup_func((C.callback_fcn)(unsafe.Pointer(C.callOnMeGo_cgo)))
-	C.tvm_set_testAry_func((C.testAry_fcn)(unsafe.Pointer(C.wrap_testAry)))
-	//C.setTransferFunc((C.TransferFunc)(unsafe.Pointer(C.wrap_transfer)))
-	C.transferFunc = (C.TransferFunc)(unsafe.Pointer(C.wrap_transfer))
-	C.create_account = (C.Function1)(unsafe.Pointer(C.wrap_create_account))
-	C.sub_balance = (C.Function5)(unsafe.Pointer(C.wrap_sub_balance))
-	C.add_balance = (C.Function5)(unsafe.Pointer(C.wrap_add_balance))
-	C.get_balance = (C.Function2)(unsafe.Pointer(C.wrap_get_balance))
-	C.get_nonce = (C.Function3)(unsafe.Pointer(C.wrap_get_nonce))
-	C.set_nonce = (C.Function6)(unsafe.Pointer(C.wrap_set_nonce))
-	C.get_code_hash = (C.Function2)(unsafe.Pointer(C.wrap_get_code_hash))
-	C.get_code = (C.Function2)(unsafe.Pointer(C.wrap_get_code))
-	C.set_code = (C.Function5)(unsafe.Pointer(C.wrap_set_code))
-	C.get_code_size = (C.Function7)(unsafe.Pointer(C.wrap_get_code_size))
-	C.add_refund = (C.Function8)(unsafe.Pointer(C.wrap_add_refund))
-	C.get_refund = (C.Function9)(unsafe.Pointer(C.wrap_get_refund))
-	C.get_data = (C.Function10)(unsafe.Pointer(C.wrap_get_data))
-	C.set_data = (C.Function5)(unsafe.Pointer(C.wrap_set_data))
-	C.remove_data = (C.Function1)(unsafe.Pointer(C.wrap_remove_data))
-	C.func_suicide = (C.Function4)(unsafe.Pointer(C.wrap_suicide))
-	C.has_suicide = (C.Function4)(unsafe.Pointer(C.wrap_has_suicide))
-	C.func_exists = (C.Function4)(unsafe.Pointer(C.wrap_exists))
-	C.func_empty = (C.Function4)(unsafe.Pointer(C.wrap_empty))
-	C.func_revert_to_snapshot = (C.Function12)(unsafe.Pointer(C.wrap_revert_to_snapshot))
-	C.func_snapshot = (C.Function13)(unsafe.Pointer(C.wrap_snapshot))
-	C.add_preimage = (C.Function5)(unsafe.Pointer(C.wrap_add_preimage))
+	C.transfer_fn = (C.transfer_fn_t)(unsafe.Pointer(C.wrap_transfer))
+	C.get_balance = (C.get_balance_fn_t)(unsafe.Pointer(C.wrap_get_balance))
+	C.storage_get_data_fn = (C.storage_get_data_fn_t)(unsafe.Pointer(C.wrap_get_data))
+	C.storage_set_data_fn = (C.storage_set_data_fn_t)(unsafe.Pointer(C.wrap_set_data))
+	C.storage_remove_data_fn = (C.storage_remove_data_fn_t)(unsafe.Pointer(C.wrap_remove_data))
 	// block
-	C.func_blockhash = (C.Function14)(unsafe.Pointer(C.wrap_block_hash))
-	C.func_coinbase = (C.Function15)(unsafe.Pointer(C.wrap_coin_base))
-	C.func_difficulty = (C.Function9)(unsafe.Pointer(C.wrap_difficulty))
-	C.func_number = (C.Function9)(unsafe.Pointer(C.wrap_number))
-	C.func_timestamp = (C.Function9)(unsafe.Pointer(C.wrap_timestamp))
-	C.func_origin = (C.Function15)(unsafe.Pointer(C.wrap_tx_origin))
-	C.func_gaslimit = (C.Function9)(unsafe.Pointer(C.wrap_tx_gas_limit))
-	C.contract_call = (C.Function17)(unsafe.Pointer(C.wrap_contract_call))
-	C.set_bytecode = (C.Function16)(unsafe.Pointer(C.wrap_set_bytecode))
-	//C.get_data_iter = (C.Function3)(unsafe.Pointer(C.wrap_get_data_iter))
-	//C.get_data_iter_next = (C.Function10)(unsafe.Pointer(C.wrap_get_data_iter_next))
-	C.event_call = (C.Function11)(unsafe.Pointer(C.wrap_event_call))
-	C.miner_stake = (C.Function18)(unsafe.Pointer(C.wrap_miner_stake))
-	C.miner_cancel_stake = (C.Function18)(unsafe.Pointer(C.wrap_miner_cancel_stake))
-	C.miner_refund_stake = (C.Function19)(unsafe.Pointer(C.wrap_miner_refund_stake))
+	C.block_hash_fn = (C.block_hash_fn_t)(unsafe.Pointer(C.wrap_block_hash))
+	C.block_number_fn = (C.block_number_fn_t)(unsafe.Pointer(C.wrap_number))
+	C.block_timestamp_fn = (C.block_timestamp_fn_t)(unsafe.Pointer(C.wrap_timestamp))
+	C.gas_limit_fn = (C.gas_limit_fn_t)(unsafe.Pointer(C.wrap_tx_gas_limit))
+	C.contract_call_fn = (C.contract_call_fn_t)(unsafe.Pointer(C.wrap_contract_call))
+	C.event_call_fn = (C.event_call_fn_t)(unsafe.Pointer(C.wrap_event_call))
+	C.miner_stake_fn = (C.miner_stake_fn_t)(unsafe.Pointer(C.wrap_miner_stake))
+	C.miner_cancel_stake = (C.miner_cancel_stake_fn_t)(unsafe.Pointer(C.wrap_miner_cancel_stake))
+	C.miner_refund_stake = (C.miner_refund_stake_fn_t)(unsafe.Pointer(C.wrap_miner_refund_stake))
 }
 
 // Contract Contract contains the base message of a contract
@@ -419,7 +233,7 @@ type Contract struct {
 func LoadContract(address common.Address) *Contract {
 	jsonString := controller.AccountDB.GetCode(address)
 	con := &Contract{}
-	json.Unmarshal([]byte(jsonString), con)
+	_ = json.Unmarshal([]byte(jsonString), con)
 	con.ContractAddress = &address
 	return con
 }

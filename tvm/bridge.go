@@ -20,7 +20,6 @@ package tvm
 */
 import "C"
 import (
-	"fmt"
 	"math/big"
 	"unsafe"
 
@@ -28,33 +27,11 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-//export callOnMeGo
-func callOnMeGo(in int) int {
-	fmt.Printf("Go.callOnMeGo(): called with arg = %d\n", in)
-	return in + 2
-}
-
-//export go_testAry
-func go_testAry(ary unsafe.Pointer) {
-
-	intary := (*[2]unsafe.Pointer)(ary)
-
-	fmt.Println(intary)
-
-	testInt := *(*int)(intary[0])
-	fmt.Println(testInt)
-	C.free(unsafe.Pointer(intary[0]))
-
-	testStr := C.GoString((*C.char)(intary[1]))
-	fmt.Println(testStr)
-	C.free(unsafe.Pointer(intary[1]))
-}
-
 //export Transfer
 func Transfer(toAddressStr *C.char, value *C.char) {
 	transValue, ok := big.NewInt(0).SetString(C.GoString(value), 10)
 	if !ok {
-		// TODO error
+		return
 	}
 	contractAddr := controller.VM.ContractAddress
 	contractValue := controller.AccountDB.GetBalance(*contractAddr)
@@ -66,88 +43,11 @@ func Transfer(toAddressStr *C.char, value *C.char) {
 	controller.AccountDB.SubBalance(*contractAddr, transValue)
 }
 
-//export CreateAccount
-func CreateAccount(addressC *C.char) {
-	addr := common.HexToAddress(C.GoString(addressC))
-	controller.AccountDB.CreateAccount(addr)
-}
-
-//export SubBalance
-func SubBalance(addressC *C.char, valueC *C.char) {
-	address := common.HexToAddress(C.GoString(addressC))
-	value, ok := big.NewInt(0).SetString(C.GoString(valueC), 10)
-	if !ok {
-		// TODO error
-	}
-	controller.AccountDB.SubBalance(address, value)
-}
-
-//export AddBalance
-func AddBalance(addressC *C.char, valueC *C.char) {
-	address := common.HexToAddress(C.GoString(addressC))
-	value, ok := big.NewInt(0).SetString(C.GoString(valueC), 10)
-	if !ok {
-		// TODO error
-	}
-	controller.AccountDB.AddBalance(address, value)
-}
-
 //export GetBalance
 func GetBalance(addressC *C.char) *C.char {
 	address := common.HexToAddress(C.GoString(addressC))
 	value := controller.AccountDB.GetBalance(address)
 	return C.CString(value.String())
-}
-
-//export GetNonce
-func GetNonce(addressC *C.char) C.ulonglong {
-	address := common.HexToAddress(C.GoString(addressC))
-	value := controller.AccountDB.GetNonce(address)
-	return C.ulonglong(value)
-}
-
-//export SetNonce
-func SetNonce(addressC *C.char, nonce C.ulonglong) {
-	address := common.HexToAddress(C.GoString(addressC))
-	controller.AccountDB.SetNonce(address, uint64(nonce))
-}
-
-//export GetCodeHash
-func GetCodeHash(addressC *C.char) *C.char {
-	address := common.HexToAddress(C.GoString(addressC))
-	hash := controller.AccountDB.GetCodeHash(address)
-	return C.CString(hash.String())
-}
-
-//export GetCode
-func GetCode(addressC *C.char) *C.char {
-	address := common.HexToAddress(C.GoString(addressC))
-	code := controller.AccountDB.GetCode(address)
-	return C.CString(string(code))
-}
-
-//export SetCode
-func SetCode(addressC *C.char, codeC *C.char) {
-	address := common.HexToAddress(C.GoString(addressC))
-	code := C.GoString(codeC)
-	controller.AccountDB.SetCode(address, []byte(code))
-}
-
-//export GetCodeSize
-func GetCodeSize(addressC *C.char) C.int {
-	address := common.HexToAddress(C.GoString(addressC))
-	size := controller.AccountDB.GetCodeSize(address)
-	return C.int(size)
-}
-
-//export AddRefund
-func AddRefund(re C.ulonglong) {
-	controller.AccountDB.AddRefund(uint64(re))
-}
-
-//export GetRefund
-func GetRefund() C.ulonglong {
-	return C.ulonglong(controller.AccountDB.GetRefund())
 }
 
 //export GetData
@@ -166,47 +66,6 @@ func SetData(keyC *C.char, data *C.char) {
 	controller.AccountDB.SetData(address, key, state)
 }
 
-//export Suicide
-func Suicide(addressC *C.char) bool {
-	address := common.HexToAddress(C.GoString(addressC))
-	return controller.AccountDB.Suicide(address)
-}
-
-//export HasSuicided
-func HasSuicided(addressC *C.char) bool {
-	address := common.HexToAddress(C.GoString(addressC))
-	return controller.AccountDB.HasSuicided(address)
-}
-
-//export Exist
-func Exist(addressC *C.char) bool {
-	address := common.HexToAddress(C.GoString(addressC))
-	return controller.AccountDB.Exist(address)
-}
-
-//export Empty
-func Empty(addressC *C.char) bool {
-	address := common.HexToAddress(C.GoString(addressC))
-	return controller.AccountDB.Empty(address)
-}
-
-//export RevertToSnapshot
-func RevertToSnapshot(i int) {
-	controller.AccountDB.RevertToSnapshot(i)
-}
-
-//export Snapshot
-func Snapshot() int {
-	return controller.AccountDB.Snapshot()
-}
-
-//export AddPreimage
-func AddPreimage(hashC *C.char, preimageC *C.char) {
-
-}
-
-// block chain impl
-
 //export BlockHash
 func BlockHash(height C.ulonglong) *C.char {
 	block := controller.Reader.QueryBlockHeaderByHeight(uint64(height))
@@ -214,16 +73,6 @@ func BlockHash(height C.ulonglong) *C.char {
 		return C.CString("0x0000000000000000000000000000000000000000000000000000000000000000")
 	}
 	return C.CString(block.Hash.String())
-}
-
-//export CoinBase
-func CoinBase() *C.char {
-	return C.CString(common.BytesToAddress(controller.BlockHeader.Castor).GetHexString())
-}
-
-//export Difficulty
-func Difficulty() C.ulonglong {
-	return C.ulonglong(controller.BlockHeader.TotalQN)
 }
 
 //export Number
@@ -234,11 +83,6 @@ func Number() C.ulonglong {
 //export Timestamp
 func Timestamp() C.ulonglong {
 	return C.ulonglong(uint64(controller.BlockHeader.CurTime.Unix()))
-}
-
-//export TxOrigin
-func TxOrigin() *C.char {
-	return C.CString(controller.Transaction.GetSource().GetHexString())
 }
 
 //export TxGasLimit
@@ -280,32 +124,10 @@ func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char {
 	return nil //C.CString(contractResult);
 }
 
-//export SetBytecode
-func SetBytecode(code *C.char, len C.int) {
-	RunByteCode(code, len)
-}
-
-//export DataIterator
-func DataIterator(prefix *C.char) C.ulonglong {
-	address := *controller.VM.ContractAddress
-	iter := controller.AccountDB.DataIterator(address, C.GoString(prefix))
-	return C.ulonglong(uintptr(unsafe.Pointer(iter)))
-}
-
 //export RemoveData
 func RemoveData(key *C.char) {
 	address := *controller.VM.ContractAddress
 	controller.AccountDB.RemoveData(address, C.GoString(key))
-}
-
-//export DataNext
-func DataNext(cvalue *C.char) *C.char {
-	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
-	if !ok {
-		//TODO
-	}
-	data := controller.AccountDB.DataNext(uintptr(value.Uint64()))
-	return C.CString(data)
 }
 
 //export MinerStake
