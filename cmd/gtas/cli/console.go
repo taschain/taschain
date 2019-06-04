@@ -402,9 +402,9 @@ func (c *sendTxCmd) parse(args []string) bool {
 //}
 
 //func (c *exportAbiCmd) export () {
-//	vm := tvm.NewTvm(nil, &c.contract, common.GlobalConf.GetString("tvm", "pylib", "py"))
+//	vm := tvm.NewTVM(nil, &c.contract, common.GlobalConf.GetString("tvm", "pylib", "py"))
 //	defer func() {
-//		vm.DelTvm()
+//		vm.DelTVM()
 //	}()
 //	str := `
 //class Register(object):

@@ -9,7 +9,7 @@ var controller *Controller // vm的controller
 const MaxDepth int = 8 //vm执行的最大深度为8
 
 // 合约调合约场景中（从c回调go时）执行合约call前保存
-func (con *Controller) StoreVMContext(newTvm *Tvm) bool {
+func (con *Controller) StoreVMContext(newTvm *TVM) bool {
 	if len(con.VMStack) >= MaxDepth {
 		print("===== too many call  levels ====")
 		return false

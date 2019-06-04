@@ -133,5 +133,4 @@ class MyAdvancedToken(TokenERC20):
 # if __name__ == '__main__':
 #     a = compile("a = 1",mode="single", filename="s.py")
 #     print(a.co_code.decode("utf-8"))`
-	ContractInfo(code)
 }

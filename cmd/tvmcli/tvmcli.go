@@ -189,9 +189,9 @@ func (t *TvmCli) ExportAbi(contractName string, contractCode string) {
 		//Code: contractCode,
 		//ContractAddress: &contractAddress,
 	}
-	vm := tvm.NewTvm(nil, &contract, "../py")
+	vm := tvm.NewTVM(nil, &contract, "../py")
 	defer func() {
-		vm.DelTvm()
+		vm.DelTVM()
 	}()
 	str := `
 class Register(object):

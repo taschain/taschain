@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func PycodeStoreContractData() string {
+func pycodeStoreContractData() string {
 	return fmt.Sprintf(`
 try:
     TasBaseStorage.flushData()
@@ -14,25 +14,25 @@ except Exception as e:
 `)
 }
 
-func PycodeCreateContractInstance(code string, contractName string) (string, int) {
-	trueCode, libLine := PycodeGetTrueUserCode(code)
+func pycodeCreateContractInstance(code string, contractName string) (string, int) {
+	trueCode, libLine := pycodeGetTrueUserCode(code)
 	newCode := fmt.Sprintf(`%s%s
 try:
     tas_%s = %s()
 except Exception:
-    raise ABICheckException("ABI input contract name error,input contract name is %s")`, trueCode, PycodeContractAddHooks(contractName), contractName, contractName, contractName)
+    raise ABICheckException("ABI input contract name error,input contract name is %s")`, trueCode, pycodeContractAddHooks(contractName), contractName, contractName, contractName)
 	return newCode, libLine
 }
 
-func PycodeContractImports() string {
+func pycodeContractImports() string {
 	newCode := fmt.Sprintf(`
 %s
 %s
-%s`, TasJSON(), TasCollectionStorageCode(), TasBaseStorageCode())
+%s`, tasJSON(), tasCollectionStorageCode(), tasBaseStorageCode())
 	return newCode
 }
 
-func PycodeContractAddHooks(contractName string) string {
+func pycodeContractAddHooks(contractName string) string {
 	return fmt.Sprintf(`
 try:
     %s.__init__ = TasBaseStorage.initHook
@@ -43,7 +43,7 @@ except Exception:
 `, contractName, contractName, contractName, contractName)
 }
 
-func PycodeContractDeployHooks(contractName string) string {
+func pycodeContractDeployHooks(contractName string) string {
 	return fmt.Sprintf(`
 try:
     %s.__setattr__= TasBaseStorage.setAttrHook
@@ -54,14 +54,14 @@ except Exception:
 
 }
 
-func PycodeGetTrueUserCode(code string) (string, int) {
-	codeLen := calCodeLines(PycodeContractImports())
-	usercode := fmt.Sprintf(`%s%s`, PycodeContractImports(), code)
+func pycodeGetTrueUserCode(code string) (string, int) {
+	codeLen := calCodeLines(pycodeContractImports())
+	usercode := fmt.Sprintf(`%s%s`, pycodeContractImports(), code)
 	return usercode, codeLen
 }
 
-func PycodeContractDeploy(code string, contractName string) (string, int) {
-	trueCode, libLine := PycodeGetTrueUserCode(code)
+func pycodeContractDeploy(code string, contractName string) (string, int) {
+	trueCode, libLine := pycodeGetTrueUserCode(code)
 	invokeDeploy := fmt.Sprintf(`
 try:
     tas_%s = %s()
@@ -69,12 +69,12 @@ except Exception:
     raise ABICheckException("ABI input contract name error,input contract name is %s")
 `, contractName, contractName, contractName)
 
-	allContractCode := fmt.Sprintf(`%s%s%s`, trueCode, PycodeContractDeployHooks(contractName), invokeDeploy)
+	allContractCode := fmt.Sprintf(`%s%s%s`, trueCode, pycodeContractDeployHooks(contractName), invokeDeploy)
 	return allContractCode, libLine
 
 }
 
-func PycodeLoadMsg(sender string, value uint64, contractAddr string) string {
+func pycodeLoadMsg(sender string, value uint64, contractAddr string) string {
 	return fmt.Sprintf(`
 import ujson
 import account
@@ -142,7 +142,7 @@ builtins.msg = Msg(data=bytes(), sender="%s", value=%d)
 builtins.this = "%s"`, sender, value, contractAddr)
 }
 
-func GetInterfaceType(value interface{}) string {
+func getInterfaceType(value interface{}) string {
 	switch value.(type) {
 	case float64:
 		return "1"
@@ -161,13 +161,13 @@ func GetInterfaceType(value interface{}) string {
 	}
 }
 
-func PycodeCheckAbi(abi ABI) string {
+func pycodeCheckAbi(abi ABI) string {
 
 	var str string
 	str = `
 __ABIParaTypes=[]`
 	for i := 0; i < len(abi.Args); i++ {
-		str += fmt.Sprintf("\n"+"__ABIParaTypes.append(type(%s))", GetInterfaceType(abi.Args[i]))
+		str += fmt.Sprintf("\n"+"__ABIParaTypes.append(type(%s))", getInterfaceType(abi.Args[i]))
 	}
 
 	str += fmt.Sprintf(`
@@ -186,7 +186,7 @@ else:
 
 	return str
 }
-func TasJSON() string {
+func tasJSON() string {
 	code := `
 import ujson
 class TasJSON:
@@ -285,7 +285,7 @@ class TasJSON:
 	return code
 }
 
-func TasBaseStorageCode() string {
+func tasBaseStorageCode() string {
 	code := `
 import account
 class TasBaseStorage:
@@ -409,7 +409,7 @@ class TasBaseStorage:
 	return code
 }
 
-func TasCollectionStorageCode() string {
+func tasCollectionStorageCode() string {
 	code := `
 import account
 class TasCollectionStorage:

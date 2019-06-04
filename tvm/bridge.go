@@ -21,10 +21,10 @@ package tvm
 import "C"
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
 	"math/big"
 	"unsafe"
 
+	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 )
 
@@ -262,10 +262,6 @@ func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char, cResult 
 
 //export EventCall
 func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char {
-	//fmt.Println("111111111111111111111111111111")
-	//fmt.Println(C.GoString(eventName))
-	//fmt.Println(C.GoString(index))
-	//fmt.Println(C.GoString(data))
 
 	var log types.Log
 	log.Topics = append(log.Topics, common.BytesToHash(common.Sha256([]byte(C.GoString(eventName)))))
@@ -286,9 +282,7 @@ func EventCall(eventName *C.char, index *C.char, data *C.char) *C.char {
 
 //export SetBytecode
 func SetBytecode(code *C.char, len C.int) {
-	fmt.Println(C.GoString(code))
 	RunByteCode(code, len)
-	fmt.Println(C.GoString(code))
 }
 
 //export DataIterator
@@ -306,7 +300,6 @@ func RemoveData(key *C.char) {
 
 //export DataNext
 func DataNext(cvalue *C.char) *C.char {
-	//C.ulonglong
 	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
 	if !ok {
 		//TODO
@@ -317,15 +310,14 @@ func DataNext(cvalue *C.char) *C.char {
 
 //export MinerStake
 func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
-	fmt.Println("VM MinerStake", _type)
 	ss := controller.AccountDB.Snapshot()
 	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
 	if !ok {
-		//TODO
+		return false
 	}
 	source := controller.VM.ContractAddress
 	miner := common.HexStringToAddress(C.GoString(minerAddr))
-	if CanTransfer(controller.AccountDB, *source, value) {
+	if canTransfer(controller.AccountDB, *source, value) {
 		mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 		if mexist != nil &&
 			controller.mm.AddStake(mexist.ID, mexist, value.Uint64(), controller.AccountDB) &&
@@ -340,11 +332,10 @@ func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
 
 //export MinerCancelStake
 func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
-	fmt.Println("VM MinerCancelStake", _type)
 	ss := controller.AccountDB.Snapshot()
 	value, ok := big.NewInt(0).SetString(C.GoString(cvalue), 10)
 	if !ok {
-		//TODO
+		return false
 	}
 	source := controller.VM.ContractAddress
 	miner := common.HexStringToAddress(C.GoString(minerAddr))
@@ -360,7 +351,6 @@ func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
 
 //export MinerRefundStake
 func MinerRefundStake(minerAddr *C.char, _type int) bool {
-	fmt.Println("VM MinerRefundStake", _type)
 	var success = false
 	ss := controller.AccountDB.Snapshot()
 	source := controller.VM.ContractAddress

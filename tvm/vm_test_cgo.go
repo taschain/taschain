@@ -32,12 +32,12 @@ func Read0(filename string) string {
 //
 //func VmTest() {
 //
-//	tvm := NewTvm()
+//	tvm := NewTVM()
 //	tvm.Execute(Read0("py/token/contract_token_test.py"))
 //}
 //
 //func VmTestContract() {
-//	tvm := NewTvm()
+//	tvm := NewTVM()
 
 //
 //	script := `
@@ -69,7 +69,7 @@ func Read0(filename string) string {
 //}
 //
 //func VmTestClass() {
-//	tvm := NewTvm()
+//	tvm := NewTVM()
 
 //
 //	script := `
@@ -100,7 +100,7 @@ func Read0(filename string) string {
 //}
 //
 //func VmTestABI() {
-//	tvm := NewTvm()
+//	tvm := NewTVM()
 
 //
 //
@@ -117,7 +117,7 @@ func Read0(filename string) string {
 //}
 //
 //func VmTestException() {
-//	tvm := NewTvm()
+//	tvm := NewTVM()
 //
 //	tvm.Execute(`
 //i am error
@@ -125,7 +125,7 @@ func Read0(filename string) string {
 //}
 //
 //func VmTestToken(){
-//	tvm := NewTvm()
+//	tvm := NewTVM()
 
 //
 //	tvm.Execute(`

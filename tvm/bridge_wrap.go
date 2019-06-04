@@ -266,16 +266,15 @@ _Bool wrap_miner_refund_stake(const char* minerAddr, int _type) {
 */
 import "C"
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/taschain/taschain/common"
+	"strconv"
 	"strings"
 	"unsafe"
-	//"middleware/types"
-	"bytes"
-	types "github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/storage/vm"
-	"strconv"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/middleware/types"
 )
 
 type CallTask struct {
@@ -292,14 +291,15 @@ type ExecuteResult struct {
 	Abi        string
 }
 
+// RunBinaryCode Run python binary code
 func RunBinaryCode(buf *C.char, len C.int) {
 	C.runbytecode(buf, len)
 }
 
-func CallContract(_contractAddr string, funcName string, params string) *ExecuteResult {
+// CallContract Execute the function of a contract which python code store in contractAddr
+func CallContract(contractAddr string, funcName string, params string) *ExecuteResult {
 	result := &ExecuteResult{}
-	//准备参数：（因为底层是同一个vm，所以不需要处理gas）
-	conAddr := common.HexStringToAddress(_contractAddr)
+	conAddr := common.HexStringToAddress(contractAddr)
 	contract := LoadContract(conAddr)
 	if contract.Code == "" {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
@@ -307,15 +307,15 @@ func CallContract(_contractAddr string, funcName string, params string) *Execute
 		result.Content = fmt.Sprint(types.NoCodeErrorMsg, conAddr)
 		return result
 	}
-	oneVM := &Tvm{contract, controller.VM.ContractAddress, nil}
+	oneVM := &TVM{contract, controller.VM.ContractAddress, nil}
 
-	//准备vm的环境
-	controller.VM.CreateContext()
+	// prepare vm environment
+	controller.VM.createContext()
 	finished := controller.StoreVMContext(oneVM)
 	defer func() {
-		//恢复vm的环境
+		// recover vm environment
 		if finished {
-			controller.VM.RemoveContext()
+			controller.VM.removeContext()
 		}
 	}()
 	if !finished {
@@ -325,7 +325,6 @@ func CallContract(_contractAddr string, funcName string, params string) *Execute
 		return result
 	}
 
-	//调用合约
 	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
 	errorCode, errorMsg, _ := controller.VM.CreateContractInstance(msg)
 	if errorCode != 0 {
@@ -335,7 +334,6 @@ func CallContract(_contractAddr string, funcName string, params string) *Execute
 		return result
 	}
 
-	//合约调用合约的时候，python代码传递true/false参数的时候可以用python风格的true/false。不会和json的true/false冲突
 	if strings.EqualFold("[true]", params) {
 		params = "[true]"
 	} else if strings.EqualFold("[false]", params) {
@@ -357,10 +355,10 @@ func CallContract(_contractAddr string, funcName string, params string) *Execute
 		result.Content = errorMsg
 		return result
 	}
-	//返回结果：支持正常、异常；正常包含各种类型以及None返回
-	return controller.VM.ExecuteABIKindEval(abi)
+	return controller.VM.executeABIKindEval(abi)
 }
 
+// RunByteCode Run python byte code
 func RunByteCode(code *C.char, len C.int) {
 	C.runbytecode(code, len)
 }
@@ -410,12 +408,14 @@ func bridgeInit() {
 	C.miner_refund_stake = (C.Function19)(unsafe.Pointer(C.wrap_miner_refund_stake))
 }
 
+// Contract Contract contains the base message of a contract
 type Contract struct {
 	Code            string          `json:"code"`
 	ContractName    string          `json:"contract_name"`
 	ContractAddress *common.Address `json:"-"`
 }
 
+// LoadContract Load a contract-instance from a contract address
 func LoadContract(address common.Address) *Contract {
 	jsonString := controller.AccountDB.GetCode(address)
 	con := &Contract{}
@@ -424,16 +424,18 @@ func LoadContract(address common.Address) *Contract {
 	return con
 }
 
-type Tvm struct {
+// TVM TVM is the role who execute contract code
+type TVM struct {
 	*Contract
 	Sender *common.Address
 
-	//xtm for log
+	// xtm for log
 	Logs []*types.Log
 }
 
-func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
-	tvm := &Tvm{
+// NewTVM new a TVM instance
+func NewTVM(sender *common.Address, contract *Contract, libPath string) *TVM {
+	tvm := &TVM{
 		contract,
 		sender,
 		nil,
@@ -449,32 +451,35 @@ func NewTvm(sender *common.Address, contract *Contract, libPath string) *Tvm {
 	return tvm
 }
 
-// 获取剩余gas
-func (tvm *Tvm) Gas() int {
+// Gas Get the gas left of the TVM
+func (tvm *TVM) Gas() int {
 	return int(C.tvm_get_gas())
 }
 
-// 设置可使用gas, init成功后设置
-func (tvm *Tvm) SetGas(gas int) {
+// SetGas Set the amount of gas that TVM can use
+func (tvm *TVM) SetGas(gas int) {
 	//fmt.Printf("SetGas: %d\n", gas);
 	C.tvm_set_gas(C.int(gas))
 }
 
-func (tvm *Tvm) SetLibLine(line int) {
+// SetLibLine Correct the error line when python code is running
+func (tvm *TVM) SetLibLine(line int) {
 	C.tvm_set_lib_line(C.int(line))
 }
 
-func (tvm *Tvm) Pycode2bytecode(str string) {
+// Pycode2Bytecode python code to byte code
+func (tvm *TVM) Pycode2Bytecode(str string) {
 	C.pycode2bytecode(C.CString(str))
 }
 
-func (tvm *Tvm) DelTvm() {
+// DelTVM Run tvm gc to collect mem
+func (tvm *TVM) DelTVM() {
 	//C.tvm_gas_report()
 	C.tvm_gc()
 }
 
-func (tvm *Tvm) checkABI(abi ABI) (int, string) {
-	script := PycodeCheckAbi(abi)
+func (tvm *TVM) checkABI(abi ABI) (int, string) {
+	script := pycodeCheckAbi(abi)
 	errorCode, errorMsg := tvm.ExecutedScriptVMSucceed(script)
 	if errorCode != 0 {
 		errorCode = types.SysCheckABIError
@@ -485,53 +490,34 @@ func (tvm *Tvm) checkABI(abi ABI) (int, string) {
 	return errorCode, errorMsg
 }
 
-func (tvm *Tvm) StoreData() (int, string) {
-	script := PycodeStoreContractData()
+// storeData flush data to db
+func (tvm *TVM) storeData() (int, string) {
+	script := pycodeStoreContractData()
 	return tvm.ExecutedScriptVMSucceed(script)
 }
 
-func NewTvmTest(accountDB vm.AccountDB, chainReader vm.ChainReader) *Tvm {
-	//if tvmObj == nil {
-	//	tvmObj = NewTvm(nil, nil, "")
-	//}
-	//Reader = chainReader
-	//AccountDB = accountDB
-	//
-	//C.tvm_start()
-	//C.tvm_set_lib_path(C.CString("/Users/guangyujing/workspace/tas/src/tvm/py"))
-	//bridgeInit()
-	//
-	//return tvmObj
-	return nil
-}
-
-func (tvm *Tvm) AddLibPath(path string) {
-	C.tvm_set_lib_path(C.CString(path))
-}
-
+// Msg Msg is msg instance which store running message when running a contract
 type Msg struct {
 	Data   []byte
 	Value  uint64
 	Sender string
 }
 
-func (tvm *Tvm) CreateContractInstance(msg Msg) (int, string, int) {
+// CreateContractInstance Create contract instance
+func (tvm *TVM) CreateContractInstance(msg Msg) (int, string, int) {
 	errorCode, errorMsg := tvm.loadMsg(msg)
 	if errorCode != 0 {
 		return errorCode, errorMsg, 0
 	}
-	script, codeLen := PycodeCreateContractInstance(tvm.Code, tvm.ContractName)
+	script, codeLen := pycodeCreateContractInstance(tvm.Code, tvm.ContractName)
 	errorCode, errorMsg = tvm.ExecutedScriptVMSucceed(script)
 	return errorCode, errorMsg, codeLen
 }
 
-func (tvm *Tvm) aBItoScript(res ABI) string {
+func (tvm *TVM) generateScript(res ABI) string {
 	var buf bytes.Buffer
-	//类名
 	buf.WriteString(fmt.Sprintf("tas_%s.", tvm.ContractName))
-	//函数名
 	buf.WriteString(res.FuncName)
-	//参数
 	buf.WriteString("(")
 	for _, value := range res.Args {
 		tvm.jsonValueToBuf(&buf, value)
@@ -541,13 +527,12 @@ func (tvm *Tvm) aBItoScript(res ABI) string {
 		buf.Truncate(buf.Len() - 2)
 	}
 	buf.WriteString(")")
-	//fmt.Println(buf.String())
 	bufStr := buf.String()
 	return bufStr
 }
 
-func (tvm *Tvm) ExecutedAbiVMSucceed(res ABI) (int, string) {
-	script := tvm.aBItoScript(res)
+func (tvm *TVM) executABIVMSucceed(res ABI) (errorCode int, content string) {
+	script := tvm.generateScript(res)
 	result := tvm.executedPycode(script, C.PARSE_KIND_FILE)
 	if result.ResultType == C.RETURN_TYPE_EXCEPTION {
 		fmt.Printf("execute error,code=%d,msg=%s \n", result.ErrorCode, result.Content)
@@ -556,47 +541,18 @@ func (tvm *Tvm) ExecutedAbiVMSucceed(res ABI) (int, string) {
 	return types.Success, ""
 }
 
-// `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABIKindFile(res ABI) *ExecuteResult {
-
-	bufStr := tvm.aBItoScript(res)
-
-	//TODO ???
-	//	if !isContractCall{
-	//		bufStr = fmt.Sprintf(`
-	//try:
-	//    % s
-	//except CallException as e:
-	//    print(e)
-	//#except Exception:
-	//#    raise ABICheckException("ABI input contract name error,input contract name is %s")
-	//	`,buf.String(),tvm.ContractName)
-	//	}
-
+func (tvm *TVM) executeABIKindFile(res ABI) *ExecuteResult {
+	bufStr := tvm.generateScript(res)
 	return tvm.executedPycode(bufStr, C.PARSE_KIND_FILE)
 }
 
-// `{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`
-func (tvm *Tvm) ExecuteABIKindEval(res ABI) *ExecuteResult {
-
-	bufStr := tvm.aBItoScript(res)
-
-	//TODO ???
-	//	if !isContractCall{
-	//		bufStr = fmt.Sprintf(`
-	//try:
-	//    % s
-	//except CallException as e:
-	//    print(e)
-	//#except Exception:
-	//#    raise ABICheckException("ABI input contract name error,input contract name is %s")
-	//	`,buf.String(),tvm.ContractName)
-	//	}
-
+func (tvm *TVM) executeABIKindEval(res ABI) *ExecuteResult {
+	bufStr := tvm.generateScript(res)
 	return tvm.executedPycode(bufStr, C.PARSE_KIND_EVAL)
 }
 
-func (tvm *Tvm) ExecutedScriptVMSucceed(script string) (int, string) {
+// ExecutedScriptVMSucceed Execute script and returns result
+func (tvm *TVM) ExecutedScriptVMSucceed(script string) (int, string) {
 	result := tvm.executedPycode(script, C.PARSE_KIND_FILE)
 	if result.ResultType == C.RETURN_TYPE_EXCEPTION {
 		fmt.Printf("execute error,code=%d,msg=%s \n", result.ErrorCode, result.Content)
@@ -605,15 +561,16 @@ func (tvm *Tvm) ExecutedScriptVMSucceed(script string) (int, string) {
 	return types.Success, ""
 }
 
-func (tvm *Tvm) ExecutedScriptKindEval(script string) *ExecuteResult {
+func (tvm *TVM) executedScriptKindEval(script string) *ExecuteResult {
 	return tvm.executedPycode(script, C.PARSE_KIND_EVAL)
 }
 
-func (tvm *Tvm) ExecutedScriptKindFile(script string) *ExecuteResult {
+// ExecutedScriptKindFile Execute file and returns result
+func (tvm *TVM) ExecutedScriptKindFile(script string) *ExecuteResult {
 	return tvm.executedPycode(script, C.PARSE_KIND_FILE)
 }
 
-func (tvm *Tvm) executedPycode(code string, parseKind C.tvm_parse_kind_t) *ExecuteResult {
+func (tvm *TVM) executedPycode(code string, parseKind C.tvm_parse_kind_t) *ExecuteResult {
 	cResult := &C.ExecuteResult{}
 	C.initResult((*C.ExecuteResult)(unsafe.Pointer(cResult)))
 	var param = C.CString(code)
@@ -640,38 +597,38 @@ func (tvm *Tvm) executedPycode(code string, parseKind C.tvm_parse_kind_t) *Execu
 	return result
 }
 
-func (tvm *Tvm) loadMsg(msg Msg) (int, string) {
-	script := PycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
+func (tvm *TVM) loadMsg(msg Msg) (int, string) {
+	script := pycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
 	return tvm.ExecutedScriptVMSucceed(script)
 }
 
-func (tvm *Tvm) Deploy(msg Msg) (int, string) {
+// Deploy TVM Deploy the contract code and load msg
+func (tvm *TVM) Deploy(msg Msg) (int, string) {
 	errorCode, errorMsg := tvm.loadMsg(msg)
 	if errorCode != 0 {
 		return errorCode, errorMsg
 	}
-	script, libLen := PycodeContractDeploy(tvm.Code, tvm.ContractName)
+	script, libLen := pycodeContractDeploy(tvm.Code, tvm.ContractName)
 	tvm.SetLibLine(libLen)
 	errorCode, errorMsg = tvm.ExecutedScriptVMSucceed(script)
 	return errorCode, errorMsg
 }
 
-//合约调用合约时使用，用来创建vm新的上下文
-func (tvm *Tvm) CreateContext() {
+func (tvm *TVM) createContext() {
 	C.tvm_create_context()
 }
 
-//合约调用合约时使用，用来删除vm当前的上下文
-func (tvm *Tvm) RemoveContext() {
+func (tvm *TVM) removeContext() {
 	C.tvm_remove_context()
 }
 
+// ABI ABI stores the calling msg when execute contract
 type ABI struct {
 	FuncName string
 	Args     []interface{}
 }
 
-func (tvm *Tvm) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
+func (tvm *TVM) jsonValueToBuf(buf *bytes.Buffer, value interface{}) {
 	switch value.(type) {
 	case float64:
 		buf.WriteString(strconv.FormatFloat(value.(float64), 'f', 0, 64))
