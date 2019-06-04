@@ -105,9 +105,9 @@ func TestStreamErrors(t *testing.T) {
 		{"89000000000000000001", calls{"Uint"}, nil, errUintOverflow},
 		{"00", calls{"List"}, nil, ErrExpectedList},
 		{"80", calls{"List"}, nil, ErrExpectedList},
-		{"C0", calls{"List", "Uint"}, nil, EOL},
+		{"C0", calls{"List", "Uint"}, nil, ErrEOL},
 		{"C8C9010101010101010101", calls{"List", "Kind"}, nil, ErrElemTooLarge},
-		{"C3C2010201", calls{"List", "List", "Uint", "Uint", "ListEnd", "Uint"}, nil, EOL},
+		{"C3C2010201", calls{"List", "List", "Uint", "Uint", "ListEnd", "Uint"}, nil, ErrEOL},
 		{"00", calls{"ListEnd"}, nil, errNotInList},
 		{"C401020304", calls{"List", "Uint", "ListEnd"}, nil, errNotAtEOL},
 
@@ -190,7 +190,7 @@ func TestStreamErrors(t *testing.T) {
 
 			"Bytes", // past final element
 			"Bytes", // this one should fail
-		}, nil, EOL},
+		}, nil, ErrEOL},
 	}
 
 testfor:
@@ -247,8 +247,8 @@ func TestStreamList(t *testing.T) {
 		}
 	}
 
-	if _, err := s.Uint(); err != EOL {
-		t.Errorf("Uint error mismatch, got %v, want %v", err, EOL)
+	if _, err := s.Uint(); err != ErrEOL {
+		t.Errorf("Uint error mismatch, got %v, want %v", err, ErrEOL)
 	}
 	if err = s.ListEnd(); err != nil {
 		t.Fatalf("ListEnd error: %v", err)
@@ -689,83 +689,6 @@ func TestDecoderInByteSlice(t *testing.T) {
 	} else if !array[0].called() {
 		t.Errorf("DecodeRLP not called for array element")
 	}
-}
-
-func ExampleDecode() {
-	input, _ := hex.DecodeString("C90A1486666F6F626172")
-
-	type example struct {
-		A, B    uint
-		private uint // private fields are ignored
-		String  string
-	}
-
-	var s example
-	err := Decode(bytes.NewReader(input), &s)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-	} else {
-		fmt.Printf("Decoded value: %#v\n", s)
-	}
-	// Output:
-	// Decoded value: rlp.example{A:0xa, B:0x14, private:0x0, String:"foobar"}
-}
-
-func ExampleDecode_structTagNil() {
-	// In this example, we'll use the "nil" struct tag to change
-	// how a pointer-typed field is decoded. The input contains an RLP
-	// list of one element, an empty string.
-	input := []byte{0xC1, 0x80}
-
-	// This type uses the normal rules.
-	// The empty input string is decoded as a pointer to an empty Go string.
-	var normalRules struct {
-		String *string
-	}
-	Decode(bytes.NewReader(input), &normalRules)
-	fmt.Printf("normal: String = %q\n", *normalRules.String)
-
-	// This type uses the struct tag.
-	// The empty input string is decoded as a nil pointer.
-	var withEmptyOK struct {
-		String *string `rlp:"nil"`
-	}
-	Decode(bytes.NewReader(input), &withEmptyOK)
-	fmt.Printf("with nil tag: String = %v\n", withEmptyOK.String)
-
-	// Output:
-	// normal: String = ""
-	// with nil tag: String = <nil>
-}
-
-func ExampleStream() {
-	input, _ := hex.DecodeString("C90A1486666F6F626172")
-	s := NewStream(bytes.NewReader(input), 0)
-
-	// Check what kind of value lies ahead
-	kind, size, _ := s.Kind()
-	fmt.Printf("Kind: %v size:%d\n", kind, size)
-
-	// Enter the list
-	if _, err := s.List(); err != nil {
-		fmt.Printf("List error: %v\n", err)
-		return
-	}
-
-	// Decode elements
-	fmt.Println(s.Uint())
-	fmt.Println(s.Uint())
-	fmt.Println(s.Bytes())
-
-	// Acknowledge end of list
-	if err := s.ListEnd(); err != nil {
-		fmt.Printf("ListEnd error: %v\n", err)
-	}
-	// Output:
-	// Kind: List size:9
-	// 10 <nil>
-	// 20 <nil>
-	// [102 111 111 98 97 114] <nil>
 }
 
 func BenchmarkDecode(b *testing.B) {

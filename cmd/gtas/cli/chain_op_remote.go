@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -99,13 +100,13 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		return r
 	}
 	aci := r.Data.(*Account)
-	privateKey := common.HexStringToSecKey(aci.Sk)
-	pubkey := common.HexStringToPubKey(aci.Pk)
-	if privateKey.GetPubKey().GetHexString() != pubkey.GetHexString() {
+	privateKey := common.HexToSecKey(aci.Sk)
+	pubkey := common.HexToPubKey(aci.Pk)
+	if privateKey.GetPubKey().Hex() != pubkey.Hex() {
 		return opError(fmt.Errorf("privatekey or pubkey error"))
 	}
 	source := pubkey.GetAddress()
-	if source.GetHexString() != aci.Address {
+	if source.Hex() != aci.Address {
 		return opError(fmt.Errorf("address error"))
 	}
 
@@ -119,7 +120,7 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 	tranx.Hash = tranx.GenHash()
 	sign := privateKey.Sign(tranx.Hash.Bytes())
 	tranx.Sign = sign.Bytes()
-	tx.Sign = sign.GetHexString()
+	tx.Sign = sign.Hex()
 
 	jsonByte, err := json.Marshal(tx)
 	if err != nil {
@@ -173,9 +174,9 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 	bpk.SetHexString(aci.Miner.BPk)
 
 	st := uint64(0)
-	if mtype == types.MinerTypeLight {
-		fmt.Println("stake of applying verify node is hardened as 100 Tas")
-		st = common.VerifyStake
+	if mtype == types.MinerTypeLight && stake < common.VerifyStake {
+		fmt.Println("stake of applying verify node must > 100 Tas")
+		return opError(errors.New("stake value error!"))
 	} else {
 		st = common.TAS2RA(stake)
 	}
@@ -246,7 +247,7 @@ func (ca *RemoteChainOpImpl) RefundMiner(mtype int, addrStr string, gas, gaspric
 	return ca.SendRaw(tx)
 }
 
-func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, refundValue, gas, gasprice uint64) *Result {
+func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, stakeValue, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
 		return r
@@ -257,10 +258,10 @@ func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, refundValue, 
 	if addrStr == "" {
 		addrStr = aci.Address
 	}
-	refundValue = common.TAS2RA(refundValue)
+	stakeValue = common.TAS2RA(stakeValue)
 	addr := common.HexToAddress(addrStr)
 	data = append(data, addr.Bytes()...)
-	data = append(data, common.Uint64ToByte(refundValue)...)
+	data = append(data, common.Uint64ToByte(stakeValue)...)
 	tx := &txRawData{
 		Gas:       gas,
 		Gasprice:  gasprice,
@@ -272,7 +273,7 @@ func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, refundValue, 
 	return ca.SendRaw(tx)
 }
 
-func (ca *RemoteChainOpImpl) MinerCancelStake(mtype int, addrStr string, refundValue, gas, gasprice uint64) *Result {
+func (ca *RemoteChainOpImpl) MinerCancelStake(mtype int, addrStr string, cancelValue, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
 		return r
@@ -283,10 +284,10 @@ func (ca *RemoteChainOpImpl) MinerCancelStake(mtype int, addrStr string, refundV
 	if addrStr == "" {
 		addrStr = aci.Address
 	}
-	refundValue = common.TAS2RA(refundValue)
+	cancelValue = common.TAS2RA(cancelValue)
 	addr := common.HexToAddress(addrStr)
 	data = append(data, addr.Bytes()...)
-	data = append(data, common.Uint64ToByte(refundValue)...)
+	data = append(data, common.Uint64ToByte(cancelValue)...)
 	tx := &txRawData{
 		Gas:       gas,
 		Gasprice:  gasprice,

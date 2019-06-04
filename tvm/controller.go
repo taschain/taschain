@@ -76,7 +76,7 @@ func (con *Controller) Deploy(contract *Contract) (int, string) {
 		con.VM.DelTvm()
 	}()
 	con.VM.SetGas(int(con.GasLeft))
-	msg := Msg{Data: []byte{}, Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().GetHexString()}
+	msg := Msg{Data: []byte{}, Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().Hex()}
 	errorCodeDeploy, errorDeployMsg := con.VM.Deploy(msg)
 
 	if errorCodeDeploy != 0 {
@@ -115,7 +115,7 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 			return false, nil, types.TxErrorBalanceNotEnough
 		}
 	}
-	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().GetHexString()}
+	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().Hex()}
 	errorCode, errorMsg, libLen := con.VM.CreateContractInstance(msg)
 	if errorCode != 0 {
 		return false, nil, types.NewTransactionError(errorCode, errorMsg)
@@ -157,7 +157,7 @@ func (con *Controller) ExecuteAbiEval(sender *common.Address, contract *Contract
 			return nil
 		}
 	}
-	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: sender.GetHexString()}
+	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: sender.Hex()}
 	errorCode, _, libLen := con.VM.CreateContractInstance(msg)
 	if errorCode != 0 {
 		return nil

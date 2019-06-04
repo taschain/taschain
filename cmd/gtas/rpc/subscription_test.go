@@ -19,6 +19,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/taslog"
 	"net"
 	"sync"
 	"testing"
@@ -194,7 +196,7 @@ func waitForMessages(t *testing.T, in *json.Decoder, successes chan<- jsonSucces
 			if _, found := msg["result"]; found {
 				successes <- jsonSuccessResponse{
 					Version: msg["jsonrpc"].(string),
-					Id:      msg["id"],
+					ID:      msg["id"],
 					Result:  msg["result"],
 				}
 				continue
@@ -203,7 +205,7 @@ func waitForMessages(t *testing.T, in *json.Decoder, successes chan<- jsonSucces
 				params := msg["params"].(map[string]interface{})
 				failures <- jsonErrResponse{
 					Version: msg["jsonrpc"].(string),
-					Id:      msg["id"],
+					ID:      msg["id"],
 					Error:   jsonError{int(params["subscription"].(float64)), params["message"].(string), params["data"]},
 				}
 				continue
@@ -225,6 +227,8 @@ func waitForMessages(t *testing.T, in *json.Decoder, successes chan<- jsonSucces
 // TestSubscriptionMultipleNamespaces ensures that subscriptions can exists
 // for multiple different namespaces.
 func TestSubscriptionMultipleNamespaces(t *testing.T) {
+	common.InitConf("tas.ini")
+	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
 	var (
 		namespaces             = []string{"eth", "shh", "bzz"}
 		server                 = NewServer()
@@ -283,7 +287,7 @@ func TestSubscriptionMultipleNamespaces(t *testing.T) {
 		t.Fatalf("Could not create subscription in batch form: %v", err)
 	}
 
-	timeout := time.After(30 * time.Second)
+	timeout := time.After(10 * time.Second)
 	subids := make(map[string]string, 2*len(namespaces))
 	count := make(map[string]int, 2*len(namespaces))
 
@@ -303,7 +307,7 @@ func TestSubscriptionMultipleNamespaces(t *testing.T) {
 		case err := <-errors:
 			t.Fatal(err)
 		case suc := <-successes: // subscription created
-			subids[namespaces[int(suc.Id.(float64))]] = suc.Result.(string)
+			subids[namespaces[int(suc.ID.(float64))]] = suc.Result.(string)
 		case failure := <-failures:
 			t.Errorf("received error: %v", failure.Error)
 		case notification := <-notifications:

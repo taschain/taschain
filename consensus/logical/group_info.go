@@ -60,17 +60,17 @@ func NewSGIFromCoreGroup(coreGroup *types.Group) *StaticGroupInfo {
 	}
 	mems := make([]groupsig.ID, len(coreGroup.Members))
 	for i, mem := range coreGroup.Members {
-		mems[i] = groupsig.DeserializeID(mem)
+		mems[i] = groupsig.DeserializeId(mem)
 	}
 	gInfo := &model.ConsensusGroupInitInfo{
 		GI:   gis,
 		Mems: mems,
 	}
 	sgi := &StaticGroupInfo{
-		GroupID:     groupsig.DeserializeID(coreGroup.ID),
+		GroupID:     groupsig.DeserializeId(coreGroup.ID),
 		GroupPK:     groupsig.DeserializePubkeyBytes(coreGroup.PubKey),
-		ParentID:    groupsig.DeserializeID(gh.Parent),
-		PrevGroupID: groupsig.DeserializeID(gh.PreGroup),
+		ParentID:    groupsig.DeserializeId(gh.Parent),
+		PrevGroupID: groupsig.DeserializeId(gh.PreGroup),
 		GInfo:       gInfo,
 	}
 
@@ -380,13 +380,13 @@ func (gg *GlobalGroups) SelectNextGroupFromChain(h common.Hash, height uint64) (
 	quaulifiedGS := gg.getCastQualifiedGroupFromChains(height)
 	idshort := make([]string, len(quaulifiedGS))
 	for idx, g := range quaulifiedGS {
-		idshort[idx] = groupsig.DeserializeID(g.ID).ShortS()
+		idshort[idx] = groupsig.DeserializeId(g.ID).ShortS()
 	}
 
 	var ga groupsig.ID
 	if h.Big().BitLen() > 0 && len(quaulifiedGS) > 0 {
 		index := gg.selectIndex(len(quaulifiedGS), h)
-		ga = groupsig.DeserializeID(quaulifiedGS[index].ID)
+		ga = groupsig.DeserializeId(quaulifiedGS[index].ID)
 		stdLogger.Debugf("height %v SelectNextGroupFromChain qualified groups %v, index %v\n", height, idshort, index)
 		return ga, nil
 	}

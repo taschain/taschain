@@ -50,13 +50,7 @@ func (bi *BnInt) SetDecString(s string) error {
 //}
 
 func (bi *BnInt) Add(b *BnInt) error {
-	b1 := &BnInt{}
-	b2 := &BnInt{}
-
-	b1.v.Set(&bi.v)
-	b2.v.Set(&b.v)
-
-	bi.v.Add(&b1.v, &b2.v)
+	bi.v.Add(&bi.v, &b.v)
 	return nil
 }
 
@@ -66,16 +60,12 @@ func (bi *BnInt) Sub(b *BnInt) error {
 }
 
 func (bi *BnInt) Mul(b *BnInt) error {
-	nb := &big.Int{}
-	nb.Set(&bi.v)
-	bi.v.Mul(nb, &b.v)
+	bi.v.Mul(&bi.v, &b.v)
 	return nil
 }
 
 func (bi *BnInt) Mod() error {
-	nb := &big.Int{}
-	nb.Set(&bi.v)
-	bi.v.Mod(nb, bncurve.Order)
+	bi.v.Mod(&bi.v, bncurve.Order)
 	return nil
 }
 
@@ -100,14 +90,11 @@ func (bi *BnInt) SetHexString(s string) error {
 
 //BlsInt导出为big.Int
 func (bi *BnInt) GetBigInt() *big.Int {
-	x := new(big.Int)
-	x.Set(&bi.v)
-	return x
+	return new(big.Int).Set(&bi.v)
 }
 
 func (bi *BnInt) GetString() string {
-	bigInt := bi.GetBigInt()
-	b := bigInt.Bytes()
+	b := bi.GetBigInt().Bytes()
 	return string(b)
 }
 
@@ -140,12 +127,7 @@ func (bg *bnG2) Serialize() []byte {
 }
 
 func (bg *bnG2) Add(bh *bnG2) error {
-	a := &bnG2{}
-	b := &bnG2{}
-	a.Deserialize(bh.Serialize())
-	b.Deserialize(bh.Serialize())
-
-	bg.v.Add(&a.v, &b.v)
+	bg.v.Add(&bg.v, &bh.v)
 	return nil
 }
 

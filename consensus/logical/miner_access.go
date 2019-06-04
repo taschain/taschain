@@ -32,7 +32,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		return nil
 	}
 	md := &model.MinerDO{
-		ID:          groupsig.DeserializeID(miner.ID),
+		ID:          groupsig.DeserializeId(miner.ID),
 		PK:          groupsig.DeserializePubkeyBytes(miner.PublicKey),
 		VrfPK:       base.VRFPublicKey(miner.VrfPublicKey),
 		Stake:       miner.Stake,

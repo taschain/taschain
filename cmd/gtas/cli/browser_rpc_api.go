@@ -24,7 +24,7 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	account := ExplorerAccount{}
 	account.Balance = accoundDb.GetBalance(address)
 	account.Nonce = accoundDb.GetNonce(address)
-	account.CodeHash = accoundDb.GetCodeHash(address).String()
+	account.CodeHash = accoundDb.GetCodeHash(address).Hex()
 	account.Code = string(accoundDb.GetCode(address)[:])
 	account.Type = 0
 	if len(account.Code) > 0 {
@@ -94,18 +94,18 @@ func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
 func explorerConvertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.ID != nil && len(g.ID) != 0 {
-		gmap["id"] = groupsig.DeserializeID(g.ID).GetHexString()
+		gmap["id"] = groupsig.DeserializeId(g.ID).GetHexString()
 		gmap["hash"] = g.Header.Hash
 	}
-	gmap["parent_id"] = groupsig.DeserializeID(g.Header.Parent).GetHexString()
-	gmap["pre_id"] = groupsig.DeserializeID(g.Header.PreGroup).GetHexString()
+	gmap["parent_id"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
+	gmap["pre_id"] = groupsig.DeserializeId(g.Header.PreGroup).GetHexString()
 	gmap["begin_time"] = g.Header.BeginTime
 	gmap["create_height"] = g.Header.CreateHeight
 	gmap["work_height"] = g.Header.WorkHeight
 	gmap["dismiss_height"] = g.Header.DismissHeight
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr := groupsig.DeserializeID(mem).GetHexString()
+		memberStr := groupsig.DeserializeId(mem).GetHexString()
 		mems = append(mems, memberStr)
 	}
 	gmap["members"] = mems
@@ -121,7 +121,7 @@ func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	bh := b.Header
 
 	ret := &ExploreBlockBonus{
-		ProposalID: groupsig.DeserializeID(bh.Castor).GetHexString(),
+		ProposalID: groupsig.DeserializeId(bh.Castor).GetHexString(),
 	}
 	bonusNum := uint64(0)
 	if b.Transactions != nil {

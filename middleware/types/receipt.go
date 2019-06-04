@@ -85,9 +85,9 @@ func (r *Receipt) Size() common.StorageSize {
 
 func (r *Receipt) String() string {
 	if len(r.PostState) == 0 {
-		return fmt.Sprintf("receipt{status=%d cgas=%v bloom=%x logs=%v tx=%v h=%v ti=%v}", r.Status, r.CumulativeGasUsed, r.Bloom, r.Logs, r.TxHash.String(), r.Height, r.TxIndex)
+		return fmt.Sprintf("receipt{status=%d cgas=%v bloom=%x logs=%v tx=%v h=%v ti=%v}", r.Status, r.CumulativeGasUsed, r.Bloom, r.Logs, r.TxHash.Hex(), r.Height, r.TxIndex)
 	}
-	return fmt.Sprintf("receipt{med=%x cgas=%v bloom=%x logs=%v tx=%v h=%v ti=%v}", r.PostState, r.CumulativeGasUsed, r.Bloom, r.Logs, r.TxHash.String(), r.Height, r.TxIndex)
+	return fmt.Sprintf("receipt{med=%x cgas=%v bloom=%x logs=%v tx=%v h=%v ti=%v}", r.PostState, r.CumulativeGasUsed, r.Bloom, r.Logs, r.TxHash.Hex(), r.Height, r.TxIndex)
 }
 
 type Receipts []*Receipt

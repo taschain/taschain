@@ -25,38 +25,41 @@ import (
 	"log"
 )
 
-//用户公钥
+//Public key based BN Curve
 type Pubkey struct {
 	value bncurve.G2
 }
 
 type PubkeyMap map[string]Pubkey
 
+//Check the public key is empty
 func (pub Pubkey) IsEmpty() bool {
 	return pub.value.IsEmpty()
 }
 
-//判断两个公钥是否相同
+//judge two public key are equal
 func (pub Pubkey) IsEqual(rhs Pubkey) bool {
 	return bytes.Equal(pub.value.Marshal(), rhs.value.Marshal())
 }
 
-//由字节切片初始化私钥  ToDoCheck
+//import the input byte array into public key
 func (pub *Pubkey) Deserialize(b []byte) error {
 	_, error := pub.value.Unmarshal(b)
 	return error
 }
 
-//把公钥转换成字节切片（小端模式？）
+//Export the public key into a byte array
 func (pub Pubkey) Serialize() []byte {
 	return pub.value.Marshal()
 }
 
+//Marshal the public key
 func (pub Pubkey) MarshalJSON() ([]byte, error) {
 	str := "\"" + pub.GetHexString() + "\""
 	return []byte(str), nil
 }
 
+//Unmarshal the public key
 func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	str := string(data[:])
 	if len(str) < 2 {
@@ -66,35 +69,27 @@ func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	return pub.SetHexString(str)
 }
 
-////把公钥转换成big.Int  ToDoCheck
-//func (pub Pubkey) GetBigInt() *big.Int {
-//	//x := new(big.Int)
-//	//x.SetString(pub.value.GetHexString(), 16)
-//	//return x
-//
-//	return nil
-//}
-
+//Check the public key is valid
 func (pub Pubkey) IsValid() bool {
 	return !pub.IsEmpty()
 	//bi := pub.GetBigInt()
 	//return bi.Cmp(big.NewInt(0)) != 0
 }
 
-//由公钥生成TAS地址
+//Generate address from the public key
 func (pub Pubkey) GetAddress() common.Address {
 	h := sha3.Sum256(pub.Serialize())  //取得公钥的SHA3 256位哈希
 	return common.BytesToAddress(h[:]) //由256位哈希生成TAS160位地址
 }
 
-//把公钥转换成十六进制字符串，不包含0x前缀   ToDoCheck
+//Export the public key into a hex string
 func (pub Pubkey) GetHexString() string {
 	return PREFIX + common.Bytes2Hex(pub.value.Marshal())
 }
 
+//Export the public key into a short hex string
 func (pub *Pubkey) ShortS() string {
-	str := pub.GetHexString()
-	return common.ShortHex12(str)
+	return common.ShortHex12(pub.GetHexString())
 }
 
 //由十六进制字符串初始化公钥  ToDoCheck
@@ -102,10 +97,8 @@ func (pub *Pubkey) SetHexString(s string) error {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return fmt.Errorf("arg failed")
 	}
-	buf := s[len(PREFIX):]
-
-	pub.value.Unmarshal(common.Hex2Bytes(buf))
-	return nil
+	_, err := pub.value.Unmarshal(common.FromHex(s))
+	return err
 }
 
 //由私钥构建公钥

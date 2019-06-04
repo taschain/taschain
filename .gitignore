@@ -27,6 +27,8 @@ src/gopkg.in
 */tx/
 */database/
 
+tvm/libtvm.a
+tvm/tvm.h
 main
 
 venv/
