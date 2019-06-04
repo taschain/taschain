@@ -94,8 +94,8 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	//Logger.Errorf("receiptes cast bh %v, %+v", block.Header.Hash.String(), receipts)
 
 	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v,stateTree:%s,prestatetree:%s",
-		height, block.Header.Hash.String(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(),
-		chain.consensusHelper.VRFProve2Value(block.Header.ProveValue), block.Header.StateTree.String(), preRoot.String())
+		height, block.Header.Hash.Hex(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(),
+		chain.consensusHelper.VRFProve2Value(block.Header.ProveValue), block.Header.StateTree.Hex(), preRoot.Hex())
 	// Blocks that you cast yourself do not need to be verified
 	chain.verifiedBlocks.Add(block.Header.Hash, &executePostState{
 		state:     state,
