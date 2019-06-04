@@ -279,7 +279,7 @@ func (tvm *TVM) DelTVM() {
 
 func (tvm *TVM) checkABI(abi ABI) (int, string) {
 	script := pycodeCheckAbi(abi)
-	errorCode, errorMsg := tvm.ExecutedScriptVMSucceed(script)
+	errorCode, errorMsg := tvm.ExecuteScriptVMSucceed(script)
 	if errorCode != 0 {
 		errorCode = types.SysCheckABIError
 		errorMsg = fmt.Sprintf(`
@@ -292,7 +292,7 @@ func (tvm *TVM) checkABI(abi ABI) (int, string) {
 // storeData flush data to db
 func (tvm *TVM) storeData() (int, string) {
 	script := pycodeStoreContractData()
-	return tvm.ExecutedScriptVMSucceed(script)
+	return tvm.ExecuteScriptVMSucceed(script)
 }
 
 // Msg Msg is msg instance which store running message when running a contract
@@ -309,7 +309,7 @@ func (tvm *TVM) CreateContractInstance(msg Msg) (int, string, int) {
 		return errorCode, errorMsg, 0
 	}
 	script, codeLen := pycodeCreateContractInstance(tvm.Code, tvm.ContractName)
-	errorCode, errorMsg = tvm.ExecutedScriptVMSucceed(script)
+	errorCode, errorMsg = tvm.ExecuteScriptVMSucceed(script)
 	return errorCode, errorMsg, codeLen
 }
 
@@ -332,7 +332,7 @@ func (tvm *TVM) generateScript(res ABI) string {
 
 func (tvm *TVM) executABIVMSucceed(res ABI) (errorCode int, content string) {
 	script := tvm.generateScript(res)
-	result := tvm.executedPycode(script, C.PARSE_KIND_FILE)
+	result := tvm.executePycode(script, C.PARSE_KIND_FILE)
 	if result.ResultType == C.RETURN_TYPE_EXCEPTION {
 		fmt.Printf("execute error,code=%d,msg=%s \n", result.ErrorCode, result.Content)
 		return result.ErrorCode, result.Content
@@ -342,17 +342,17 @@ func (tvm *TVM) executABIVMSucceed(res ABI) (errorCode int, content string) {
 
 func (tvm *TVM) executeABIKindFile(res ABI) *ExecuteResult {
 	bufStr := tvm.generateScript(res)
-	return tvm.executedPycode(bufStr, C.PARSE_KIND_FILE)
+	return tvm.executePycode(bufStr, C.PARSE_KIND_FILE)
 }
 
 func (tvm *TVM) executeABIKindEval(res ABI) *ExecuteResult {
 	bufStr := tvm.generateScript(res)
-	return tvm.executedPycode(bufStr, C.PARSE_KIND_EVAL)
+	return tvm.executePycode(bufStr, C.PARSE_KIND_EVAL)
 }
 
-// ExecutedScriptVMSucceed Execute script and returns result
-func (tvm *TVM) ExecutedScriptVMSucceed(script string) (int, string) {
-	result := tvm.executedPycode(script, C.PARSE_KIND_FILE)
+// ExecuteScriptVMSucceed Execute script and returns result
+func (tvm *TVM) ExecuteScriptVMSucceed(script string) (int, string) {
+	result := tvm.executePycode(script, C.PARSE_KIND_FILE)
 	if result.ResultType == C.RETURN_TYPE_EXCEPTION {
 		fmt.Printf("execute error,code=%d,msg=%s \n", result.ErrorCode, result.Content)
 		return result.ErrorCode, result.Content
@@ -360,18 +360,18 @@ func (tvm *TVM) ExecutedScriptVMSucceed(script string) (int, string) {
 	return types.Success, ""
 }
 
-func (tvm *TVM) executedScriptKindEval(script string) *ExecuteResult {
-	return tvm.executedPycode(script, C.PARSE_KIND_EVAL)
+func (tvm *TVM) executeScriptKindEval(script string) *ExecuteResult {
+	return tvm.executePycode(script, C.PARSE_KIND_EVAL)
 }
 
-// ExecutedScriptKindFile Execute file and returns result
-func (tvm *TVM) ExecutedScriptKindFile(script string) *ExecuteResult {
-	return tvm.executedPycode(script, C.PARSE_KIND_FILE)
+// ExecuteScriptKindFile Execute file and returns result
+func (tvm *TVM) ExecuteScriptKindFile(script string) *ExecuteResult {
+	return tvm.executePycode(script, C.PARSE_KIND_FILE)
 }
 
-func (tvm *TVM) executedPycode(code string, parseKind C.tvm_parse_kind_t) *ExecuteResult {
+func (tvm *TVM) executePycode(code string, parseKind C.tvm_parse_kind_t) *ExecuteResult {
 	cResult := &C.tvm_execute_result_t{}
-	C.tvm_init_result((*C.tvm_execute_result_t)(unsafe.Pointer(cResult)))
+	C.tvm_init_result((*C.struct__tvm_execute_result_t)(unsafe.Pointer(cResult)))
 	var param = C.CString(code)
 	var contractName = C.CString(tvm.ContractName)
 
@@ -383,8 +383,8 @@ func (tvm *TVM) executedPycode(code string, parseKind C.tvm_parse_kind_t) *Execu
 	C.free(unsafe.Pointer(contractName))
 
 	result := &ExecuteResult{}
-	result.ResultType = int(cResult.resultType)
-	result.ErrorCode = int(cResult.errorCode)
+	result.ResultType = int(cResult.result_type)
+	result.ErrorCode = int(cResult.error_code)
 	if cResult.content != nil {
 		result.Content = C.GoString(cResult.content)
 	}
@@ -398,7 +398,7 @@ func (tvm *TVM) executedPycode(code string, parseKind C.tvm_parse_kind_t) *Execu
 
 func (tvm *TVM) loadMsg(msg Msg) (int, string) {
 	script := pycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.Hex())
-	return tvm.ExecutedScriptVMSucceed(script)
+	return tvm.ExecuteScriptVMSucceed(script)
 }
 
 // Deploy TVM Deploy the contract code and load msg
@@ -409,7 +409,7 @@ func (tvm *TVM) Deploy(msg Msg) (int, string) {
 	}
 	script, libLen := pycodeContractDeploy(tvm.Code, tvm.ContractName)
 	tvm.SetLibLine(libLen)
-	errorCode, errorMsg = tvm.ExecutedScriptVMSucceed(script)
+	errorCode, errorMsg = tvm.ExecuteScriptVMSucceed(script)
 	return errorCode, errorMsg
 }
 

@@ -451,9 +451,9 @@ func (c *sendTxCmd) parse(args []string) bool {
 //builtins.register = Register()
 //`
 //	fmt.Println(str)
-//	errorCode, errorMsg := vm.ExecutedScriptVMSucceed(str)
+//	errorCode, errorMsg := vm.ExecuteScriptVMSucceed(str)
 //	if errorCode == types.SUCCESS {
-//		result := vm.ExecutedScriptKindFile(c.contract.Code)
+//		result := vm.ExecuteScriptKindFile(c.contract.Code)
 //		fmt.Println(result.Abi)
 //	} else {
 //		fmt.Println(errorMsg)

@@ -239,9 +239,9 @@ import builtins
 builtins.register = Register()
 `
 
-	errorCode, errorMsg := vm.ExecutedScriptVMSucceed(str)
+	errorCode, errorMsg := vm.ExecuteScriptVMSucceed(str)
 	if errorCode == types.Success {
-		result := vm.ExecutedScriptKindFile(contractCode)
+		result := vm.ExecuteScriptKindFile(contractCode)
 		fmt.Println(result.Abi)
 	} else {
 		fmt.Println(errorMsg)

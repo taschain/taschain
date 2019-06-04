@@ -93,7 +93,7 @@ func TxGasLimit() C.ulonglong {
 //export ContractCall
 func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char, cResult unsafe.Pointer) {
 	goResult := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
-	ccResult := (*C.struct__ExecuteResult)(cResult)
+	ccResult := (*C.struct__tvm_execute_result_t)(cResult)
 	ccResult.result_type = C.int(goResult.ResultType)
 	ccResult.error_code = C.int(goResult.ErrorCode)
 	if goResult.Content != "" {

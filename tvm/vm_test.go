@@ -30,26 +30,26 @@ func TestVmTest(t *testing.T) {
 	script := `
 a = 1.2
 `
-	if result := vm.executedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
+	if result := vm.executeScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 eval("a = 10")
 `
-	if result := vm.executedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
+	if result := vm.executeScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 exec("a = 10")
 `
-	if result := vm.executedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
+	if result := vm.executeScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 with open("a.txt", "w") as f:
 	f.write("a")
 `
-	if result := vm.executedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
+	if result := vm.executeScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 }
@@ -60,11 +60,11 @@ func BenchmarkAdd(b *testing.B) {
 	script := `
 a = 1
 `
-	vm.ExecutedScriptVMSucceed(script)
+	vm.ExecuteScriptVMSucceed(script)
 	script = `
 a += 1
 `
 	for i := 0; i < b.N; i++ { //use b.N for looping
-		vm.ExecutedScriptVMSucceed(script)
+		vm.ExecuteScriptVMSucceed(script)
 	}
 }
