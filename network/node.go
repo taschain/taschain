@@ -18,8 +18,6 @@ package network
 import (
 	"errors"
 	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/taslog"
-	"log"
 	"math/rand"
 	nnet "net"
 	"strconv"
@@ -52,6 +50,7 @@ func (nid NodeID) IsValid() bool {
 func (nid NodeID) GetHexString() string {
 	return string(nid[:])
 }
+
 func NewNodeID(hex string) NodeID {
 	var nid NodeID
 	nid.SetBytes([]byte(hex))
@@ -69,7 +68,7 @@ func (nid NodeID) Bytes() []byte {
 	return nid[:]
 }
 
-// Node Kad 节点
+//Node Kad node struct
 type Node struct {
 	ID      NodeID
 	IP      nnet.IP
@@ -85,7 +84,7 @@ type Node struct {
 	pinged  bool
 }
 
-// NewNode 新建节点
+//NewNode make new kad node
 func NewNode(id NodeID, ip nnet.IP, port int) *Node {
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4
@@ -102,6 +101,7 @@ func (n *Node) addr() *nnet.UDPAddr {
 	return &nnet.UDPAddr{IP: n.IP, Port: int(n.Port)}
 }
 
+//Incomplete is address is Incomplete
 func (n *Node) Incomplete() bool {
 	return n.IP == nil
 }
@@ -201,8 +201,8 @@ func hashAtDistance(a []byte, n int) (b []byte) {
 	return b
 }
 
+// InitSelfNode initialize local user's node
 func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, error) {
-	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 	ip := getLocalIP()
 	basePort := BasePort
 	port := SuperBasePort
@@ -216,7 +216,6 @@ func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, er
 	return &n, nil
 }
 
-//内网IP
 func getLocalIP() string {
 	addrs, err := nnet.InterfaceAddrs()
 
@@ -224,7 +223,7 @@ func getLocalIP() string {
 	}
 
 	for _, address := range addrs {
-		// 检查ip地址判断是否回环地址
+		//check is local loopback ip
 		if ipnet, ok := address.(*nnet.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				return ipnet.IP.String()
@@ -240,34 +239,18 @@ func getAvailablePort(ip string, port int) int {
 	}
 
 	if port > 65535 {
-		log.Printf("[Network]No available port!")
+		Logger.Debugf("[Network]No available port!")
 		return -1
 	}
 
 	rand.Seed(time.Now().UnixNano())
 	port += rand.Intn(1000)
-	//listener, e := net.ListenPacket("udp", ip+":"+strconv.Itoa(port))
-	//if e != nil {
-	//	//listener.Close()
-	//	port++
-	//	return getAvailablePort(ip, port)
-	//}
-	//listener.Close()
 
 	return port
 }
 
+//String return  node detail description
 func (n *Node) String() string {
 	str := "Self node net info:\n" + "ID is:" + n.ID.GetHexString() + "\nIP is:" + n.IP.String() + "\nTcp port is:" + strconv.Itoa(n.Port) + "\n"
 	return str
-}
-
-func getPrivateKeyFromConfigFile(config common.ConfManager) (privateKeyStr string) {
-	privateKey := config.GetString(BaseSection, PrivateKey, "")
-	return privateKey
-}
-
-// insert into config file
-func savePrivateKey(privateKeyStr string, config common.ConfManager) {
-	config.SetString(BaseSection, PrivateKey, privateKeyStr)
 }

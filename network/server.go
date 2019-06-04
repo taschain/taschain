@@ -46,7 +46,7 @@ func (s *Server) Send(id string, msg Message) error {
 		s.sendSelf(bytes)
 		return nil
 	}
-	go s.netCore.Send(NewNodeID(id), nil, bytes, msg.Code)
+	go s.netCore.sendToNode(NewNodeID(id), nil, bytes, msg.Code)
 
 	return nil
 }
@@ -58,7 +58,7 @@ func (s *Server) SendWithGroupRelay(id string, groupID string, msg Message) erro
 		return err
 	}
 
-	s.netCore.SendGroupMember(groupID, bytes, msg.Code, NewNodeID(id))
+	s.netCore.sendToGroupMember(groupID, bytes, msg.Code, NewNodeID(id))
 	return nil
 }
 
@@ -69,7 +69,7 @@ func (s *Server) RandomSpreadInGroup(groupID string, msg Message) error {
 		return err
 	}
 
-	s.netCore.SendGroup(groupID, bytes, msg.Code, true, 1)
+	s.netCore.groupBroadcast(groupID, bytes, msg.Code, true, 1)
 
 	return nil
 }
@@ -81,7 +81,7 @@ func (s *Server) SpreadAmongGroup(groupID string, msg Message) error {
 		return err
 	}
 
-	s.netCore.SendGroup(groupID, bytes, msg.Code, true, -1)
+	s.netCore.groupBroadcast(groupID, bytes, msg.Code, true, -1)
 
 	return nil
 }
@@ -106,7 +106,7 @@ func (s *Server) SpreadToRandomGroupMember(groupID string, groupMembers []string
 	entranceNodes := groupMembers[entranceIndex:]
 	Logger.Debugf("SpreadToRandomGroupMember group:%s,groupMembers:%d,index:%d", groupID, len(groupMembers), entranceIndex)
 
-	s.netCore.GroupBroadcastWithMembers(groupID, bytes, msg.Code, nil, entranceNodes, 1)
+	s.netCore.groupBroadcastWithMembers(groupID, bytes, msg.Code, nil, entranceNodes, 1)
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (s *Server) SpreadToGroup(groupID string, groupMembers []string, msg Messag
 	}
 
 	Logger.Debugf("SpreadToGroup :%s,code:%d,msg size:%d", groupID, msg.Code, len(msg.Body)+4)
-	s.netCore.GroupBroadcastWithMembers(groupID, bytes, msg.Code, digest, groupMembers, -1)
+	s.netCore.groupBroadcastWithMembers(groupID, bytes, msg.Code, digest, groupMembers, -1)
 
 	return nil
 }
@@ -130,7 +130,7 @@ func (s *Server) TransmitToNeighbor(msg Message) error {
 		return err
 	}
 
-	s.netCore.SendAll(bytes, msg.Code, false, nil, -1)
+	s.netCore.broadcast(bytes, msg.Code, false, nil, -1)
 
 	return nil
 }
@@ -142,7 +142,7 @@ func (s *Server) Relay(msg Message, relayCount int32) error {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
-	s.netCore.BroadcastRandom(bytes, msg.Code, relayCount)
+	s.netCore.broadcastRandom(bytes, msg.Code, relayCount)
 
 	return nil
 }
@@ -153,7 +153,7 @@ func (s *Server) Broadcast(msg Message) error {
 		Logger.Errorf("Marshal message error:%s", err.Error())
 		return err
 	}
-	s.netCore.SendAll(bytes, msg.Code, true, nil, -1)
+	s.netCore.broadcast(bytes, msg.Code, true, nil, -1)
 
 	return nil
 }
@@ -226,7 +226,10 @@ func (s *Server) handleMessageInner(message *Message, from string) {
 	code := message.Code
 
 	if code < 10000 {
-		s.consensusHandler.Handle(from, *message)
+		err := s.consensusHandler.Handle(from, *message)
+		if err != nil {
+			Logger.Errorf("consensusHandler handle error:%s", err.Error())
+		}
 	} else {
 		topicID := ""
 		switch code {
@@ -289,10 +292,7 @@ func (m Message) Hash() string {
 
 	var h common.Hash
 	sha3Hash := sha3.Sum256(bytes)
-	if len(sha3Hash) == common.HashLength {
-		copy(h[:], sha3Hash[:])
-	} else {
-		panic("Data2Hash failed, size error.")
-	}
+	copy(h[:], sha3Hash[:])
+
 	return h.Hex()
 }

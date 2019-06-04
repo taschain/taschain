@@ -115,25 +115,27 @@ type Network interface {
 	//Broadcast the message among the group which self belongs to
 	SpreadAmongGroup(groupID string, msg Message) error
 
-	//send message to random memebers which in special group
+	//SpreadToRandomGroupMember send message to random memebers which in special group
 	SpreadToRandomGroupMember(groupID string, groupMembers []string, msg Message) error
 
-	//Broadcast the message to the group which self do not belong to
+	//SpreadToGroup Broadcast the message to the group which self do not belong to
 	SpreadToGroup(groupID string, groupMembers []string, msg Message, digest MsgDigest) error
 
-	//Send message to neighbor nodes
+	//TransmitToNeighbor Send message to neighbor nodes
 	TransmitToNeighbor(msg Message) error
 
-	//Send the message to part nodes it connects to and they will also broadcast the message to part of their neighbor util relayCount
+	//Relay Send the message to part nodes it connects to and they will also broadcast the message to part of their neighbor util relayCount
 	Relay(msg Message, relayCount int32) error
 
-	//Send the message to all nodes it connects to and the node which receive the message also broadcast the message to their neighbor once
+	//Broadcast Send the message to all nodes it connects to and the node which receive the message also broadcast the message to their neighbor once
 	Broadcast(msg Message) error
 
-	//Return all connections self has
+	//ConnInfo Return all connections self has
 	ConnInfo() []Conn
 
-	BuildGroupNet(groupID string, members []string)
+	//BuildGroupNet build group network
+ 	BuildGroupNet(groupID string, members []string)
 
+	//DissolveGroupNet dissolve group network
 	DissolveGroupNet(groupID string)
 }

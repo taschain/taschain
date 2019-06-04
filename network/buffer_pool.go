@@ -22,7 +22,7 @@ func newBufferPoolItem(size int, max int) *BufferPoolItem {
 	return item
 }
 
-func (poolItem *BufferPoolItem) GetBuffer() *bytes.Buffer {
+func (poolItem *BufferPoolItem) getBuffer() *bytes.Buffer {
 
 	if poolItem.buffers.Len() > 0 {
 		e := poolItem.buffers.Front()
@@ -54,12 +54,12 @@ func newBufferPool() *BufferPool {
 
 	pool := &BufferPool{}
 
-	pool.Init()
+	pool.init()
 
 	return pool
 }
 
-func (pool *BufferPool) Init() {
+func (pool *BufferPool) init() {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 
@@ -87,19 +87,19 @@ func (pool *BufferPool) Print() {
 	}
 }
 
-func (pool *BufferPool) GetBuffer(size int) *bytes.Buffer {
+func (pool *BufferPool) getBuffer(size int) *bytes.Buffer {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 	poolItem := pool.GetPoolItem(size)
 	if poolItem != nil {
-		buf := poolItem.GetBuffer()
+		buf := poolItem.getBuffer()
 		return buf
 	}
 
 	return new(bytes.Buffer)
 }
 
-func (pool *BufferPool) FreeBuffer(buf *bytes.Buffer) {
+func (pool *BufferPool) freeBuffer(buf *bytes.Buffer) {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 

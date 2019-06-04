@@ -32,6 +32,7 @@ func newFlowMeterItem(code int64) *FlowMeterItem {
 	return item
 }
 
+// FlowMeter network dataflow statistics by protocal code
 type FlowMeter struct {
 	name      string
 	sendItems map[int64]*FlowMeterItem
