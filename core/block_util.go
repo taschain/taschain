@@ -31,6 +31,8 @@ var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba560957263
 	"0x5d9b2132ec1d2011f488648a8dc24f9b29ca40933ca89d8d19367280dff59a03", "0x5afb7e2617f1dd729ea3557096021e2f4eaa1a9c8fe48d8132b1f6cf13338a8f",
 	"0x30c049d276610da3355f6c11de8623ec6b40fd2a73bb5d647df2ae83c30244bc", "0xa2b7bc555ca535745a7a9c55f9face88fc286a8b316352afc457ffafb40a7478"}
 
+// IsTestTransaction is used for performance testing. We will not check the nonce if a transaction is sent from
+// a testing account.
 func IsTestTransaction(tx *types.Transaction) bool {
 	if tx == nil || tx.Source == nil {
 		return false

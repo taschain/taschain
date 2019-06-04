@@ -119,6 +119,8 @@ type groupSyncer struct {
 	logger taslog.Logger
 }
 
+// InitGroupSyncer initialize the groupSyncer. Register the ticker for sending and requesting groups to neighbors timely
+// and also subscribe these events to handle requests from neighbors
 func InitGroupSyncer(gchain *GroupChain, bchain *FullBlockChain) {
 	gs := &groupSyncer{
 		gchain:        gchain,

@@ -26,6 +26,7 @@ import (
 	"math/big"
 )
 
+// Height of chain
 func (chain *FullBlockChain) Height() uint64 {
 	if nil == chain.latestBlock {
 		return math.MaxUint64
@@ -33,6 +34,7 @@ func (chain *FullBlockChain) Height() uint64 {
 	return chain.QueryTopBlock().Height
 }
 
+// TotalQN of chain
 func (chain *FullBlockChain) TotalQN() uint64 {
 	if nil == chain.latestBlock {
 		return 0
@@ -82,6 +84,7 @@ func (chain *FullBlockChain) QueryTopBlock() *types.BlockHeader {
 	return chain.getLatestBlock()
 }
 
+// HasBlock returns whether the chain has a block with specific hash
 func (chain *FullBlockChain) HasBlock(hash common.Hash) bool {
 	if b := chain.getTopBlockByHash(hash); b != nil {
 		return true
@@ -89,6 +92,7 @@ func (chain *FullBlockChain) HasBlock(hash common.Hash) bool {
 	return chain.hasBlock(hash)
 }
 
+// HasBlock returns whether the chain has a block with specific height
 func (chain *FullBlockChain) HasHeight(height uint64) bool {
 	return chain.hasHeight(height)
 }
@@ -234,6 +238,7 @@ func (chain *FullBlockChain) QueryBlockBytesFloor(height uint64) []byte {
 	return buf.Bytes()
 }
 
+// GetBalance return the balance of specified address
 func (chain *FullBlockChain) GetBalance(address common.Address) *big.Int {
 	if nil == chain.latestStateDB {
 		return nil
@@ -242,6 +247,7 @@ func (chain *FullBlockChain) GetBalance(address common.Address) *big.Int {
 	return chain.latestStateDB.GetBalance(common.BytesToAddress(address.Bytes()))
 }
 
+// GetBalance returns the nonce of specified address
 func (chain *FullBlockChain) GetNonce(address common.Address) uint64 {
 	if nil == chain.latestStateDB {
 		return 0
@@ -249,7 +255,7 @@ func (chain *FullBlockChain) GetNonce(address common.Address) uint64 {
 
 	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
 }
-
+// GetAccountDBByHash returns account database with specified block hash
 func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	chain.rwLock.RLock()
 	defer chain.rwLock.RUnlock()
