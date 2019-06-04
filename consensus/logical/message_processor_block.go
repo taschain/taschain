@@ -32,12 +32,17 @@ func (p *Processor) thresholdPieceVerify(vctx *VerifyContext, slot *SlotContext)
 	p.reserveBlock(vctx, slot)
 }
 
+// verifyCastMessage verifies the message from proposal node
+// Especially, as it takes the previous blockHeader as input, future proposal messages is not processable by the method,
+// which may be triggered at the near future
+// It returns true if and only if the message is legal
 func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *types.BlockHeader) (ok bool, err error) {
 	bh := &msg.BH
 	si := &msg.SI
 	castor := groupsig.DeserializeID(bh.Castor)
 	groupID := groupsig.DeserializeID(bh.GroupID)
 
+	// trigger the cached messages from other members that come ahead of the proposal message
 	defer func() {
 		if ok {
 			go func() {
@@ -52,16 +57,18 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 		}
 	}()
 
+	// if the block already added on chain, then ignore this message
 	if p.blockOnChain(bh.Hash) {
 		err = fmt.Errorf("block onchain already")
 		return
 	}
 
-	expireTime := ExpireTime(bh, preBH)
+	// check expire time, fail fast if expired
+	expireTime := expireTime(bh, preBH)
 	if p.ts.NowAfter(expireTime) {
 		err = fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", groupID.ShortS(), preBH.CurTime, expireTime)
 		return
-	} else if bh.Height > 1 {
+	} else if bh.Height > 1 { // if the message comes early before the time it should begin, then deny it
 		beginTime := expireTime.Add(-int64(model.Param.MaxGroupCastTime + 1))
 		if !p.ts.NowAfter(beginTime) {
 			err = fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
@@ -80,6 +87,8 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 		return
 	}
 
+	// get the verify context for the height
+	// it won't create the context if not exist and just for fail fast
 	vctx := p.blockContexts.getVctxByHeight(bh.Height)
 	if vctx != nil {
 		if vctx.blockSigned(bh.Hash) {
@@ -100,30 +109,33 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	}
 	pk := castorDO.PK
 
+	// check the signature of the proposal
 	if !msg.VerifySign(pk) {
 		err = fmt.Errorf("verify sign fail")
 		return
 	}
 
-	// Is the proposal legal?
+	// check if the blockHeader is legal
 	ok, _, err = p.isCastLegal(bh, preBH)
 	if !ok {
 		return
 	}
 
-	// Verify that the sponsor has a full account
+	// full book verification
 	existHash := p.proveChecker.genProveHash(bh.Height, preBH.Random, p.GetMinerID())
 	if msg.ProveHash != existHash {
 		err = fmt.Errorf("check p rove hash fail, receive hash=%v, exist hash=%v", msg.ProveHash.ShortS(), existHash.ShortS())
 		return
 	}
 
+	// get the verify context for the height, it will create the context if not exists
 	vctx = p.blockContexts.getOrNewVerifyContext(group, bh, preBH)
 	if vctx == nil {
 		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
 		return
 	}
 
+	// prepare the slot for the blockHeader, create if not exists
 	slot, err := vctx.PrepareSlot(bh)
 	if err != nil {
 		return
@@ -136,6 +148,8 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	skey := p.getSignKey(groupID)
 	var cvm model.ConsensusVerifyMessage
 	cvm.BlockHash = bh.Hash
+
+	// sign the message and send to other members in the group
 	if cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm) {
 		cvm.GenRandomSign(skey, vctx.prevBH.Random)
 		p.NetServer.SendVerifiedCast(&cvm, groupID)
@@ -149,11 +163,9 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	return
 }
 
-// Received a block message from the members of the group, and the KING
-// is signed with the component slice key.
-//
-// It is possible that the message was received in advance without receiving
-// OnMessageCurrent (network timing problem)
+// OnMessageCast handles the message from the proposer
+// Note that, if the pre-block of the block present int the message isn't on the blockchain, it will caches the message
+// and trigger it after the pre-block added on chain
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	slog := taslog.NewSlowLog("OnMessageCast", 0.5)
 	bh := &ccm.BH
@@ -212,7 +224,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		return
 	}
 
-	// Check if the current node is in the ingot group
+	// Check if the current node is in the group
 	if !p.IsMinerGroup(groupID) {
 		err = fmt.Errorf("don't belong to group, gid=%v, hash=%v, id=%v", groupID.ShortS(), bh.Hash.ShortS(), p.GetMinerID().ShortS())
 		return
@@ -241,6 +253,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	slog.EndStage()
 
 	slog.AddStage("baseCheck")
+	// Cache the message due to the absence of the pre-block
 	if preBH == nil {
 		p.addFutureVerifyMsg(ccm)
 		err = fmt.Errorf("父块未到达")
@@ -334,8 +347,8 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 	return
 }
 
-// OnMessageVerify received the block verification pass message (member message
-// in the group) of the members in the group
+// OnMessageVerify handles the verification messages from other members in the group for a specified block proposal
+// Note that, it will cache the messages if the corresponding proposal message doesn't come yet and trigger them as long as the condition met
 func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	blockHash := cvm.BlockHash
 	traceLog := newHashTraceLog("OMV", blockHash, cvm.SI.GetID())
@@ -355,27 +368,19 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 		traceLog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, result)
 	}()
 
+	// Cache the message in case of absence of the proposal message
 	vctx := p.blockContexts.getVctxByHash(blockHash)
 	if vctx == nil {
 		err = fmt.Errorf("verify context is nil, cache msg")
 		p.blockContexts.addVerifyMsg(cvm)
 		return
 	}
+
+	// Do the verification work
 	ret, err = p.doVerify(cvm, vctx)
 
 	slot = vctx.GetSlotByHash(blockHash)
 
-	return
-}
-
-// OnMessageBlock received ingot winding message (processing outside the miners node)
-func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
-	return
-}
-
-// OnMessageNewTransactions is new transaction arrival notification (for missing
-// transactions when the minister verifies the message)
-func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
 	return
 }
 
@@ -503,6 +508,9 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 	return
 }
 
+// OnMessageCastRewardSignReq handles bonus transaction signature requests
+// It signs the message if and only if the block of the transaction already added on chain,
+// otherwise the message will be cached util the condition met
 func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
 	mtype := "OMCRSR"
 	blog := newBizLog(mtype)
@@ -524,6 +532,7 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	}()
 
 	// At this point the block is not necessarily on the chain
+	// in case that, the message will be cached
 	slog.AddStage("ChecBlock")
 	bh := p.getBlockHeaderByHash(reward.BlockHash)
 	if bh == nil {
@@ -539,7 +548,8 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	return
 }
 
-// OnMessageCastRewardSign received bonus reward message
+// OnMessageCastRewardSign receives signed messages for the bonus transaction from group members
+// If threshold signature received and the group signature recovered successfully, the node will submit the bonus transaction to the pool
 func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage) {
 	mtype := "OMCRS"
 	blog := newBizLog(mtype)
@@ -559,6 +569,8 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		blog.log("blockHash=%v, send=%v, result=%v", msg.BlockHash.ShortS(), send, err)
 	}()
 
+	// If the block related to the bonus transaction is not on the chain, then drop the messages
+	// This could happened after one fork process
 	bh := p.getBlockHeaderByHash(msg.BlockHash)
 	if bh == nil {
 		err = fmt.Errorf("block not exist, hash=%v", msg.BlockHash.ShortS())
@@ -592,8 +604,11 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		return
 	}
 
+	// Try to add the signature to the group sign generator of the slot related to the block
 	accept, recover := slot.AcceptRewardPiece(&msg.SI)
 	blog.log("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
+
+	// Add the bonus transaction to pool if the signature is accepted and the group signature is recovered
 	if accept && recover && slot.StatusTransform(slRewardSignReq, slRewardSent) {
 		_, err2 := p.MainChain.GetTransactionPool().AddTransaction(slot.rewardTrans)
 		send = true
@@ -604,6 +619,8 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	}
 }
 
+// OnMessageReqProposalBlock handles block body request from the verify group members
+// It only happens in the proposal role and when the group signature generated by the verify-group
 func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourceID string) {
 	blog := newBizLog("OMRPB")
 	blog.log("hash %v", msg.Hash.ShortS())
@@ -625,6 +642,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 		pb.maxResponseCount = uint(math.Ceil(float64(group.GetMemberCount()) / 3))
 	}
 
+	// Only response to limited members of the group in case of network traffic
 	if pb.responseCount >= pb.maxResponseCount {
 
 		blog.log("block proposal response count >= maxResponseCount(%v), not response, hash=%v", pb.maxResponseCount, msg.Hash.ShortS())
@@ -643,6 +661,9 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	p.NetServer.ResponseProposalBlock(m, sourceID)
 }
 
+// OnMessageResponseProposalBlock handles block body response from proposal node
+// It only happens in the verify roles and after block body request to the proposal node
+// It will add the block on chain and then broadcast
 func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock) {
 	blog := newBizLog("OMRSPB")
 	blog.log("hash %v", msg.Hash.ShortS())

@@ -113,7 +113,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	}
 
 	tlog := newHashTraceLog("OMCGR", gh.Hash, msg.SI.GetID())
-	if ok, err := p.groupManager.OnMessageCreateGroupRaw(msg); ok {
+	if ok, err := p.groupManager.onMessageCreateGroupRaw(msg); ok {
 		signMsg := &model.ConsensusCreateGroupSignMessage{
 			Launcher: msg.SI.SignMember,
 			GHash:    gh.Hash,
@@ -128,7 +128,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 		}
 
 	} else {
-		tlog.log("groupManager.OnMessageCreateGroupRaw fail, err:%v", err.Error())
+		tlog.log("groupManager.onMessageCreateGroupRaw fail, err:%v", err.Error())
 	}
 }
 
@@ -158,7 +158,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 	if !msg.VerifySign(mpk) {
 		return
 	}
-	if ok, err := p.groupManager.OnMessageCreateGroupSign(msg); ok {
+	if ok, err := p.groupManager.onMessageCreateGroupSign(msg); ok {
 		gpk := ctx.parentInfo.GroupPK
 		if !groupsig.VerifySig(gpk, msg.SI.DataHash.Bytes(), ctx.gInfo.GI.Signature) {
 			blog.log("Proc(%v) verify group sign fail", p.getPrefix())
@@ -555,7 +555,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 
 	waitIds := make([]string, 0)
 	for _, mem := range initedGroup.gInfo.Mems {
-		if !initedGroup.hasRecived(mem) {
+		if !initedGroup.hasReceived(mem) {
 			waitIds = append(waitIds, mem.ShortS())
 			if len(waitIds) >= 10 {
 				break
@@ -567,11 +567,11 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 
 	switch result {
 	case InitSuccess: // Receive the same message in the group >= threshold, can add on chain
-		staticGroup := NewSGIFromStaticGroupSummary(msg.GroupID, msg.GroupPK, initedGroup)
+		staticGroup := newSGIFromStaticGroupSummary(msg.GroupID, msg.GroupPK, initedGroup)
 		gh := staticGroup.getGroupHeader()
 		blog.debug("SUCCESS accept a new group, gHash=%v, gid=%v, workHeight=%v, dismissHeight=%v.", gHash.ShortS(), msg.GroupID.ShortS(), gh.WorkHeight, gh.DismissHeight)
 
-		p.groupManager.AddGroupOnChain(staticGroup)
+		p.groupManager.addGroupOnChain(staticGroup)
 		p.globalGroups.removeInitedGroup(gHash)
 		p.joiningGroups.Clean(gHash)
 

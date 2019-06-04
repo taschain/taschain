@@ -16,7 +16,7 @@ func (p *Processor) triggerCastCheck() {
 }
 
 func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height uint64) *groupsig.ID {
-	var hash = CalcRandomHash(preBH, height)
+	var hash = calcRandomHash(preBH, height)
 
 	selectGroup, err := p.globalGroups.SelectNextGroupFromCache(hash, height)
 	if err != nil {
@@ -27,7 +27,7 @@ func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height ui
 }
 
 func (p *Processor) CalcVerifyGroupFromChain(preBH *types.BlockHeader, height uint64) *groupsig.ID {
-	var hash = CalcRandomHash(preBH, height)
+	var hash = calcRandomHash(preBH, height)
 
 	selectGroup, err := p.globalGroups.SelectNextGroupFromChain(hash, height)
 	if err != nil {

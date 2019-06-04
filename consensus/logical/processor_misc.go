@@ -46,14 +46,14 @@ func (p *Processor) prepareMiner() {
 			continue
 		}
 		needBreak := false
-		sgi := NewSGIFromCoreGroup(coreGroup)
+		sgi := newSGIFromCoreGroup(coreGroup)
 		if sgi.Dismissed(topHeight) && len(groups) > 100 {
 			needBreak = true
 			genesis := p.GroupChain.GetGroupByHeight(0)
 			if genesis == nil {
 				panic("get genesis group nil")
 			}
-			sgi = NewSGIFromCoreGroup(genesis)
+			sgi = newSGIFromCoreGroup(genesis)
 
 		}
 		groups = append(groups, sgi)

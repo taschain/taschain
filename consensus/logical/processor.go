@@ -100,7 +100,7 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.MainChain = core.BlockChainImpl
 	p.GroupChain = core.GroupChainImpl
 	p.mi = &mi
-	p.globalGroups = NewGlobalGroups(p.GroupChain)
+	p.globalGroups = newGlobalGroups(p.GroupChain)
 	p.joiningGroups = NewJoiningGroups()
 	p.belongGroups = NewBelongGroups(p.genBelongGroupStoreFile(), p.getEncryptPrivateKey())
 	p.blockContexts = newCastBlockContexts(p.MainChain)
@@ -111,7 +111,7 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
 	pkPoolInit(p.minerReader)
 
-	p.groupManager = NewGroupManager(p)
+	p.groupManager = newGroupManager(p)
 	p.Ticker = ticker.NewGlobalTicker("consensus")
 
 	if stdLogger != nil {
@@ -222,10 +222,6 @@ func (p Processor) getGroupPubKey(gid groupsig.ID) groupsig.Pubkey {
 		return g.GetPubKey()
 	}
 
-}
-
-func (p *Processor) ExistInGroup(gHash common.Hash) bool {
-	return false
 }
 
 func (p *Processor) getEncryptPrivateKey() common.PrivateKey {
