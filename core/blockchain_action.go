@@ -186,7 +186,7 @@ func (chain *FullBlockChain) processFutureBlock(b *types.Block, source string) {
 		Logger.Warnf("detect fork. hash=%v, height=%v, preHash=%v, topHash=%v, topHeight=%v, topPreHash=%v", bh.Hash.Hex(), bh.Height, bh.PreHash.Hex(), top.Hash.Hex(), top.Height, top.PreHash.Hex())
 		go chain.forkProcessor.tryToProcessFork(source, b)
 	} else { //
-		go BlockSyncer.syncFrom(source)
+		go blockSync.syncFrom(source)
 	}
 }
 
@@ -353,6 +353,7 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
 		ret = types.AddBlockFailed
 		err = ErrCommitBlockFail
+		return
 	}
 }
 

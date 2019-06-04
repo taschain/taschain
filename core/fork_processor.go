@@ -36,9 +36,9 @@ const tickerReqPieceBlock = "req_chain_piece_block"
 
 type forkSyncContext struct {
 	target       string
-	targetTop    *TopBlockInfo
+	targetTop    *topBlockInfo
 	lastReqPiece *ChainPieceReq
-	localTop     *TopBlockInfo
+	localTop     *topBlockInfo
 }
 
 func (fctx *forkSyncContext) getLastHash() common.Hash {
@@ -79,8 +79,8 @@ func initForkProcessor(chain *FullBlockChain) *forkProcessor {
 	return &fh
 }
 
-func (fp *forkProcessor) targetTop(id string, bh *types.BlockHeader) *TopBlockInfo {
-	targetTop := BlockSyncer.getPeerTopBlock(id)
+func (fp *forkProcessor) targetTop(id string, bh *types.BlockHeader) *topBlockInfo {
+	targetTop := blockSync.getPeerTopBlock(id)
 	tb := newTopBlockInfo(bh)
 	if targetTop != nil && targetTop.MoreWeight(&tb.BlockWeight) {
 		return targetTop
@@ -123,7 +123,7 @@ func (fp *forkProcessor) getLocalPieceInfo(topHash common.Hash) []common.Hash {
 }
 
 func (fp *forkProcessor) tryToProcessFork(targetNode string, b *types.Block) {
-	if BlockSyncer == nil {
+	if blockSync == nil {
 		return
 	}
 	if targetNode == "" {
@@ -357,7 +357,7 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 			})
 			//如果本地权重仍低于对方权重，则启动同步
 			if fp.chain.compareChainWeight(topHeader) < 0 {
-				go BlockSyncer.trySyncRoutine()
+				go blockSync.trySyncRoutine()
 			}
 		}
 	}
