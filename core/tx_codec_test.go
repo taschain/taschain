@@ -12,11 +12,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/20 下午8:56
-**  Description:
- */
 func genTx(source string, target string) *types.Transaction {
 	var sourceAddr, targetAddr *common.Address
 
@@ -53,7 +48,7 @@ func genBlockHeader() *types.BlockHeader {
 		Height:     rand.Uint64(),
 		ProveValue: []byte{},
 		Castor:     castor.Serialize(),
-		GroupId:    castor.Serialize(),
+		GroupID:    castor.Serialize(),
 		TotalQN:    rand.Uint64(),
 		StateTree:  common.Hash{},
 	}
