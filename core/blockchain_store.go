@@ -8,12 +8,6 @@ import (
 	"github.com/taschain/taschain/utility"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/11 下午1:30
-**  Description:
- */
-
 func (chain *FullBlockChain) saveBlockState(b *types.Block, state *account.AccountDB) error {
 	root, err := state.Commit(true)
 	if err != nil {

@@ -6,12 +6,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/14 下午2:53
-**  Description:
- */
-
 type blockResponseMessage struct {
 	Blocks []*types.Block
 }

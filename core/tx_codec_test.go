@@ -12,11 +12,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/20 下午8:56
-**  Description:
- */
 func genTx(source string, target string) *types.Transaction {
 	var sourceAddr, targetAddr *common.Address
 

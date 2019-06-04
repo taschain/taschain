@@ -6,12 +6,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/25 上午9:46
-**  Description:
- */
-
 type bonusPool struct {
 	bm             *BonusManager
 	pool           *lru.Cache // Is an LRU cache that stores the mapping of transaction hashes to transaction pointer

@@ -12,12 +12,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/11 下午3:15
-**  Description:
- */
-
 type batchAddBlockCallback func(b *types.Block, ret types.AddBlockResult) bool
 
 type executePostState struct {

@@ -6,12 +6,6 @@ import (
 	"testing"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/19 下午2:46
-**  Description:
- */
-
 func TestFullBlockChain_HasBlock(t *testing.T) {
 	initContext4Test()
 	defer clear()

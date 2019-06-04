@@ -16,12 +16,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/20 下午5:02
-**  Description:
- */
-
 const (
 	txNofifyInterval   = 5
 	txNotifyRoutine    = "ts_notify"
