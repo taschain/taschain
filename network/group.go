@@ -246,9 +246,8 @@ func (gm *GroupManager) doRefresh() {
 	}
 }
 
-//SendGroup send custom packets to all connected nodes in the group
-func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer, code uint32) {
-	Logger.Infof("send group, id:%v code:%v", id, code)
+func (gm *GroupManager) groupBroadcast(id string, packet *bytes.Buffer, code uint32) {
+	Logger.Infof("group broadcast, id:%v code:%v", id, code)
 	gm.mutex.RLock()
 	g := gm.groups[id]
 	if g == nil {

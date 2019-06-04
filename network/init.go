@@ -24,7 +24,6 @@ import (
 )
 
 const (
-
 	seedDefaultID = "0x10b94f335f1842befc329f996b9bee0d3f4fe034306842bb301023ca38711779"
 
 	seedDefaultIP = "47.105.51.161"

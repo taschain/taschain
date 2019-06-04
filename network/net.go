@@ -109,8 +109,8 @@ type reply struct {
 
 func genNetID(id NodeID) uint64 {
 	h := fnv.New64a()
-	n,err := h.Write(id[:])
-	if n== 0 || err != nil {
+	n, err := h.Write(id[:])
+	if n == 0 || err != nil {
 		return 0
 	}
 	return uint64(h.Sum64())
@@ -458,7 +458,6 @@ func (nc *NetCore) broadcastRandom(data []byte, code uint32, relayCount int32) {
 	return
 }
 
-
 func (nc *NetCore) groupBroadcast(id string, data []byte, code uint32, broadcast bool, relayCount int32) {
 	dataType := DataType_DataNormal
 	if broadcast {
@@ -529,7 +528,6 @@ func (nc *NetCore) sendToGroupMember(id string, data []byte, code uint32, member
 	}
 	return
 }
-
 
 // OnConnected callback when a peer is connected
 func (nc *NetCore) onConnected(id uint64, session uint32, p2pType uint32) {
@@ -645,11 +643,11 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 	case MessageType_MessageFindnode:
 		err = nc.handleFindNode(msg.(*MsgFindNode), fromID)
 	case MessageType_MessageNeighbors:
-		err =nc.handleNeighbors(msg.(*MsgNeighbors), fromID)
+		err = nc.handleNeighbors(msg.(*MsgNeighbors), fromID)
 	case MessageType_MessageRelayTest:
-		err =nc.handleRelayTest(msg.(*MsgRelay), fromID)
+		err = nc.handleRelayTest(msg.(*MsgRelay), fromID)
 	case MessageType_MessageRelayNode:
-		err =nc.handleRelayNode(msg.(*MsgRelay), fromID)
+		err = nc.handleRelayNode(msg.(*MsgRelay), fromID)
 	case MessageType_MessageData:
 		nc.handleData(msg.(*MsgData), buf.Bytes()[0:packetSize], fromID)
 	default:
@@ -769,13 +767,13 @@ func (nc *NetCore) handlePing(req *MsgPing, fromID NodeID) error {
 	Logger.Debugf("ping from:%v id:%v port:%d", fromID.GetHexString(), ip, port)
 
 	if !nc.handleReply(fromID, MessageType_MessagePing, req) {
-		_,err:=nc.kad.onPingNode(fromID, &from)
+		_, err := nc.kad.onPingNode(fromID, &from)
 		if err != nil {
 			return err
 		}
 	}
 
-	if p!=nil && !p.isPinged {
+	if p != nil && !p.isPinged {
 		netCore.ping(fromID, nil)
 		p.isPinged = true
 	}

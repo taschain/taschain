@@ -37,15 +37,15 @@ const (
 )
 
 var (
-	ErrNil = errors.New("nil transaction")
+	ErrNil  = errors.New("nil transaction")
 	ErrHash = errors.New("invalid transaction hash")
 )
 
 type txPool struct {
-	bonPool  *bonusPool
-	received *simpleContainer
-	asyncAdds *lru.Cache    // Asynchronously added, accelerates validated transaction
-							// when add block on chain, does not participate in the broadcast
+	bonPool   *bonusPool
+	received  *simpleContainer
+	asyncAdds *lru.Cache // Asynchronously added, accelerates validated transaction
+	// when add block on chain, does not participate in the broadcast
 
 	receiptDb          *tasdb.PrefixedDatabase
 	batch              tasdb.Batch
@@ -250,7 +250,7 @@ func (pool *txPool) tryAdd(tx *types.Transaction) (bool, error) {
 	return true, nil
 }
 
-func (pool *txPool) add(tx *types.Transaction) (bool) {
+func (pool *txPool) add(tx *types.Transaction) bool {
 	if tx.Type == types.TransactionTypeBonus {
 		pool.bonPool.add(tx)
 	} else {

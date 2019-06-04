@@ -9,7 +9,7 @@ import (
 type MessageBase struct {
 }
 
-type BlockResponseMessage struct {
+type blockResponseMessage struct {
 	Blocks []*types.Block
 }
 

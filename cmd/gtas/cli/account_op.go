@@ -241,6 +241,7 @@ func (am *AccountManager) Lock(addr string) *Result {
 	aci.Status = statusLocked
 	return opSuccess(nil)
 }
+
 // UnLock unlock the account by address and password
 func (am *AccountManager) UnLock(addr string, password string) *Result {
 	aci, err := am.getAccountInfo(addr)

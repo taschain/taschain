@@ -116,7 +116,7 @@ func (kad *Kad) print() {
 
 func (kad *Kad) seedRand() {
 	var b [8]byte
-	_,err:=crand.Read(b[:])
+	_, err := crand.Read(b[:])
 	if err != nil {
 		return
 	}
@@ -353,7 +353,7 @@ func (kad *Kad) doRefresh(done chan struct{}) {
 
 	for i := 0; i < 3; i++ {
 		var target NodeID
-		_,err:=crand.Read(target[:])
+		_, err := crand.Read(target[:])
 		if err != nil {
 			continue
 		}

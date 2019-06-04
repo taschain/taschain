@@ -134,7 +134,7 @@ type Network interface {
 	ConnInfo() []Conn
 
 	//BuildGroupNet build group network
- 	BuildGroupNet(groupID string, members []string)
+	BuildGroupNet(groupID string, members []string)
 
 	//DissolveGroupNet dissolve group network
 	DissolveGroupNet(groupID string)
