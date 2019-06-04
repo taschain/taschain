@@ -18,23 +18,11 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 )
 
-// getMessage get the result of the rpc interface. If an error occurs, error returns an error message in result
-func getMessage(addr string, port uint, method string, params ...interface{}) (string, error) {
-	res, err := rpcPost(addr, port, method, params...)
-	if err != nil {
-		return "", err
-	}
-	if res.Error != nil {
-		return "", errors.New(res.Error.Message)
-	}
-	return res.Result.Message, nil
-}
 
 // rpcPost provides a general rpc request method
 func rpcPost(addr string, port uint, method string, params ...interface{}) (*RPCResObj, error) {

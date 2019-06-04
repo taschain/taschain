@@ -175,6 +175,8 @@ func (c *Client) nextID() json.RawMessage {
 	return []byte(strconv.FormatUint(uint64(id), 10))
 }
 
+// SupportedModules calls the rpc_modules method, retrieving the list of
+// APIs that are available on the server.
 func (c *Client) SupportedModules() (map[string]string, error) {
 	var result map[string]string
 	ctx, cancel := context.WithTimeout(context.Background(), subscribeTimeout)
@@ -183,6 +185,7 @@ func (c *Client) SupportedModules() (map[string]string, error) {
 	return result, err
 }
 
+// Close closes the client, aborting any in-flight requests.
 func (c *Client) Close() {
 	if c.isHTTP {
 		return
@@ -194,11 +197,21 @@ func (c *Client) Close() {
 	}
 }
 
+// Call performs a JSON-RPC call with the given arguments and unmarshals into
+// result if no error occurred.
+//
+// The result must be a pointer so that package json can unmarshal into it. You
+// can also pass nil, in which case the result is ignored.
 func (c *Client) Call(result interface{}, method string, args ...interface{}) error {
 	ctx := context.Background()
 	return c.CallContext(ctx, result, method, args...)
 }
 
+// CallContext performs a JSON-RPC call with the given arguments. If the context is
+// canceled before the call has successfully returned, CallContext returns immediately.
+//
+// The result must be a pointer so that package json can unmarshal into it. You
+// can also pass nil, in which case the result is ignored.
 func (c *Client) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	msg, err := c.newMessage(method, args...)
 	if err != nil {
@@ -228,11 +241,27 @@ func (c *Client) CallContext(ctx context.Context, result interface{}, method str
 	}
 }
 
+// BatchCall sends all given requests as a single batch and waits for the server
+// to return a response for all of them.
+//
+// In contrast to Call, BatchCall only returns I/O errors. Any error specific to
+// a request is reported through the Error field of the corresponding BatchElem.
+//
+// Note that batch calls may not be executed atomically on the server side.
 func (c *Client) BatchCall(b []BatchElem) error {
 	ctx := context.Background()
 	return c.BatchCallContext(ctx, b)
 }
 
+// BatchCall sends all given requests as a single batch and waits for the server
+// to return a response for all of them. The wait duration is bounded by the
+// context's deadline.
+//
+// In contrast to CallContext, BatchCallContext only returns errors that have occurred
+// while sending the request. Any error specific to a request is reported through the
+// Error field of the corresponding BatchElem.
+//
+// Note that batch calls may not be executed atomically on the server side.
 func (c *Client) BatchCallContext(ctx context.Context, b []BatchElem) error {
 	msgs := make([]*jsonrpcMessage, len(b))
 	op := &requestOp{
@@ -335,6 +364,8 @@ func (c *Client) newMessage(method string, paramsIn ...interface{}) (*jsonrpcMes
 	return &jsonrpcMessage{Version: "2.0", ID: c.nextID(), Method: method, Params: params}, nil
 }
 
+// send registers op with the dispatch loop, then sends msg on the connection.
+// if sending fails, op is deregistered.
 func (c *Client) send(ctx context.Context, op *requestOp, msg interface{}) error {
 	select {
 	case c.requestOp <- op:

@@ -130,6 +130,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	return successResult(transList)
 }
 
+// get transaction by hash
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction := core.BlockChainImpl.GetTransactionByHash(false, true, common.HexToHash(hash))
 	if transaction == nil {
@@ -294,7 +295,7 @@ func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint
 
 	info := core.MinerManagerImpl.GetMinerByID(id, byte(mtype), nil)
 	if info != nil {
-		return failResult("已经申请过该类型矿工")
+		return failResult("you has applied for this type of miner")
 	}
 
 	//address := common.BytesToAddress(minerInfo.ID.Serialize())

@@ -33,7 +33,6 @@ func (ws *wallets) store() {
 	js, err := json.Marshal(ws)
 	if err != nil {
 		log.Println("store wallets error")
-		// TODO 输出log
 	}
 	common.GlobalConf.SetString(Section, "wallets", string(js))
 }
@@ -58,9 +57,6 @@ func (ws *wallets) newWallet() (privKeyStr, walletAddress string) {
 	pub := priv.GetPubKey()
 	address := pub.GetAddress()
 	privKeyStr, walletAddress = pub.Hex(), address.Hex()
-	// 加入本地钱包
-	//*ws = append(*ws, wallet{privKeyStr, walletAddress})
-	//ws.store()
 	return
 }
 
