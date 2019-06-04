@@ -43,24 +43,23 @@ import (
 )
 
 const (
+
 	// Section is default section configuration
 	Section = "gtas"
 	// RemoteHost is default host
 	RemoteHost = "127.0.0.1"
 	// RemotePort is default port
 	RemotePort = 8088
-
+	// ini configuration file instance section
 	instanceSection = "instance"
-
+	// The key below the instance section
 	indexKey = "index"
-
+	// ini configuration file chain section
 	chainSection = "chain"
-
+	// The key below the chain section
 	databaseKey = "database"
-
+	// ini configuration file statistics section
 	statisticsSection = "statistics"
-
-	redisPrefix = "aliyun_"
 )
 
 var walletManager wallets

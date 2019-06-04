@@ -289,7 +289,7 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 
 	gc := p.joiningGroups.GetGroup(gHash)
 	if gc == nil {
-		err = fmt.Errorf("failed, receive SHAREPIECE msg but gc=nil.gHash=%v", gHash.String())
+		err = fmt.Errorf("failed, receive SHAREPIECE msg but gc=nil.gHash=%v", gHash.Hex())
 		return
 	}
 	if gc.gInfo.GroupHash() != gHash {

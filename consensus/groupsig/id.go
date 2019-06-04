@@ -29,23 +29,23 @@ type ID struct {
 	value BnInt
 }
 
-// IsEqual determine if the 2 IDs are the same
+// IsEqual check whether id is equal to rhs
 func (id ID) IsEqual(rhs ID) bool {
 	return id.value.IsEqual(&rhs.value)
 }
 
-// SetBigInt convert big.Int to ID
+// SetBigInt construct a ID with the specified big integer
 func (id *ID) SetBigInt(b *big.Int) error {
 	id.value.SetBigInt(b)
 	return nil
 }
 
-// SetDecimalString convert a decimal string to an ID
+// SetDecimalString construct a ID with the specified decimal string
 func (id *ID) SetDecimalString(s string) error {
 	return id.value.SetDecString(s)
 }
 
-// SetHexString converts the hexadecimal string to ID
+// SetHexString construct a ID with the input hex string
 func (id *ID) SetHexString(s string) error {
 	return id.value.SetHexString(s)
 }
@@ -58,28 +58,26 @@ func (id *ID) SetLittleEndian(buf []byte) error {
 	return id.Deserialize(buf)
 }
 
-// Deserialize convert byte slices to id
+// Deserialize construct a ID with the input byte array
 func (id *ID) Deserialize(b []byte) error {
 	return id.value.Deserialize(b)
 }
 
-// GetBigInt convert the ID to big.int
+// GetBigInt export ID into a big integer
 func (id ID) GetBigInt() *big.Int {
-	x := new(big.Int)
-	x.Set(id.value.GetBigInt())
-	return x
+	return new(big.Int).Set(id.value.GetBigInt())
 }
 
+// IsValid check id is valid
 func (id ID) IsValid() bool {
 	bi := id.GetBigInt()
 	return bi.Cmp(big.NewInt(0)) != 0
 
 }
 
-// GetHexString converts the ID to a hexadecimal string
+// GetHexString export ID into a hex string
 func (id ID) GetHexString() string {
-	bs := id.Serialize()
-	return common.ToHex(bs)
+	return common.ToHex(id.Serialize())
 }
 
 // Serialize convert ID to byte slice (LittleEndian)
@@ -111,14 +109,13 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 }
 
 func (id ID) ShortS() string {
-	str := id.GetHexString()
-	return common.ShortHex12(str)
+	return common.ShortHex12(id.GetHexString())
 }
 
 // NewIDFromBigInt create ID by big.int
 func NewIDFromBigInt(b *big.Int) *ID {
 	id := new(ID)
-	err := id.value.SetDecString(b.Text(10)) //bncurve C库函数
+	err := id.value.SetBigInt(b)
 	if err != nil {
 		log.Printf("NewIDFromBigInt %s\n", err)
 		return nil
@@ -158,10 +155,12 @@ func NewIDFromPubkey(pk Pubkey) *ID {
 
 // NewIDFromString  generate ID by string, incoming string must guarantee discreteness
 func NewIDFromString(s string) *ID {
-	bi := new(big.Int).SetBytes([]byte(s))
+	bi := new(big.Int).SetBytes(common.FromHex(s))
 	return NewIDFromBigInt(bi)
 }
-func DeserializeID(bs []byte) ID {
+
+// DeserializeId construct ID with the input byte array
+func DeserializeId(bs []byte) ID {
 	var id ID
 	if err := id.Deserialize(bs); err != nil {
 		return ID{}
@@ -169,10 +168,7 @@ func DeserializeID(bs []byte) ID {
 	return id
 }
 
-func (id ID) String() string {
-	return id.GetHexString()
-}
-
+// ToAddress convert ID to address
 func (id ID) ToAddress() common.Address {
 	return common.BytesToAddress(id.Serialize())
 }

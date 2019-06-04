@@ -61,19 +61,23 @@ type GroupIterator struct {
 	current *types.Group
 }
 
+// Current returns current group
 func (iterator *GroupIterator) Current() *types.Group {
 	return iterator.current
 }
 
+// MovePre sets pre group as current group and returns it
 func (iterator *GroupIterator) MovePre() *types.Group {
 	iterator.current = GroupChainImpl.GetGroupByID(iterator.current.Header.PreGroup)
 	return iterator.current
 }
 
+// NewIterator returns a new group iterator with chain's last group as current group
 func (chain *GroupChain) NewIterator() *GroupIterator {
 	return &GroupIterator{current: chain.lastGroup}
 }
 
+// LastGroup returns chain's last group
 func (chain *GroupChain) LastGroup() *types.Group {
 	return chain.lastGroup
 }
@@ -146,12 +150,15 @@ func build(chain *GroupChain, genesisInfo *types.GenesisInfo) {
 	chain.genesisMembers = mems
 }
 
+// Height returns chain's group height
 func (chain *GroupChain) Height() uint64 {
 	if chain.lastGroup == nil {
 		return 0
 	}
 	return chain.lastGroup.GroupHeight
 }
+
+// Close the group level db file
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
 }

@@ -33,9 +33,7 @@ import (
 
 const (
 	blockStatusKey = "bcurrent"
-
-	configSec     = "chain"
-	wantedTxsSize = txCountPerBlock
+	configSec      = "chain"
 )
 
 var (
@@ -51,25 +49,24 @@ var Logger taslog.Logger
 
 var consensusLogger taslog.Logger
 
+// BlockChainConfig contains the configuration values of leveldb prefix string
 type BlockChainConfig struct {
-	dbfile string
-	block  string
-
+	dbfile      string
+	block       string
 	blockHeight string
-
-	state string
-
-	bonus string
-
-	tx      string
-	receipt string
+	state       string
+	bonus       string
+	tx          string
+	receipt     string
 }
 
+
+// FullBlockChain manages chain imports, reverts, chain reorganisations.
 type FullBlockChain struct {
 	blocks      *tasdb.PrefixedDatabase
 	blockHeight *tasdb.PrefixedDatabase
-	txdb        *tasdb.PrefixedDatabase
-	statedb     *tasdb.PrefixedDatabase
+	txDb        *tasdb.PrefixedDatabase
+	stateDb     *tasdb.PrefixedDatabase
 	batch       tasdb.Batch
 
 	stateCache account.AccountDatabase
@@ -93,7 +90,7 @@ type FullBlockChain struct {
 	futureBlocks   *lru.Cache
 	verifiedBlocks *lru.Cache
 
-	isAdujsting bool // IsAdujsting which means there may be a fork
+	isAdjusting bool // isAdjusting which means there may be a fork
 
 	consensusHelper types.ConsensusHelper
 
@@ -102,7 +99,7 @@ type FullBlockChain struct {
 	forkProcessor *forkProcessor
 	config        *BlockChainConfig
 
-	ticker *ticker.GlobalTicker //Ticker is a global time ticker
+	ticker *ticker.GlobalTicker // Ticker is a global time ticker
 	ts     time2.TimeService
 }
 
@@ -130,7 +127,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		config:          getBlockChainConfig(),
 		latestBlock:     nil,
 		init:            true,
-		isAdujsting:     false,
+		isAdjusting:     false,
 		consensusHelper: helper,
 		ticker:          ticker.NewGlobalTicker("chain"),
 		ts:              time2.TSInstance,
@@ -160,12 +157,12 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
-	chain.txdb, err = ds.NewPrefixDatabase(chain.config.tx)
+	chain.txDb, err = ds.NewPrefixDatabase(chain.config.tx)
 	if err != nil {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
-	chain.statedb, err = ds.NewPrefixDatabase(chain.config.state)
+	chain.stateDb, err = ds.NewPrefixDatabase(chain.config.state)
 	if err != nil {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
@@ -180,7 +177,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.batch = chain.blocks.CreateLDBBatch()
 	chain.transactionPool = NewTransactionPool(chain, receiptdb)
 
-	chain.stateCache = account.NewDatabase(chain.statedb)
+	chain.stateCache = account.NewDatabase(chain.stateDb)
 
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain.ticker)
@@ -224,7 +221,7 @@ func (chain *FullBlockChain) buildCache(size int) {
 }
 
 // insertGenesisBlock creates the genesis block and some necessary information，
-// and commitit
+// and commit it
 func (chain *FullBlockChain) insertGenesisBlock() {
 	stateDB, err := account.NewAccountDB(common.Hash{}, chain.stateCache)
 	if nil != err {
@@ -271,17 +268,9 @@ func (chain *FullBlockChain) insertGenesisBlock() {
 	Logger.Debugf("GenesisBlock %+v", block.Header)
 }
 
-// Clear clear blockchain all data
+// Clear clear blockchain all data. Not used now, should remove it latter
 func (chain *FullBlockChain) Clear() error {
 	return nil
-}
-
-func Clear() {
-	path := tasdb.DefaultFile
-	if nil != common.GlobalConf {
-		path = common.GlobalConf.GetString(configSec, "database", tasdb.DefaultFile)
-	}
-	os.RemoveAll(path)
 }
 
 func (chain *FullBlockChain) versionValidate() bool {
@@ -307,14 +296,11 @@ func (chain *FullBlockChain) compareBlockWeight(bh1 *types.BlockHeader, bh2 *typ
 	return bw1.Cmp(bw2)
 }
 
+// Close the open levelDb files
 func (chain *FullBlockChain) Close() {
 	chain.blocks.Close()
 	chain.blockHeight.Close()
-	chain.statedb.Close()
-}
-
-func (chain *FullBlockChain) AddBonusTrasanction(transaction *types.Transaction) {
-	chain.GetTransactionPool().AddTransaction(transaction)
+	chain.stateDb.Close()
 }
 
 func (chain *FullBlockChain) GetBonusManager() *BonusManager {
@@ -325,12 +311,14 @@ func (chain *FullBlockChain) GetConsensusHelper() types.ConsensusHelper {
 	return chain.consensusHelper
 }
 
+// ResetTop reset the current top block with parameter bh
 func (chain *FullBlockChain) ResetTop(bh *types.BlockHeader) {
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
 	chain.resetTop(bh)
 }
 
+// Only used in a debug file, should be removed later
 func (chain *FullBlockChain) Remove(block *types.Block) bool {
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
@@ -346,6 +334,7 @@ func (chain *FullBlockChain) getLatestBlock() *types.BlockHeader {
 	return result
 }
 
+// Version of chain Id
 func (chain *FullBlockChain) Version() int {
 	return common.ChainDataVersion
 }

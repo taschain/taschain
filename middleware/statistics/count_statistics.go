@@ -56,8 +56,11 @@ func printAndRefresh() {
 	countMap.Range(func(name, item interface{}) bool {
 		citem := item.(*countItem)
 		content := citem.print()
-		logger.Infof("%s%s\n", name, content)
-		//fmt.Printf("%s%s\n", name, content)
+		if logger != nil {
+			logger.Infof("%s%s\n", name, content)
+		} else {
+			fmt.Printf("%s%s\n", name, content)
+		}
 		return true
 	})
 }

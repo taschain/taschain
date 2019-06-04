@@ -134,6 +134,6 @@ func (bpm *peerManager) updateReqBlockCnt(id string, increase bool) {
 	pm.updateReqCnt(increase)
 }
 
-func (bpm *peerManager) addPeerTopInfo(id string, top *TopBlockInfo) {
+func (bpm *peerManager) addPeerTopInfo(id string, top *topBlockInfo) {
 
 }

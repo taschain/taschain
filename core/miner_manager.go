@@ -104,6 +104,7 @@ func (mm *MinerManager) GetMinerByID(id []byte, ttype byte, accountdb vm.Account
 	return nil
 }
 
+// GetTotalStake returns the chain's total staked value when the specific block height
 func (mm *MinerManager) GetTotalStake(height uint64) uint64 {
 	accountDB, err := BlockChainImpl.GetAccountDBByHeight(height)
 	if err != nil {
@@ -131,6 +132,7 @@ func (mm *MinerManager) GetTotalStake(height uint64) uint64 {
 	return total
 }
 
+// GetHeavyMiners returns all heavy miners
 func (mm *MinerManager) GetHeavyMiners() []string {
 	mm.lock.RLock()
 	defer mm.lock.RUnlock()
@@ -177,8 +179,8 @@ func (mm *MinerManager) buildVirtualNetRoutine() bool {
 		array := make([]string, 0)
 		for iterator.Next() {
 			miner, _ := iterator.Current()
-			gid := groupsig.DeserializeID(miner.ID)
-			array = append(array, gid.String())
+			gid := groupsig.DeserializeId(miner.ID)
+			array = append(array, gid.GetHexString())
 		}
 		mm.heavyMiners = array
 		network.GetNetInstance().BuildGroupNet(network.FullNodeVirtualGroupID, array)
@@ -206,10 +208,9 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 		return -1
 	}
 	if miner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
-		miner.Status = types.MinerStatusAbort
-	} else {
-		mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
+		return -1
 	}
+	mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
 	data, _ := msgpack.Marshal(miner)
 	accountdb.SetData(db, string(id), data)
 	if miner.Type == types.MinerTypeHeavy {
@@ -218,29 +219,31 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	return 1
 }
 
-func (mm *MinerManager) activateMiner(miner *types.Miner, accountdb vm.AccountDB) {
+func (mm *MinerManager) activateAndAddStakeMiner(miner *types.Miner, accountdb vm.AccountDB, height uint64) bool {
 	db := mm.getMinerDatabase(miner.Type)
 	minerData := accountdb.GetData(db, string(miner.ID))
 	if minerData == nil || len(minerData) == 0 {
-		return
+		return false
 	}
 	var dbMiner types.Miner
 	err := msgpack.Unmarshal(minerData, &dbMiner)
 	if err != nil {
 		Logger.Errorf("activateMiner: Unmarshal %d error, ", miner.ID)
-		return
+		return false
 	}
-	if dbMiner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
-		return
+	miner.Stake = dbMiner.Stake + miner.Stake
+	if miner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
+		return false
 	}
-	miner.Stake = dbMiner.Stake
 	miner.Status = types.MinerStatusNormal
+	miner.ApplyHeight = height
 	data, _ := msgpack.Marshal(miner)
 	accountdb.SetData(db, string(miner.ID), data)
 	if miner.Type == types.MinerTypeHeavy {
 		mm.hasNewHeavyMiner = true
 	}
 	mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
+	return true
 }
 
 func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.AccountDB) {
@@ -253,7 +256,7 @@ func (mm *MinerManager) addGenesesMiner(miners []*types.Miner, accountdb vm.Acco
 			data, _ := msgpack.Marshal(miner)
 			accountdb.SetData(dbh, string(miner.ID), data)
 			mm.AddStakeDetail(miner.ID, miner, miner.Stake, accountdb)
-			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeID(miner.ID).String())
+			mm.heavyMiners = append(mm.heavyMiners, groupsig.DeserializeId(miner.ID).GetHexString())
 			mm.updateMinerCount(types.MinerTypeHeavy, minerCountIncrease, accountdb)
 		}
 		if accountdb.GetData(dbl, string(miner.ID)) == nil {
@@ -342,6 +345,7 @@ func (mm *MinerManager) getDetailDBKey(from []byte, minerAddr []byte, _type byte
 	return key
 }
 
+// AddStakeDetail adds the stake detail information into database
 func (mm *MinerManager) AddStakeDetail(from []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB) bool {
 	dbAddr := mm.getMinerStakeDetailDatabase()
 	key := mm.getDetailDBKey(from, miner.ID, miner.Type, Staked)
@@ -362,6 +366,7 @@ func (mm *MinerManager) AddStakeDetail(from []byte, miner *types.Miner, amount u
 	return true
 }
 
+// CancelStake cancels the stake value and update the database
 func (mm *MinerManager) CancelStake(from []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB, height uint64) bool {
 	dbAddr := mm.getMinerStakeDetailDatabase()
 	key := mm.getDetailDBKey(from, miner.ID, miner.Type, Staked)
@@ -382,7 +387,6 @@ func (mm *MinerManager) CancelStake(from []byte, miner *types.Miner, amount uint
 	newStake = preStake - amount
 	newFrozen = preFrozen + amount
 	if preStake < amount || newFrozen < preFrozen {
-		//preStake: 200000000000, preFrozen: 0, newStake: 18446743973709551616, newFrozen: 300000000000
 		Logger.Debugf("MinerManager.CancelStake return false(overflow or not enough staked: preStake: %d, "+
 			"preFrozen: %d, newStake: %d, newFrozen: %d)", preStake, preFrozen, newStake, newFrozen)
 		return false
@@ -399,6 +403,8 @@ func (mm *MinerManager) CancelStake(from []byte, miner *types.Miner, amount uint
 	return true
 }
 
+// GetLatestCancelStakeHeight returns the block height of the property owner cancel the pledge stake for a miner or
+// a validator. The owner can refund the stake after several blocks later after cancel stake
 func (mm MinerManager) GetLatestCancelStakeHeight(from []byte, miner *types.Miner, accountdb vm.AccountDB) uint64 {
 	dbAddr := mm.getMinerStakeDetailDatabase()
 	frozenKey := mm.getDetailDBKey(from, miner.ID, miner.Type, StakeFrozen)
@@ -409,6 +415,7 @@ func (mm MinerManager) GetLatestCancelStakeHeight(from []byte, miner *types.Mine
 	return common.ByteToUint64(frozenData[8:])
 }
 
+// RefundStake refund the property which was be pledged for a miner or a validator
 func (mm *MinerManager) RefundStake(from []byte, miner *types.Miner, accountdb vm.AccountDB) (uint64, bool) {
 	dbAddr := mm.getMinerStakeDetailDatabase()
 	frozenKey := mm.getDetailDBKey(from, miner.ID, miner.Type, StakeFrozen)
@@ -422,6 +429,7 @@ func (mm *MinerManager) RefundStake(from []byte, miner *types.Miner, accountdb v
 	return preFrozen, true
 }
 
+// AddStake adds the stake information into database
 func (mm *MinerManager) AddStake(id []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB) bool {
 	Logger.Debugf("Miner manager addStake, minerid: %d", miner.ID)
 	db := mm.getMinerDatabase(miner.Type)
@@ -441,6 +449,7 @@ func (mm *MinerManager) AddStake(id []byte, miner *types.Miner, amount uint64, a
 	return true
 }
 
+// ReduceStake reduce the stake value and update the database.
 func (mm *MinerManager) ReduceStake(id []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB, height uint64) bool {
 	Logger.Debugf("Miner manager reduceStake, minerid: %d", miner.ID)
 	db := mm.getMinerDatabase(miner.Type)
@@ -456,6 +465,7 @@ func (mm *MinerManager) ReduceStake(id []byte, miner *types.Miner, amount uint64
 			return false
 		}
 		miner.Status = types.MinerStatusAbort
+		miner.AbortHeight = height
 		mm.updateMinerCount(miner.Type, minerCountDecrease, accountdb)
 	}
 	data, _ := msgpack.Marshal(miner)
@@ -463,6 +473,8 @@ func (mm *MinerManager) ReduceStake(id []byte, miner *types.Miner, amount uint64
 	return true
 }
 
+// Transaction2MinerParams parses a transaction's data field and try to found out the information of miner stake or
+// miner cancel stake or miner refund
 func (mm *MinerManager) Transaction2MinerParams(tx *types.Transaction) (_type byte, id []byte, value uint64) {
 	data := common.FromHex(string(tx.Data))
 	if len(data) == 0 {
@@ -501,6 +513,7 @@ func (mi *MinerIterator) Next() bool {
 	return mi.iterator.Next()
 }
 
+// Transaction2Miner parses a transcation and try to found out the information of miner apply
 func (mm *MinerManager) Transaction2Miner(tx *types.Transaction) *types.Miner {
 	data := common.FromHex(string(tx.Data))
 	var miner types.Miner

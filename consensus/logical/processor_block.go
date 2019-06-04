@@ -81,7 +81,7 @@ func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
 	result = int8(p.MainChain.AddBlockOnChain("", block))
 
 	rlog.log("height=%v, hash=%v, result=%v.", bh.Height, bh.Hash.ShortS(), result)
-	castor := groupsig.DeserializeID(bh.Castor)
+	castor := groupsig.DeserializeId(bh.Castor)
 	tlog := newHashTraceLog("doAddOnChain", bh.Hash, castor)
 	tlog.log("result=%v,castor=%v", result, castor.ShortS())
 
@@ -183,7 +183,7 @@ func (p *Processor) VerifyBlockHeader(bh *types.BlockHeader) (ok bool, err error
 		return
 	}
 
-	gid := groupsig.DeserializeID(bh.GroupID)
+	gid := groupsig.DeserializeId(bh.GroupID)
 	gpk := p.getGroupPubKey(gid)
 	sig := groupsig.DeserializeSign(bh.Signature)
 	b := groupsig.VerifySig(gpk, bh.Hash.Bytes(), *sig)
@@ -201,7 +201,7 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 	}
 	mems := make([]groupsig.ID, len(g.Members))
 	for idx, mem := range g.Members {
-		mems[idx] = groupsig.DeserializeID(mem)
+		mems[idx] = groupsig.DeserializeId(mem)
 	}
 	gInfo := &model.ConsensusGroupInitInfo{
 		GI: model.ConsensusGroupInitSummary{

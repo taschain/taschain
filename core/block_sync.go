@@ -30,10 +30,10 @@ import (
 )
 
 const (
-	sendLocalTopInterval       = 3
-	syncNeightborsInterval     = 3
-	syncNeightborTimeout       = 5
-	blockSyncCandidatePoolSize = 100
+	sendLocalTopInterval       = 3   // Interval of sending local top block to neighbor
+	syncNeightborsInterval     = 3   // Interval of requesting synchronize block from neighbor
+	syncNeightborTimeout       = 5   // Timeout of requesting synchronize block from neighbor
+	blockSyncCandidatePoolSize = 100 // Size of candidate peer pool for block synchronize
 )
 
 const (
@@ -42,12 +42,12 @@ const (
 	tickerSyncTimeout  = "sync_timeout"
 )
 
-var BlockSyncer *blockSyncer
+var blockSync *blockSyncer
 
 type blockSyncer struct {
 	chain *FullBlockChain
 
-	candidatePool map[string]*TopBlockInfo
+	candidatePool map[string]*topBlockInfo
 	syncingPeers  map[string]uint64
 
 	ticker *ticker.GlobalTicker
@@ -56,7 +56,7 @@ type blockSyncer struct {
 	logger taslog.Logger
 }
 
-type TopBlockInfo struct {
+type topBlockInfo struct {
 	types.BlockWeight
 	Hash   common.Hash
 	Height uint64
@@ -65,17 +65,19 @@ type TopBlockInfo struct {
 var maxInt194, _ = new(big.Int).SetString("2ffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 var float194 = new(big.Float).SetInt(maxInt194)
 
-func newTopBlockInfo(topBH *types.BlockHeader) *TopBlockInfo {
-	return &TopBlockInfo{
+func newTopBlockInfo(topBH *types.BlockHeader) *topBlockInfo {
+	return &topBlockInfo{
 		BlockWeight: *types.NewBlockWeight(topBH),
 		Hash:        topBH.Hash,
 		Height:      topBH.Height,
 	}
 }
 
+// InitBlockSyncer initialize the blockSyncer. Register the ticker for sending and requesting blocks to neighbors timely
+// and also subscribe these events to handle requests from neighbors
 func InitBlockSyncer(chain *FullBlockChain) {
 	bs := &blockSyncer{
-		candidatePool: make(map[string]*TopBlockInfo),
+		candidatePool: make(map[string]*topBlockInfo),
 		chain:         chain,
 		syncingPeers:  make(map[string]uint64),
 	}
@@ -91,7 +93,7 @@ func InitBlockSyncer(chain *FullBlockChain) {
 	notify.BUS.Subscribe(notify.BlockReq, bs.blockReqHandler)
 	notify.BUS.Subscribe(notify.BlockResponse, bs.blockResponseMsgHandler)
 
-	BlockSyncer = bs
+	blockSync = bs
 
 }
 
@@ -119,7 +121,7 @@ func (bs *blockSyncer) isSyncing() bool {
 	return candTop.Height > localHeight+50
 }
 
-func (bs *blockSyncer) getBestCandidate(candidateID string) (string, *TopBlockInfo) {
+func (bs *blockSyncer) getBestCandidate(candidateID string) (string, *topBlockInfo) {
 	if candidateID == "" {
 		for id := range bs.candidatePool {
 			if PeerManager.isEvil(id) {
@@ -130,7 +132,7 @@ func (bs *blockSyncer) getBestCandidate(candidateID string) (string, *TopBlockIn
 		if len(bs.candidatePool) == 0 {
 			return "", nil
 		}
-		var maxWeightBlock *TopBlockInfo
+		var maxWeightBlock *topBlockInfo
 
 		for id, top := range bs.candidatePool {
 			if maxWeightBlock == nil || top.MoreWeight(&maxWeightBlock.BlockWeight) {
@@ -148,7 +150,7 @@ func (bs *blockSyncer) getBestCandidate(candidateID string) (string, *TopBlockIn
 	return candidateID, maxTop
 }
 
-func (bs *blockSyncer) getPeerTopBlock(id string) *TopBlockInfo {
+func (bs *blockSyncer) getPeerTopBlock(id string) *topBlockInfo {
 	bs.lock.RLock()
 	defer bs.lock.RUnlock()
 	tb, ok := bs.candidatePool[id]
@@ -165,11 +167,11 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 	topBH := bs.chain.QueryTopBlock()
 	localTopBlock := newTopBlockInfo(topBH)
 
-	if bs.chain.IsAdujsting() {
+	if bs.chain.IsAdjusting() {
 		bs.logger.Debugf("chain is adjusting, won't sync")
 		return false
 	}
-	bs.logger.Debugf("Local Weight:%v, height:%d,topHash:%s", localTopBlock.BlockWeight.String(), localTopBlock.Height, localTopBlock.Hash.String())
+	bs.logger.Debugf("Local Weight:%v, height:%d,topHash:%s", localTopBlock.BlockWeight.String(), localTopBlock.Height, localTopBlock.Hash.Hex())
 
 	bs.lock.Lock()
 	defer bs.lock.Unlock()
@@ -179,14 +181,14 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 		bs.logger.Debugf("Get no candidate for sync!")
 		return false
 	}
-	bs.logger.Debugf("candidate info: id %v, top %v %v %v", candidate, candidateTop.Hash.String(), candidateTop.Height, candidateTop.TotalQN)
+	bs.logger.Debugf("candidate info: id %v, top %v %v %v", candidate, candidateTop.Hash.Hex(), candidateTop.Height, candidateTop.TotalQN)
 
 	if localTopBlock.MoreWeight(&candidateTop.BlockWeight) {
-		bs.logger.Debugf("local top more weight: local:%v %v %v, candidate: %v %v %v", localTopBlock.Height, localTopBlock.Hash.String(), localTopBlock.BlockWeight, candidateTop.Height, candidateTop.Hash.String(), candidateTop.BlockWeight)
+		bs.logger.Debugf("local top more weight: local:%v %v %v, candidate: %v %v %v", localTopBlock.Height, localTopBlock.Hash.Hex(), localTopBlock.BlockWeight, candidateTop.Height, candidateTop.Hash.Hex(), candidateTop.BlockWeight)
 		return false
 	}
 	if bs.chain.HasBlock(candidateTop.Hash) {
-		bs.logger.Debugf("local has block %v, won't sync", candidateTop.Hash.String())
+		bs.logger.Debugf("local has block %v, won't sync", candidateTop.Hash.Hex())
 		return false
 	}
 	beginHeight := uint64(0)
@@ -258,7 +260,7 @@ func (bs *blockSyncer) notifyLocalTopBlockRoutine() bool {
 	}
 	topBlockInfo := newTopBlockInfo(top)
 
-	bs.logger.Debugf("Send local %d,%v to neighbor!", top.TotalQN, top.Hash.String())
+	bs.logger.Debugf("Send local %d,%v to neighbor!", top.TotalQN, top.Hash.Hex())
 	body, e := marshalTopBlockInfo(topBlockInfo)
 	if e != nil {
 		bs.logger.Errorf("marshal blockInfo error:%s", e.Error())
@@ -335,14 +337,14 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 
 		// First compare weights
 		if peerTop != nil && localTop.MoreWeight(&peerTop.BlockWeight) {
-			bs.logger.Debugf("sync block from %v, local top hash %v, height %v, totalQN %v, peerTop hash %v, height %v, totalQN %v", localTop.Hash.String(), localTop.Height, localTop.TotalQN, peerTop.Hash.String(), peerTop.Height, peerTop.TotalQN)
+			bs.logger.Debugf("sync block from %v, local top hash %v, height %v, totalQN %v, peerTop hash %v, height %v, totalQN %v", localTop.Hash.Hex(), localTop.Height, localTop.TotalQN, peerTop.Hash.Hex(), peerTop.Height, peerTop.TotalQN)
 			return
 		}
 
 		allSuccess := true
 
 		bs.chain.batchAddBlockOnChain(source, "sync", blocks, func(b *types.Block, ret types.AddBlockResult) bool {
-			bs.logger.Debugf("sync block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.String(), b.Header.Height, ret)
+			bs.logger.Debugf("sync block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.Hex(), b.Header.Height, ret)
 			if ret == types.AddBlockSucc || ret == types.BlockExisted {
 				return true
 			}
@@ -413,16 +415,16 @@ func marshalBlockMsgResponse(bmr *BlockResponseMessage) ([]byte, error) {
 func (bs *blockSyncer) candidatePoolDump() {
 	bs.logger.Debugf("Candidate Pool Dump:")
 	for id, topBlockInfo := range bs.candidatePool {
-		bs.logger.Debugf("Candidate id:%s,totalQn:%d, pv:%v, height:%d,topHash:%s", id, topBlockInfo.TotalQN, topBlockInfo.PV, topBlockInfo.Height, topBlockInfo.Hash.String())
+		bs.logger.Debugf("Candidate id:%s,totalQn:%d, pv:%v, height:%d,topHash:%s", id, topBlockInfo.TotalQN, topBlockInfo.PV, topBlockInfo.Height, topBlockInfo.Hash.Hex())
 	}
 }
 
-func marshalTopBlockInfo(bi *TopBlockInfo) ([]byte, error) {
+func marshalTopBlockInfo(bi *topBlockInfo) ([]byte, error) {
 	blockInfo := tas_middleware_pb.TopBlockInfo{Hash: bi.Hash.Bytes(), TotalQn: &bi.TotalQN, PVBig: bi.PV.Bytes(), Height: &bi.Height}
 	return proto.Marshal(&blockInfo)
 }
 
-func (bs *blockSyncer) unMarshalTopBlockInfo(b []byte) (*TopBlockInfo, error) {
+func (bs *blockSyncer) unMarshalTopBlockInfo(b []byte) (*topBlockInfo, error) {
 	message := new(tas_middleware_pb.TopBlockInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
@@ -434,7 +436,7 @@ func (bs *blockSyncer) unMarshalTopBlockInfo(b []byte) (*TopBlockInfo, error) {
 		TotalQN: *message.TotalQn,
 		PV:      pv,
 	}
-	blockInfo := TopBlockInfo{Hash: common.BytesToHash(message.Hash), BlockWeight: *bw, Height: *message.Height}
+	blockInfo := topBlockInfo{Hash: common.BytesToHash(message.Hash), BlockWeight: *bw, Height: *message.Height}
 	return &blockInfo, nil
 }
 

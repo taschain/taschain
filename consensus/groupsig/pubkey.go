@@ -25,18 +25,19 @@ import (
 	"log"
 )
 
-// Pubkey is the user's public key
+// Pubkey is the user's public key, based BN Curve
 type Pubkey struct {
 	value bncurve.G2
 }
 
 type PubkeyMap map[string]Pubkey
 
+//Check the public key is empty
 func (pub Pubkey) IsEmpty() bool {
 	return pub.value.IsEmpty()
 }
 
-// IsEqual determine whether two public keys are the same
+// IsEqual judge two public key are equal
 func (pub Pubkey) IsEqual(rhs Pubkey) bool {
 	return bytes.Equal(pub.value.Marshal(), rhs.value.Marshal())
 }
@@ -52,11 +53,13 @@ func (pub Pubkey) Serialize() []byte {
 	return pub.value.Marshal()
 }
 
+// MarshalJSON marshal the public key
 func (pub Pubkey) MarshalJSON() ([]byte, error) {
 	str := "\"" + pub.GetHexString() + "\""
 	return []byte(str), nil
 }
 
+// UnmarshalJSON unmarshal the public key
 func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	str := string(data[:])
 	if len(str) < 2 {
@@ -66,11 +69,12 @@ func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	return pub.SetHexString(str)
 }
 
+//Check the public key is valid
 func (pub Pubkey) IsValid() bool {
 	return !pub.IsEmpty()
 }
 
-// GetAddress generates the TAS address by public key
+// GetAddress generate address from the public key
 func (pub Pubkey) GetAddress() common.Address {
 	// Get the SHA3 256-bit hash of the public key
 	h := sha3.Sum256(pub.Serialize())
@@ -83,9 +87,9 @@ func (pub Pubkey) GetHexString() string {
 	return PREFIX + common.Bytes2Hex(pub.value.Marshal())
 }
 
+//Export the public key into a short hex string
 func (pub *Pubkey) ShortS() string {
-	str := pub.GetHexString()
-	return common.ShortHex12(str)
+	return common.ShortHex12(pub.GetHexString())
 }
 
 // SetHexString initializes the public key from the hexadecimal string
@@ -93,10 +97,8 @@ func (pub *Pubkey) SetHexString(s string) error {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return fmt.Errorf("arg failed")
 	}
-	buf := s[len(PREFIX):]
-
-	pub.value.Unmarshal(common.Hex2Bytes(buf))
-	return nil
+	_, err := pub.value.Unmarshal(common.FromHex(s))
+	return err
 }
 
 // NewPubkeyFromSeckey generate the public key from the private key

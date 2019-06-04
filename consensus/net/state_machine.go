@@ -30,15 +30,26 @@ import (
 type stateHandleFunc func(msg interface{})
 
 type stateNode struct {
-	code        uint32
+	//state code, unique in a machine
+	code uint32
+
+	//The minimum number of repetitions that need to occur
+	//in order to transit to the next state
 	leastRepeat int32
-	mostRepeat  int32
-	handler     stateHandleFunc
-	next        *stateNode
+
+	//The maximum number of repetitions that would occur
+	//at the state
+	mostRepeat int32
+
+	//the state transit handler func
+	handler stateHandleFunc
+	next    *stateNode
 
 	currentIdx int32
 	execNum    int32
-	queue      []*StateMsg
+
+	//future state msgs cached in the queue
+	queue []*StateMsg
 }
 
 type StateMsg struct {
@@ -77,6 +88,7 @@ func InitStateMachines() {
 	}
 
 	GroupInsideMachines.startCleanRoutine()
+
 }
 
 func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
@@ -274,7 +286,6 @@ type StateMachineGenerator interface {
 }
 
 type groupInsideMachineGenerator struct{}
-type groupOutsideMachineGenerator struct{}
 
 func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *StateMachine {
 	machine := newStateMachine(id)

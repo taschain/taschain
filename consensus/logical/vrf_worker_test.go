@@ -3,62 +3,79 @@ package logical
 import (
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
-	"math/big"
+	"github.com/taschain/taschain/consensus/groupsig"
+	"github.com/taschain/taschain/consensus/model"
+	"github.com/taschain/taschain/middleware/types"
 	"testing"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/21 下午4:29
-**  Description:
- */
-
-func TestBigInt(t *testing.T) {
-	t.Log(max256, max256.String(), max256.FloatString(10))
+func genMinerDO() *model.SelfMinerDO {
+	addr := "0xed890e78fc5d07e85e66b7926d8370c095570abb5259e346438abd3ea7a56a8a"
+	var id groupsig.ID
+	id.SetHexString(addr)
+	minerDO := model.MinerDO{
+		ID:    id,
+		VrfPK: base.Hex2VRFPublicKey("0x666a589f1bbc74ad4bc24c67c0845bd4e74d83f0e3efa3a4b465bf6e5600871c"),
+		Stake: 100,
+	}
+	miner := &model.SelfMinerDO{
+		MinerDO: minerDO,
+		VrfSK:   base.Hex2VRFPrivateKey("0x7e7707df15aa16256d0c18e9ddd59b36d48759ec5b6404cfb6beceea9a798879666a589f1bbc74ad4bc24c67c0845bd4e74d83f0e3efa3a4b465bf6e5600871c"),
+	}
+	return miner
 }
 
-func TestBigIntDiv(t *testing.T) {
-	a, _ := new(big.Int).SetString("ffffffffffff", 16)
-	b := new(big.Rat).SetInt(a)
-	v := new(big.Rat).Quo(b, max256)
-	t.Log(a, b, max256, v)
-	t.Log(v.FloatString(5))
-
-	a1 := new(big.Rat).SetInt64(10)
-	a2 := new(big.Rat).SetInt64(30)
-	v2 := a1.Quo(a1, a2)
-	t.Log(v2.Float64())
-	t.Log(v2.FloatString(5))
-}
-
-func TestCMP(t *testing.T) {
-	rat := new(big.Rat).SetInt64(1)
-
-	i := 1
-	for i < 1000 {
-		i++
-		v := new(big.Rat).SetFloat64(1.66666666666666666666667)
-		if v.Cmp(rat) > 0 {
-			v = rat
-		}
-		t.Log(v.Quo(v, new(big.Rat).SetFloat64(0.5)), rat)
+func genBlockHeader() *types.BlockHeader {
+	return &types.BlockHeader{
+		Height:  100,
+		Nonce:   2,
+		Random:  common.FromHex("0x194b3d24ddb883a1fd7d3b1e0038ebf9bb739759719eb1093f40e489fdacf6c200"),
+		TotalQN: 1,
 	}
 }
 
+func genBlockHeader2() *types.BlockHeader {
+	return &types.BlockHeader{
+		ProveValue: common.FromHex("0x03556a119b69e52a6c8f676213e2184c588bc9731ec0ab1ed32a91a9a22155cdeb001fa9a2fd33c8660483f267050f0e72072658f16d485a1586fca736a50a423cbbb181870219af0c2c4fdbbb89832730"),
+		Height:     101,
+		TotalQN:    3,
+	}
+}
+
+func init() {
+	model.Param.MaxQN = 5
+	model.Param.PotentialProposal = 5
+}
+
 func TestProve(t *testing.T) {
-	random := "0x194b3d24ddb883a1fd7d3b1e0038ebf9bb739759719eb1093f40e489fdacf6c200"
-	sk := "0x7e7707df15aa16256d0c18e9ddd59b36d48759ec5b6404cfb6beceea9a798879666a589f1bbc74ad4bc24c67c0845bd4e74d83f0e3efa3a4b465bf6e5600871c"
-	pk := "0x666a589f1bbc74ad4bc24c67c0845bd4e74d83f0e3efa3a4b465bf6e5600871c"
 
-	randomBytes := common.FromHex(random)
-	msg := vrfM(randomBytes, 1)
+	worker := &vrfWorker{
+		miner:      genMinerDO(),
+		baseBH:     genBlockHeader(),
+		castHeight: 101,
+	}
 
-	for i := 0; i < 10; i++ {
-		pi, _ := base.VRF_prove(common.FromHex(pk), common.FromHex(sk), msg)
+	pi, qn, err := worker.Prove(300)
+	t.Log(common.ToHex(pi), qn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pi) != 81 {
+		t.Errorf("size of prove error")
+	}
+	if qn > uint64(model.Param.MaxQN) {
+		t.Errorf("qn error")
+	}
+}
 
-		pbytes := pi.Big().Bytes()
-
-		t.Log(common.ToHex(base.VRF_proof2hash(pi)), common.ToHex(pbytes))
-
+func TestVrfVerifyBlock(t *testing.T) {
+	bh := genBlockHeader2()
+	miner := genMinerDO().MinerDO
+	ok, err := vrfVerifyBlock(bh, genBlockHeader(), &miner, 300)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Errorf("vrf verify block not ok")
 	}
 }

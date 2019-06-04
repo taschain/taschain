@@ -56,7 +56,7 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 		return failResult(err.Error())
 	}
 
-	return successResult(trans.Hash.String())
+	return successResult(trans.Hash.Hex())
 }
 
 // Balance is query balance interface
@@ -120,9 +120,9 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	transList := make([]Transactions, 0, len(transactions))
 	for _, v := range transactions {
 		transList = append(transList, Transactions{
-			Hash:   v.Hash.String(),
-			Source: v.Source.GetHexString(),
-			Target: v.Target.GetHexString(),
+			Hash:   v.Hash.Hex(),
+			Source: v.Source.Hex(),
+			Target: v.Target.Hex(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),
 		})
 	}
@@ -235,11 +235,11 @@ func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
 func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.ID != nil && len(g.ID) != 0 {
-		gmap["group_id"] = groupsig.DeserializeID(g.ID).GetHexString()
-		gmap["g_hash"] = g.Header.Hash.String()
+		gmap["group_id"] = groupsig.DeserializeId(g.ID).GetHexString()
+		gmap["g_hash"] = g.Header.Hash.Hex()
 	}
-	gmap["parent"] = groupsig.DeserializeID(g.Header.Parent).GetHexString()
-	gmap["pre"] = groupsig.DeserializeID(g.Header.PreGroup).GetHexString()
+	gmap["parent"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
+	gmap["pre"] = groupsig.DeserializeId(g.Header.PreGroup).GetHexString()
 	gmap["begin_height"] = g.Header.WorkHeight
 	gmap["dismiss_height"] = g.Header.DismissHeight
 	gmap["create_height"] = g.Header.CreateHeight
@@ -247,7 +247,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["mem_size"] = len(g.Members)
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr := groupsig.DeserializeID(mem).GetHexString()
+		memberStr := groupsig.DeserializeId(mem).GetHexString()
 		mems = append(mems, memberStr[0:6]+"-"+memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
@@ -336,7 +336,7 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	if err != nil {
 		return &Result{Message: err.Error(), Data: nil}, err
 	}
-	return &Result{Message: address.GetHexString(), Data: string(js)}, nil
+	return &Result{Message: address.Hex(), Data: string(js)}, nil
 }
 
 // deprecated
@@ -414,11 +414,11 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	gmap := make(map[string]int32)
 
 	for key, v := range proposerStat {
-		id := groupsig.DeserializeID([]byte(key))
+		id := groupsig.DeserializeId([]byte(key))
 		pmap[id.GetHexString()] = v
 	}
 	for key, v := range groupStat {
-		id := groupsig.DeserializeID([]byte(key))
+		id := groupsig.DeserializeId([]byte(key))
 		gmap[id.GetHexString()] = v
 	}
 	ret := make(map[string]map[string]int32)
@@ -542,14 +542,14 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 
 		mems := make([]string, 0)
 		for _, mem := range g.Members {
-			mems = append(mems, groupsig.DeserializeID(mem).ShortS())
+			mems = append(mems, groupsig.DeserializeId(mem).ShortS())
 		}
 
 		group := &Group{
 			Height:        uint64(b + 1),
-			ID:            groupsig.DeserializeID(g.ID),
-			PreID:         groupsig.DeserializeID(g.Header.PreGroup),
-			ParentID:      groupsig.DeserializeID(g.Header.Parent),
+			ID:            groupsig.DeserializeId(g.ID),
+			PreID:         groupsig.DeserializeId(g.Header.PreGroup),
+			ParentID:      groupsig.DeserializeId(g.Header.Parent),
 			BeginHeight:   g.Header.WorkHeight,
 			DismissHeight: g.Header.DismissHeight,
 			Members:       mems,

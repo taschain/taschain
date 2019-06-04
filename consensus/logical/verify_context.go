@@ -166,7 +166,7 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 	if bh.Height > 1 && !vc.ts.NowAfter(begin) {
 		return fmt.Errorf("block too early: begin %v, now %v", begin, vc.ts.Now())
 	}
-	gid := groupsig.DeserializeID(bh.GroupID)
+	gid := groupsig.DeserializeId(bh.GroupID)
 	if !vc.group.GroupID.IsEqual(gid) {
 		return fmt.Errorf("groupId error:vc-%v, bh-%v", vc.group.GroupID.ShortS(), gid.ShortS())
 	}

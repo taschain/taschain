@@ -10,7 +10,7 @@ func (pool *TxPool) saveReceipt(txHash common.Hash, dataBytes []byte) error {
 	return pool.receiptdb.AddKv(pool.batch, txHash.Bytes(), dataBytes)
 }
 
-func (pool *TxPool) SaveReceipts(bhash common.Hash, receipts types.Receipts) error {
+func (pool *TxPool) saveReceipts(bhash common.Hash, receipts types.Receipts) error {
 	if nil == receipts || 0 == len(receipts) {
 		return nil
 	}
@@ -26,7 +26,7 @@ func (pool *TxPool) SaveReceipts(bhash common.Hash, receipts types.Receipts) err
 	return nil
 }
 
-func (pool *TxPool) DeleteReceipts(txs []common.Hash) error {
+func (pool *TxPool) deleteReceipts(txs []common.Hash) error {
 	if nil == txs || 0 == len(txs) {
 		return nil
 	}
@@ -40,6 +40,7 @@ func (pool *TxPool) DeleteReceipts(txs []common.Hash) error {
 	return nil
 }
 
+// GetTransactionStatus returns the execute result status by hash
 func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	executedTx := pool.loadReceipt(hash)
 	if executedTx == nil {
@@ -67,6 +68,7 @@ func (pool *TxPool) hasReceipt(hash common.Hash) bool {
 	return ok
 }
 
+// GetReceipt returns the transaction's recipe by hash
 func (pool *TxPool) GetReceipt(hash common.Hash) *types.Receipt {
 	rs := pool.loadReceipt(hash)
 	if rs == nil {

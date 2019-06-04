@@ -36,9 +36,9 @@ const tickerReqPieceBlock = "req_chain_piece_block"
 
 type forkSyncContext struct {
 	target       string
-	targetTop    *TopBlockInfo
+	targetTop    *topBlockInfo
 	lastReqPiece *ChainPieceReq
-	localTop     *TopBlockInfo
+	localTop     *topBlockInfo
 }
 
 func (fctx *forkSyncContext) getLastHash() common.Hash {
@@ -77,8 +77,8 @@ func initForkProcessor(chain *FullBlockChain) *forkProcessor {
 	return &fh
 }
 
-func (fp *forkProcessor) targetTop(id string, bh *types.BlockHeader) *TopBlockInfo {
-	targetTop := BlockSyncer.getPeerTopBlock(id)
+func (fp *forkProcessor) targetTop(id string, bh *types.BlockHeader) *topBlockInfo {
+	targetTop := blockSync.getPeerTopBlock(id)
 	tb := newTopBlockInfo(bh)
 	if targetTop != nil && targetTop.MoreWeight(&tb.BlockWeight) {
 		return targetTop
@@ -121,7 +121,7 @@ func (fp *forkProcessor) getLocalPieceInfo(topHash common.Hash) []common.Hash {
 }
 
 func (fp *forkProcessor) tryToProcessFork(targetNode string, b *types.Block) {
-	if BlockSyncer == nil {
+	if blockSync == nil {
 		return
 	}
 	if targetNode == "" {
@@ -343,15 +343,15 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 	} else {
 		ancestorBH := blocks[0].Header
 		if !fp.chain.HasBlock(ancestorBH.Hash) {
-			fp.logger.Errorf("local ancestor block not exist, hash=%v, height=%v", ancestorBH.Hash.String(), ancestorBH.Height)
+			fp.logger.Errorf("local ancestor block not exist, hash=%v, height=%v", ancestorBH.Hash.Hex(), ancestorBH.Height)
 		} else if len(blocks) > 1 {
 			fp.chain.batchAddBlockOnChain(source, "fork", blocks, func(b *types.Block, ret types.AddBlockResult) bool {
-				fp.logger.Debugf("sync fork block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.String(), b.Header.Height, ret)
+				fp.logger.Debugf("sync fork block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.Hex(), b.Header.Height, ret)
 				return ret == types.AddBlockSucc || ret == types.BlockExisted
 			})
 			// Start synchronization if the local weight is still below the weight of the other party
 			if fp.chain.compareChainWeight(topHeader) < 0 {
-				go BlockSyncer.trySyncRoutine()
+				go blockSync.trySyncRoutine()
 			}
 		}
 	}

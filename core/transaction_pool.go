@@ -32,7 +32,8 @@ const (
 	txCountPerBlock = 3000
 	gasLimitMax     = 500000
 
-	txMaxSize = 64000 // Maximum size per transaction
+	// Maximum size per transaction
+	txMaxSize = 64000
 )
 
 var (
@@ -88,20 +89,22 @@ func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase
 
 func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from txSource) (bool, error) {
 	if err := pool.RecoverAndValidateTx(tx); err != nil {
-		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
+		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.Hex(), tx.HexSign())
 		return false, err
 	}
 	b, err := pool.tryAdd(tx)
 	if err != nil {
-		Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.String(), tx.Type, err)
+		Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.Hex(), tx.Type, err)
 	}
 	return b, err
 }
 
+// AddTransaction try to add a transaction into the tool
 func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	return pool.tryAddTransaction(tx, 0)
 }
 
+// AddTransaction try to add a list of transactions into the tool
 func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	if nil == txs || 0 == len(txs) {
 		return
@@ -112,6 +115,7 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	notify.BUS.Publish(notify.TxPoolAddTxs, &TxPoolAddMessage{txs: txs, txSrc: from})
 }
 
+// AddTransaction try to add a list of transactions into the tool asynchronously
 func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
@@ -139,6 +143,7 @@ func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction) {
 	}
 }
 
+// GetTransaction trys to find a transaction from pool by hash and return it
 func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) *types.Transaction {
 	var tx = pool.bonPool.get(hash)
 	if bonus || tx != nil {
@@ -154,23 +159,23 @@ func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) *types.Transact
 	return nil
 }
 
-func (pool *TxPool) Clear() {
-	pool.batch.Reset()
-}
-
+// GetReceived returns the received transactions in the pool with a limited size
 func (pool *TxPool) GetReceived() []*types.Transaction {
 	return pool.received.asSlice(maxTxPoolSize)
 }
 
+// TxNum returns the number of transactions in the pool
 func (pool *TxPool) TxNum() uint64 {
 	return uint64(pool.received.Len() + pool.bonPool.len())
 }
 
+// PackForCast returns a list of transactions for casting a block
 func (pool *TxPool) PackForCast() []*types.Transaction {
 	result := pool.packTx()
 	return result
 }
 
+// RecoverAndValidateTx recovers the sender of the transaction and also validates the transaction
 func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) error {
 	if !tx.Hash.IsValid() {
 		return ErrHash
@@ -307,6 +312,7 @@ func (pool *TxPool) packTx() []*types.Transaction {
 	return txs
 }
 
+// RemoveFromPool removes the transactions from pool by hash
 func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
@@ -315,6 +321,7 @@ func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
 	}
 }
 
+// BackToPool will put the transactions back to pool
 func (pool *TxPool) BackToPool(txs []*types.Transaction) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
@@ -322,7 +329,7 @@ func (pool *TxPool) BackToPool(txs []*types.Transaction) {
 		if txRaw.Type != types.TransactionTypeBonus && txRaw.Source == nil {
 			err := txRaw.RecoverSource()
 			if err != nil {
-				Logger.Errorf("backtopPool recover source fail:tx=%v", txRaw.Hash.String())
+				Logger.Errorf("backtopPool recover source fail:tx=%v", txRaw.Hash.Hex())
 				continue
 			}
 		}
@@ -330,6 +337,7 @@ func (pool *TxPool) BackToPool(txs []*types.Transaction) {
 	}
 }
 
+// GetBonusTxs returns all the bonus transactions in the pool
 func (pool *TxPool) GetBonusTxs() []*types.Transaction {
 	txs := make([]*types.Transaction, 0)
 	pool.bonPool.forEach(func(tx *types.Transaction) bool {

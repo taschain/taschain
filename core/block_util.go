@@ -31,12 +31,14 @@ var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba560957263
 	"0x5d9b2132ec1d2011f488648a8dc24f9b29ca40933ca89d8d19367280dff59a03", "0x5afb7e2617f1dd729ea3557096021e2f4eaa1a9c8fe48d8132b1f6cf13338a8f",
 	"0x30c049d276610da3355f6c11de8623ec6b40fd2a73bb5d647df2ae83c30244bc", "0xa2b7bc555ca535745a7a9c55f9face88fc286a8b316352afc457ffafb40a7478"}
 
+// IsTestTransaction is used for performance testing. We will not check the nonce if a transaction is sent from
+// a testing account.
 func IsTestTransaction(tx *types.Transaction) bool {
 	if tx == nil || tx.Source == nil {
 		return false
 	}
 
-	source := tx.Source.GetHexString()
+	source := tx.Source.Hex()
 	for _, testAccount := range testTxAccount {
 		if source == testAccount {
 			return true
@@ -81,18 +83,18 @@ func calcReceiptsTree(receipts types.Receipts) common.Hash {
 func setupGenesisStateDB(stateDB *account.AccountDB, genesisInfo *types.GenesisInfo) {
 	tenThousandTasBi := big.NewInt(0).SetUint64(common.TAS2RA(10000))
 
-	// Administrator account
-	stateDB.SetBalance(common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"), big.NewInt(0).SetUint64(common.TAS2RA(5000000)))
-	stateDB.SetBalance(common.HexStringToAddress("0xb055a3ffdc9eeb0c5cf0c1f14507a40bdcbff98c03286b47b673c02d2efe727e"), big.NewInt(0).SetUint64(common.TAS2RA(5000000)))
+	//管理员账户
+	stateDB.SetBalance(common.HexToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"), big.NewInt(0).SetUint64(common.TAS2RA(100000000)))
+	stateDB.SetBalance(common.HexToAddress("0xb055a3ffdc9eeb0c5cf0c1f14507a40bdcbff98c03286b47b673c02d2efe727e"), big.NewInt(0).SetUint64(common.TAS2RA(100000000)))
 
-	// Genesis account
+	//创世账户
 	for _, mem := range genesisInfo.Group.Members {
 		addr := common.BytesToAddress(mem)
 		stateDB.SetBalance(addr, tenThousandTasBi)
 	}
 
-	// Script trading account
+	// 交易脚本账户
 	for _, acc := range testTxAccount {
-		stateDB.SetBalance(common.HexStringToAddress(acc), tenThousandTasBi)
+		stateDB.SetBalance(common.HexToAddress(acc), tenThousandTasBi)
 	}
 }

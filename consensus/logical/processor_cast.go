@@ -72,7 +72,7 @@ func (p *Processor) tryNotify(vctx *VerifyContext) bool {
 		tlog := newHashTraceLog("tryNotify", bh.Hash, p.GetMinerID())
 		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, p.ts.Since(bh.CurTime))
 
-		// Winding and out-of-group broadcasting
+		// Add on chain and out-of-group broadcasting
 		p.consensusFinalize(vctx, sc)
 
 		p.blockContexts.removeReservedVctx(vctx.castHeight)
@@ -138,8 +138,7 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	}
 
 	gpk := p.getGroupPubKey(groupsig.DeserializeID(bh.GroupID))
-	// Group signature verification
-	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) {
+	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
 		blog.log("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
 		return

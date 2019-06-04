@@ -25,7 +25,7 @@ func NewNetworkServer() NetworkServer {
 func id2String(ids []groupsig.ID) []string {
 	idStrs := make([]string, len(ids))
 	for idx, id := range ids {
-		idStrs[idx] = id.String()
+		idStrs[idx] = id.GetHexString()
 	}
 	return idStrs
 }
@@ -44,7 +44,7 @@ func (ns *NetworkServerImpl) ReleaseGroupNet(gid string) {
 }
 
 func (ns *NetworkServerImpl) send2Self(self groupsig.ID, m network.Message) {
-	go MessageHandler.Handle(self.String(), m)
+	go MessageHandler.Handle(self.GetHexString(), m)
 }
 
 /*
@@ -62,8 +62,8 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 	m := network.Message{Code: network.GroupInitMsg, Body: body}
 	// The target group has not been built and needs to be sent point to point.
 	for _, mem := range grm.GInfo.Mems {
-		logger.Debugf("%v SendGroupInitMessage gHash %v to %v", grm.SI.GetID().String(), grm.GInfo.GroupHash().Hex(), mem.String())
-		ns.net.Send(mem.String(), m)
+		logger.Debugf("%v SendGroupInitMessage gHash %v to %v", grm.SI.GetID().GetHexString(), grm.GInfo.GroupHash().Hex(), mem.GetHexString())
+		ns.net.Send(mem.GetHexString(), m)
 	}
 }
 
@@ -83,8 +83,8 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	}
 
 	begin := time.Now()
-	go ns.net.SendWithGroupRelay(spm.Dest.String(), spm.GHash.Hex(), m)
-	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, gHash:%v, cost time:%v", spm.Dest.String(), m.Hash(), spm.GHash.Hex(), time.Since(begin))
+	go ns.net.SendWithGroupRelay(spm.Dest.GetHexString(), spm.GHash.Hex(), m)
+	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, gHash:%v, cost time:%v", spm.Dest.GetHexString(), m.Hash(), spm.GHash.Hex(), time.Since(begin))
 }
 
 // SendSignPubKey means group broadcast signature public key
@@ -137,11 +137,11 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gb 
 		message := &tas_middleware_pb.ConsensusCastMessage{Bh: bh, Sign: si, ProveHash: proveHashs[idx].Bytes()}
 		body, err := proto.Marshal(message)
 		if err != nil {
-			logger.Errorf("marshalConsensusCastMessage error:%v %v", err, mem.String())
+			logger.Errorf("marshalConsensusCastMessage error:%v %v", err, mem.GetHexString())
 			continue
 		}
 		m := network.Message{Code: network.CastVerifyMsg, Body: body}
-		go ns.net.Send(mem.String(), m)
+		go ns.net.Send(mem.GetHexString(), m)
 	}
 }
 
@@ -162,7 +162,7 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage,
 	go ns.send2Self(cvm.SI.GetID(), m)
 
 	go ns.net.SpreadAmongGroup(receiver.GetHexString(), m)
-	logger.Debugf("[peer]send VARIFIED_CAST_MSG,hash:%s", cvm.BlockHash.String())
+	logger.Debugf("[peer]send VARIFIED_CAST_MSG,hash:%s", cvm.BlockHash.Hex())
 }
 
 // BroadcastNewBlock means the whole network broadcasts the block
@@ -260,7 +260,7 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	}
 	m := network.Message{Code: network.CreateGroupSign, Body: body}
 
-	go ns.net.SendWithGroupRelay(msg.Launcher.String(), parentGid.GetHexString(), m)
+	go ns.net.SendWithGroupRelay(msg.Launcher.GetHexString(), parentGid.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
@@ -271,7 +271,7 @@ func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSig
 	}
 	m := network.Message{Code: network.CastRewardSignReq, Body: body}
 
-	gid := groupsig.DeserializeID(msg.Reward.GroupID)
+	gid := groupsig.DeserializeId(msg.Reward.GroupID)
 
 	network.Logger.Debugf("send SendCastRewardSignReq to %v", gid.GetHexString())
 
@@ -286,7 +286,7 @@ func (ns *NetworkServerImpl) SendCastRewardSign(msg *model.CastRewardTransSignMe
 	}
 	m := network.Message{Code: network.CastRewardSignGot, Body: body}
 
-	ns.net.SendWithGroupRelay(msg.Launcher.String(), msg.GroupID.GetHexString(), m)
+	ns.net.SendWithGroupRelay(msg.Launcher.GetHexString(), msg.GroupID.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendGroupPingMessage(msg *model.CreateGroupPingMessage, receiver groupsig.ID) {
@@ -297,7 +297,7 @@ func (ns *NetworkServerImpl) SendGroupPingMessage(msg *model.CreateGroupPingMess
 	}
 	m := network.Message{Code: network.GroupPing, Body: body}
 
-	ns.net.Send(receiver.String(), m)
+	ns.net.Send(receiver.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) SendGroupPongMessage(msg *model.CreateGroupPongMessage, group *GroupBrief) {
@@ -321,7 +321,7 @@ func (ns *NetworkServerImpl) ReqSharePiece(msg *model.ReqSharePieceMessage, rece
 	}
 	m := network.Message{Code: network.ReqSharePiece, Body: body}
 
-	ns.net.Send(receiver.String(), m)
+	ns.net.Send(receiver.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMessage, receiver groupsig.ID) {
@@ -332,7 +332,7 @@ func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMes
 	}
 	m := network.Message{Code: network.ResponseSharePiece, Body: body}
 
-	ns.net.Send(receiver.String(), m)
+	ns.net.Send(receiver.GetHexString(), m)
 }
 
 func (ns *NetworkServerImpl) ReqProposalBlock(msg *model.ReqProposalBlock, target string) {
