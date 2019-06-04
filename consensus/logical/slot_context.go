@@ -71,7 +71,7 @@ func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
 	return &SlotContext{
 		BH: bh,
 		//vrfValue:       bh.ProveValue,
-		castor:         groupsig.DeserializeID(bh.Castor),
+		castor:         groupsig.DeserializeId(bh.Castor),
 		slotStatus:     slWaiting,
 		gSignGenerator: model.NewGroupSignGenerator(threshold),
 		rSignGenerator: model.NewGroupSignGenerator(threshold),

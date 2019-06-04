@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -203,21 +218,21 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	//前一组，父亲组是否存在
 	preGroup := gm.groupChain.GetGroupByID(gh.PreGroup)
 	if preGroup == nil {
-		return nil, false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeID(gh.PreGroup).ShortS())
+		return nil, false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeId(gh.PreGroup).ShortS())
 	}
 	parentGroup := gm.groupChain.GetGroupByID(gh.Parent)
 	if parentGroup == nil {
-		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeID(gh.Parent).ShortS())
+		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
 	}
 	sgi, err := gm.selectParentGroup(baseBH, gh.PreGroup)
 	if err != nil {
 		return nil, false, fmt.Errorf("select parent group err %v", err)
 	}
-	pid := groupsig.DeserializeID(parentGroup.ID)
+	pid := groupsig.DeserializeId(parentGroup.ID)
 	if !sgi.GroupID.IsEqual(pid) {
 		return nil, false, fmt.Errorf("select parent group not equal, expect %v, recieve %v", sgi.GroupID.ShortS(), pid.ShortS())
 	}
-	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeID(gh.Parent))
+	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeId(gh.Parent))
 
 	if !groupsig.VerifySig(gpk, gh.Hash.Bytes(), gInfo.GI.Signature) {
 		return nil, false, fmt.Errorf("verify parent sign fail")

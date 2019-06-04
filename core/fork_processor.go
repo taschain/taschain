@@ -349,10 +349,10 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 	} else {
 		ancestorBH := blocks[0].Header
 		if !fp.chain.HasBlock(ancestorBH.Hash) {
-			fp.logger.Errorf("local ancestor block not exist, hash=%v, height=%v", ancestorBH.Hash.String(), ancestorBH.Height)
+			fp.logger.Errorf("local ancestor block not exist, hash=%v, height=%v", ancestorBH.Hash.Hex(), ancestorBH.Height)
 		} else if len(blocks) > 1 {
 			fp.chain.batchAddBlockOnChain(source, "fork", blocks, func(b *types.Block, ret types.AddBlockResult) bool {
-				fp.logger.Debugf("sync fork block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.String(), b.Header.Height, ret)
+				fp.logger.Debugf("sync fork block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.Hex(), b.Header.Height, ret)
 				return ret == types.AddBlockSucc || ret == types.BlockExisted
 			})
 			//如果本地权重仍低于对方权重，则启动同步

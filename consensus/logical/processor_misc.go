@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -72,7 +87,7 @@ func (p *Processor) prepareMiner() {
 				p.joinGroup(jg)
 			}
 			if sgi.GInfo.GI.CreateHeight() == 0 {
-				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().String())
+				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().GetHexString())
 				p.genesisMember = true
 			}
 		}
@@ -144,7 +159,7 @@ func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 
 func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 	pi := base.VRFProve(bh.ProveValue)
-	castor := groupsig.DeserializeID(bh.Castor)
+	castor := groupsig.DeserializeId(bh.Castor)
 	miner := p.minerReader.getProposeMiner(castor)
 	if miner == nil {
 		stdLogger.Infof("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
@@ -302,7 +317,7 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	//if preBH == nil {
 	//	return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
 	//}
-	//gid := groupsig.DeserializeID(bh.GroupID)
+	//gid := groupsig.DeserializeId(bh.GroupID)
 	//
 	//slog.AddStage("getGroup")
 	//group := p.GetGroup(gid)

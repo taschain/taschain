@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
@@ -76,13 +91,13 @@ func (ws *WalletServer) SignData(source, target, unlockPassword string, value fl
 	aci := r.Data.(*Account)
 
 	//ws.aop.Lock(source)
-	privateKey := common.HexStringToSecKey(aci.Sk)
-	pubkey := common.HexStringToPubKey(aci.Pk)
-	if privateKey.GetPubKey().GetHexString() != pubkey.GetHexString() {
+	privateKey := common.HexToSecKey(aci.Sk)
+	pubkey := common.HexToPubKey(aci.Pk)
+	if privateKey.GetPubKey().Hex() != pubkey.Hex() {
 		return opError(fmt.Errorf("privatekey or pubkey error"))
 	}
 	sourceAddr := pubkey.GetAddress()
-	if sourceAddr.GetHexString() != aci.Address {
+	if sourceAddr.Hex() != aci.Address {
 		return opError(fmt.Errorf("address error"))
 	}
 
@@ -90,7 +105,7 @@ func (ws *WalletServer) SignData(source, target, unlockPassword string, value fl
 	tranx.Hash = tranx.GenHash()
 	sign := privateKey.Sign(tranx.Hash.Bytes())
 	tranx.Sign = sign.Bytes()
-	txRaw.Sign = sign.GetHexString()
+	txRaw.Sign = sign.Hex()
 	//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
 	//fmt.Printf("%+v\n", tranx)
 	//

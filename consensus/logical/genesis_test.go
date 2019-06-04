@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -14,46 +29,15 @@ import (
 	"testing"
 )
 
-const CONF_PATH_PREFIX = `/Users/pxf/workspace/tas_develop/tas/local_test`
-const ProcNum = 3
-
-func TestBelongGroups(t *testing.T) {
-	//groupsig.Init(1)
-	middleware.InitMiddleware()
-	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
-	InitConsensus()
-
-	cm := common.NewConfINIManager(CONF_PATH_PREFIX + "/tas1.ini")
-	proc := new(Processor)
-	addr := common.HexToAddress(cm.GetString("gtas", "miner", ""))
-
-	gstore := fmt.Sprintf("%v/groupstore%v", CONF_PATH_PREFIX, cm.GetString("instance", "index", ""))
-	cm.SetString(ConsensusConfSection, "groupstore", gstore)
-	jgFile := CONF_PATH_PREFIX + "/joined_group.config." + cm.GetString("instance", "index", "")
-	cm.SetString(ConsensusConfSection, "joined_group_store", jgFile)
-
-	proc.Init(model.NewSelfMinerDO(addr), cm)
-	proc.belongGroups.initStore()
-	gidstr := "0x15fc80b99d8904205b768e04ccea60b67756fd8176ce27e95f5db1da9e57735"
-	var gid groupsig.ID
-	gid.SetHexString(gidstr)
-	jg := proc.belongGroups.getJoinedGroup(gid)
-
-	t.Logf("%+v", jg.GroupID.GetHexString())
-	t.Logf("%+v", jg.GroupPK.GetHexString())
-	t.Logf("%+v", jg.SignKey.GetHexString())
-	for id, mem := range jg.Members {
-		t.Logf("%v: %v", id, mem.GetHexString())
-
-	}
-}
+const confPathPrefix = `genesis_test_file`
+const procNum = 3
 
 func initProcessor(conf string) *Processor {
 	cm := common.NewConfINIManager(conf)
 	proc := new(Processor)
 	addr := common.HexToAddress(cm.GetString("gtas", "miner", ""))
 
-	gstore := fmt.Sprintf("%v/groupstore%v", CONF_PATH_PREFIX, cm.GetString("instance", "index", ""))
+	gstore := fmt.Sprintf("%v/groupstore%v", confPathPrefix, cm.GetString("instance", "index", ""))
 	cm.SetString("consensus", "groupstore", gstore)
 
 	proc.Init(model.NewSelfMinerDO(addr), cm)
@@ -62,12 +46,12 @@ func initProcessor(conf string) *Processor {
 }
 
 func processors() (map[string]*Processor, map[string]int) {
-	maxProcNum := ProcNum
+	maxProcNum := procNum
 	procs := make(map[string]*Processor, maxProcNum)
 	indexs := make(map[string]int, maxProcNum)
 
 	for i := 1; i <= maxProcNum; i++ {
-		proc := initProcessor(fmt.Sprintf("%v/tas%v.ini", CONF_PATH_PREFIX, i))
+		proc := initProcessor(fmt.Sprintf("%v/tas%v.ini", confPathPrefix, i))
 		//proc.belongGroups.storeFile = fmt.Sprintf("%v/joined_group.config.%v", CONF_PATH_PREFIX, i)
 		procs[proc.GetMinerID().GetHexString()] = proc
 		indexs[proc.getPrefix()] = i
@@ -76,36 +60,10 @@ func processors() (map[string]*Processor, map[string]int) {
 	return procs, indexs
 }
 
-func TestGenIdPubkey(t *testing.T) {
-	//groupsig.Init(1)
-	middleware.InitMiddleware()
-	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
-	InitConsensus()
-	procs, _ := processors()
-	idPubs := make([]model.PubKeyInfo, 0)
-	for _, p := range procs {
-		idPubs = append(idPubs, p.GetPubkeyInfo())
-	}
-
-	bs, err := json.Marshal(idPubs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	log.Println(string(bs))
-}
-
 func TestGenesisGroup(t *testing.T) {
 	//groupsig.Init(1)
 	middleware.InitMiddleware()
-	common.InitConf(CONF_PATH_PREFIX + "/tas1.ini")
-
-	// block初始化
-	//err := core.InitCore(false, mediator.NewConsensusHelper(groupsig.ID{}))
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	//network.Init(common.GlobalConf, true, new(handler.ChainHandler), chandler.MessageHandler, true, "127.0.0.1")
+	common.InitConf(confPathPrefix + "/tas1.ini")
 
 	InitConsensus()
 
@@ -123,18 +81,18 @@ func TestGenesisGroup(t *testing.T) {
 		GInfo: model.ConsensusGroupInitInfo{GI: *gis, Mems: mems},
 	}
 
+	ids := make([]groupsig.ID, 0)
+	for _, p := range procs {
+		ids = append(ids, p.GetMinerID())
+	}
+
 	procSpms := make(map[string][]*model.ConsensusSharePieceMessage)
 
 	model.Param.GroupMemberMax = len(mems)
 	model.Param.GroupMemberMin = len(mems)
 
 	for _, p := range procs {
-		//if p.globalGroups.AddInitingGroup(CreateInitingGroup(grm)) {
-		//	//to do : 从链上检查消息发起人（父亲组成员）是否有权限发该消息（鸠兹）
-		//	//dummy 组写入组链 add by 小熊
-		//	//p.groupManager.AddGroupOnChain(staticGroupInfo, true)
-		//}
-		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, nil, p.mi)
+		gc := p.joiningGroups.ConfirmGroupFromRaw(grm, ids, p.mi)
 		shares := gc.GenSharePieces()
 		for id, share := range shares {
 			spms := procSpms[id]
@@ -162,7 +120,7 @@ func TestGenesisGroup(t *testing.T) {
 		p := procs[id]
 		for _, spm := range spms {
 			gc := p.joiningGroups.GetGroup(spm.GHash)
-			ret := gc.PieceMessage(p.GetMinerID(), &spm.Share)
+			ret := gc.PieceMessage(spm.SI.GetID(), &spm.Share)
 			if ret == 1 {
 				jg := gc.GetGroupInfo()
 				p.joinGroup(jg)
@@ -194,19 +152,6 @@ func TestGenesisGroup(t *testing.T) {
 			jg := p.belongGroups.getJoinedGroup(spkm.GroupID)
 			p.belongGroups.addMemSignPk(spkm.SI.GetID(), spkm.GroupID, spkm.SignPK)
 			log.Printf("processor %v join group gid %v\n", p.getPrefix(), jg.GroupID.ShortS())
-			//if gc.SignPKMessage(spkm) == 1 {
-			//	jg := gc.GetGroupInfo()
-			//	p.joinGroup(jg, true)
-			//	var msg = &model.ConsensusGroupInitedMessage{
-			//		GHash: spkm.GHash,
-			//		GroupID: jg.GroupID,
-			//		GroupPK: jg.GroupPK,
-			//	}
-			//	ski := model.NewSecKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultSecKey())
-			//	msg.GenSign(ski, msg)
-			//
-			//	initedMsgs[id] = msg
-			//}
 		}
 	}
 
@@ -226,14 +171,7 @@ func TestGenesisGroup(t *testing.T) {
 			}
 			if initingGroup.receive(msg.SI.GetID(), msg.GroupPK) == INIT_SUCCESS {
 				staticGroup := NewSGIFromStaticGroupSummary(msg.GroupID, msg.GroupPK, initingGroup)
-				add := p.globalGroups.AddStaticGroup(staticGroup)
-				if add {
-					//p.groupManager.AddGroupOnChain(staticGroup, false)
-
-					//if p.IsMinerGroup(msg.GI.GroupID) && p.GetBlockContext(msg.GI.GroupID) == nil {
-					//	p.prepareForCast(msg.GI.GroupID)
-					//}
-				}
+				p.globalGroups.AddStaticGroup(staticGroup)
 			}
 		}
 	}
@@ -269,7 +207,7 @@ func TestGenesisGroup(t *testing.T) {
 			log.Println("=======", id, "============")
 			sgiByte, _ := json.Marshal(genesis)
 
-			ioutil.WriteFile(fmt.Sprintf("%s/genesis_sgi.config", CONF_PATH_PREFIX), sgiByte, os.ModePerm)
+			ioutil.WriteFile(fmt.Sprintf("%s/genesis_sgi.config", confPathPrefix), sgiByte, os.ModePerm)
 
 			log.Println(string(sgiByte))
 			log.Println("-----------------------")
@@ -283,10 +221,15 @@ func TestGenesisGroup(t *testing.T) {
 
 }
 
-func TestLoadGenesisGroup(t *testing.T) {
-	file := CONF_PATH_PREFIX + "/genesis_sgi.config"
+func TestGetGenesisGroupInfo(t *testing.T) {
+	file := "genesis_sgi_test.config"
 	gg := genGenesisStaticGroupInfo(file)
 
-	json, _ := json.Marshal(gg)
-	t.Log(string(json))
+	if gg.Group.GroupID.GetHexString() != "0x015fc80b99d8904205b768e04ccea60b67756fd8176ce27e95f5db1da9e57735" {
+		t.Errorf("group id error")
+	}
+	if gg.Group.GroupPK.GetHexString() != "0x01367332311024aa875285ade328974e8645ebe2833de109c9960c81a97a333408d4f0b4f9876e80fead0f802a22507dc1b2ad5b75836d15e9ab55747c52107c02bd626518d6b03c6d4421d8f63768f8ed2cf511a1947a05402efae14c77e3db2b20e9182bd94ca4c90e330a8db6c27bd52ef44f86bf01afd25dae660592157d" {
+		t.Errorf("group pk error")
+	}
+
 }

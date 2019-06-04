@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -126,12 +141,13 @@ func TestDecodeTransactionByHash(t *testing.T) {
 	t.Logf("block is %+v", b.Header)
 	var testHash common.Hash
 	var testIndex int
-	r := 11 //rand.Intn(len(b.Transactions))
+	r := rand.Intn(len(b.Transactions))
+
 	for i, tx := range b.Transactions {
 		if i == r {
 			testHash = tx.Hash
 			testIndex = i
-			t.Log("test hash", i, testHash.String())
+			t.Log("test hash", i, testHash.Hex())
 		}
 	}
 	bs, err := encodeBlockTransactions(b)
@@ -152,7 +168,7 @@ func TestDecodeTransactionByHash(t *testing.T) {
 }
 
 func TestMarshalSign(t *testing.T) {
-	s := common.HexStringToSign("0x220ee8a9b1f85445ef27e1ae82f985087fe40854ccc3f8a6c6a5d47116420dc6000000000000000000000000000000000000000000000000000000000000000000")
+	s := common.HexToSign("0x220ee8a9b1f85445ef27e1ae82f985087fe40854ccc3f8a6c6a5d47116420dc6000000000000000000000000000000000000000000000000000000000000000000")
 	bs, err := msgpack.Marshal(s)
 	t.Log(bs, err)
 
@@ -161,7 +177,7 @@ func TestMarshalSign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(sign.GetHexString())
+	t.Log(sign.Hex())
 }
 
 func TestMarshalTx(t *testing.T) {

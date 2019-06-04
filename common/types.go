@@ -31,7 +31,6 @@ import (
 const PREFIX = "0x"
 
 func getDefaultCurve() elliptic.Curve {
-	//return elliptic.P256()
 	return secp256k1.S256()
 }
 
@@ -58,11 +57,10 @@ var (
 	MinerStakeDetailDBAddress = BigToAddress(big.NewInt(4))
 )
 
-//160位地址
 type Address [AddressLength]byte
 
 func (a Address) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + a.GetHexString() + "\""), nil
+	return []byte("\"" + a.Hex() + "\""), nil
 }
 
 //构造函数族
@@ -72,9 +70,8 @@ func BytesToAddress(b []byte) Address {
 	return a
 }
 
-func StringToAddress(s string) Address { return BytesToAddress([]byte(s)) }
-func BigToAddress(b *big.Int) Address  { return BytesToAddress(b.Bytes()) }
-func HexToAddress(s string) Address    { return BytesToAddress(FromHex(s)) }
+func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
+func HexToAddress(s string) Address   { return BytesToAddress(FromHex(s)) }
 
 //赋值函数，如b超出a的容量则截取后半部分
 func (a *Address) SetBytes(b []byte) {
@@ -85,7 +82,7 @@ func (a *Address) SetBytes(b []byte) {
 }
 
 func (a *Address) SetString(s string) {
-	a.SetBytes([]byte(s))
+	a.SetBytes(FromHex(s))
 }
 
 func (a *Address) Set(other Address) {
@@ -123,33 +120,13 @@ func IsHexAddress(s string) bool {
 }
 
 //类型转换输出函数
-func (a Address) Str() string          { return string(a[:]) }
+func (a Address) Hex() string          { return ToHex(a[:]) }
 func (a Address) Bytes() []byte        { return a[:] }
 func (a Address) BigInteger() *big.Int { return new(big.Int).SetBytes(a[:]) }
 func (a Address) Hash() Hash           { return BytesToHash(a[:]) }
 
 func (a Address) IsValid() bool {
 	return len(a.Bytes()) > 0
-}
-
-func (a Address) GetHexString() string {
-	str := ToHex(a[:])
-	return str
-}
-
-func (a Address) String() string {
-	return a.GetHexString()
-}
-
-func HexStringToAddress(s string) (a Address) {
-	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
-		return
-	}
-	buf, _ := hex.DecodeString(s[len(PREFIX):])
-	if len(buf) == AddressLength {
-		a.SetBytes(buf)
-	}
-	return
 }
 
 /*
@@ -185,14 +162,14 @@ func BytesToHash(b []byte) Hash {
 	h.SetBytes(b)
 	return h
 }
-func StringToHash(s string) Hash { return BytesToHash([]byte(s)) }
-func BigToHash(b *big.Int) Hash  { return BytesToHash(b.Bytes()) }
-func HexToHash(s string) Hash    { return BytesToHash(FromHex(s)) }
+
+func BigToHash(b *big.Int) Hash { return BytesToHash(b.Bytes()) }
+func HexToHash(s string) Hash   { return BytesToHash(FromHex(s)) }
 
 // Get the string representation of the underlying hash
 func (h Hash) Bytes() []byte { return h[:] }
 func (h Hash) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
-func (h Hash) Hex() string   { return utility.Encode(h[:]) }
+func (h Hash) Hex() string   { return ToHex(h[:]) }
 
 // TerminalString implements log.TerminalStringer, formatting a string for console
 // output during logging.
@@ -204,15 +181,8 @@ func (h Hash) IsValid() bool {
 	return len(h.Bytes()) > 0
 }
 
-// String implements the stringer interface and is used also by the logger when
-// doing full logging into a file.
-func (h Hash) String() string {
-	return h.Hex()
-}
-
 func (h Hash) ShortS() string {
-	str := h.Hex()
-	return ShortHex12(str)
+	return ShortHex12(h.Hex())
 }
 
 // Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
@@ -246,13 +216,11 @@ func (h *Hash) SetBytes(b []byte) {
 }
 
 // Set string `s` to h. If s is larger than len(h) s will be cropped (from left) to fit.
-func (h *Hash) SetString(s string) { h.SetBytes([]byte(s)) }
+func (h *Hash) SetString(s string) { h.SetBytes(FromHex(s)) }
 
 // Sets h from other
 func (h *Hash) Set(other Hash) {
-	for i, v := range other {
-		h[i] = v
-	}
+	copy(h[:], other[:])
 }
 
 // Generate implements testing/quick.Generator.

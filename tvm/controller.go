@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package tvm
 
 import (
@@ -83,7 +98,7 @@ func (con *Controller) Deploy(contract *Contract) (int, string) {
 		con.VM.DelTVM()
 	}()
 	con.VM.SetGas(int(con.GasLeft))
-	msg := Msg{Data: []byte{}, Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().GetHexString()}
+	msg := Msg{Data: []byte{}, Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().Hex()}
 	errorCodeDeploy, errorDeployMsg := con.VM.Deploy(msg)
 
 	if errorCodeDeploy != 0 {
@@ -122,7 +137,7 @@ func (con *Controller) ExecuteABI(sender *common.Address, contract *Contract, ab
 			return false, nil, types.TxErrorBalanceNotEnough
 		}
 	}
-	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().GetHexString()}
+	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().Hex()}
 	errorCode, errorMsg, libLen := con.VM.CreateContractInstance(msg)
 	if errorCode != 0 {
 		return false, nil, types.NewTransactionError(errorCode, errorMsg)
@@ -164,7 +179,7 @@ func (con *Controller) ExecuteAbiEval(sender *common.Address, contract *Contract
 			return nil
 		}
 	}
-	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: sender.GetHexString()}
+	msg := Msg{Data: con.Transaction.GetData(), Value: con.Transaction.GetValue(), Sender: sender.Hex()}
 	errorCode, _, libLen := con.VM.CreateContractInstance(msg)
 	if errorCode != 0 {
 		return nil

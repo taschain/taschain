@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
@@ -24,7 +39,7 @@ var encryptPrivateKey *common.PrivateKey
 var encryptPublicKey *common.PublicKey
 
 func init() {
-	encryptPrivateKey = common.HexStringToSecKey("0x04b851c3551779125a588b2274cfa6d71604fe6ae1f0df82175bcd6e6c2b23d92a69d507023628b59c15355f3cbc0d8f74633618facd28632a0fb3e9cc8851536c4b3f1ea7c7fd3666ce8334301236c2437d9bed14e5a0793b51a9a6e7a4c46e70")
+	encryptPrivateKey = common.HexToSecKey("0x04b851c3551779125a588b2274cfa6d71604fe6ae1f0df82175bcd6e6c2b23d92a69d507023628b59c15355f3cbc0d8f74633618facd28632a0fb3e9cc8851536c4b3f1ea7c7fd3666ce8334301236c2437d9bed14e5a0793b51a9a6e7a4c46e70")
 	pk := encryptPrivateKey.GetPubKey()
 	encryptPublicKey = &pk
 }
@@ -217,9 +232,9 @@ func (am *AccountManager) NewAccount(password string, miner bool) *Result {
 	address := pubkey.GetAddress()
 
 	account := &Account{
-		Address:  address.GetHexString(),
-		Pk:       pubkey.GetHexString(),
-		Sk:       privateKey.GetHexString(),
+		Address:  address.Hex(),
+		Pk:       pubkey.Hex(),
+		Sk:       privateKey.Hex(),
 		Password: passwordSha(password),
 	}
 
@@ -238,7 +253,7 @@ func (am *AccountManager) NewAccount(password string, miner bool) *Result {
 		return opError(err)
 	}
 
-	return opSuccess(address.GetHexString())
+	return opSuccess(address.Hex())
 }
 
 func (am *AccountManager) AccountList() *Result {

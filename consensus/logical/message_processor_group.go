@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -307,7 +322,7 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 
 	gc := p.joiningGroups.GetGroup(gHash)
 	if gc == nil {
-		err = fmt.Errorf("failed, receive SHAREPIECE msg but gc=nil.gHash=%v", gHash.String())
+		err = fmt.Errorf("failed, receive SHAREPIECE msg but gc=nil.gHash=%v", gHash.Hex())
 		return
 	}
 	if gc.gInfo.GroupHash() != gHash {
@@ -655,7 +670,7 @@ func (p *Processor) OnMessageSharePieceResponse(msg *model.ResponseSharePieceMes
 		//le := &monitor.LogEntry{
 		//	LogType: monitor.LogTypeGroupRecoverFromResponse,
 		//	Height: p.GroupChain.Height(),
-		//	Hash: msg.GHash.Hex(),
+		//	Hash: msg.GHash.String(),
 		//	Proposer: "00",
 		//}
 		//monitor.Instance.AddLog(le)

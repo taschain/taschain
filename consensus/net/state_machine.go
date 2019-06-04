@@ -30,15 +30,26 @@ import (
 type stateHandleFunc func(msg interface{})
 
 type stateNode struct {
-	code        uint32
+	//state code, unique in a machine
+	code uint32
+
+	//The minimum number of repetitions that need to occur
+	//in order to transit to the next state
 	leastRepeat int32
-	mostRepeat  int32
-	handler     stateHandleFunc
-	next        *stateNode
+
+	//The maximum number of repetitions that would occur
+	//at the state
+	mostRepeat int32
+
+	//the state transit handler func
+	handler stateHandleFunc
+	next    *stateNode
 
 	currentIdx int32
 	execNum    int32
-	queue      []*StateMsg
+
+	//future state msgs cached in the queue
+	queue []*StateMsg
 	//lock       sync.RWMutex
 }
 
@@ -81,13 +92,8 @@ func InitStateMachines() {
 		ticker:    ticker.NewGlobalTicker("state_machine"),
 	}
 
-	//GroupOutsideMachines = StateMachines{
-	//	name:      "GroupOutsideMachines",
-	//	generator: &groupOutsideMachineGenerator{},
-	//}
-
 	GroupInsideMachines.startCleanRoutine()
-	//GroupOutsideMachines.startCleanRoutine()
+
 }
 
 func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
@@ -292,18 +298,6 @@ type StateMachineGenerator interface {
 }
 
 type groupInsideMachineGenerator struct{}
-type groupOutsideMachineGenerator struct{}
-
-//func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
-//	machine := newStateMachine(id)
-//	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
-//		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
-//	}))
-//	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetThreshold(), func(msg interface{}) {
-//		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
-//	}))
-//	return machine
-//}
 
 func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *StateMachine {
 	machine := newStateMachine(id)

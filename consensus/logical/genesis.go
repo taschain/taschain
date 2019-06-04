@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -110,19 +125,4 @@ func genGenesisStaticGroupInfo(f string) *genesisGroup {
 	group := genesis.Group
 	group.buildMemberIndex()
 	return genesis
-}
-
-func readGenesisJoinedGroup(file string, sgi *StaticGroupInfo) *JoinedGroup {
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		panic("read genesis joinedGroup file failed!err=" + err.Error())
-	}
-	var group = new(JoinedGroup)
-	err = json.Unmarshal(data, group)
-	if err != nil {
-		panic(err)
-	}
-	group.GroupPK = sgi.GroupPK
-	group.GroupID = sgi.GroupID
-	return group
 }

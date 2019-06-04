@@ -38,7 +38,7 @@ func Transfer(toAddressStr *C.char, value *C.char) {
 	if contractValue.Cmp(transValue) < 0 {
 		return
 	}
-	toAddress := common.HexStringToAddress(C.GoString(toAddressStr))
+	toAddress := common.HexToAddress(C.GoString(toAddressStr))
 	controller.AccountDB.AddBalance(toAddress, transValue)
 	controller.AccountDB.SubBalance(*contractAddr, transValue)
 }
@@ -72,7 +72,7 @@ func BlockHash(height C.ulonglong) *C.char {
 	if block == nil {
 		return C.CString("0x0000000000000000000000000000000000000000000000000000000000000000")
 	}
-	return C.CString(block.Hash.String())
+	return C.CString(block.Hash.Hex())
 }
 
 //export Number
@@ -94,8 +94,8 @@ func TxGasLimit() C.ulonglong {
 func ContractCall(addressC *C.char, funName *C.char, jsonParms *C.char, cResult unsafe.Pointer) {
 	goResult := CallContract(C.GoString(addressC), C.GoString(funName), C.GoString(jsonParms))
 	ccResult := (*C.struct__ExecuteResult)(cResult)
-	ccResult.resultType = C.int(goResult.ResultType)
-	ccResult.errorCode = C.int(goResult.ErrorCode)
+	ccResult.result_type = C.int(goResult.ResultType)
+	ccResult.error_code = C.int(goResult.ErrorCode)
 	if goResult.Content != "" {
 		ccResult.content = C.CString(goResult.Content)
 	}
@@ -138,7 +138,7 @@ func MinerStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
 		return false
 	}
 	source := controller.VM.ContractAddress
-	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	miner := common.HexToAddress(C.GoString(minerAddr))
 	if canTransfer(controller.AccountDB, *source, value) {
 		mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 		if mexist != nil &&
@@ -160,7 +160,7 @@ func MinerCancelStake(minerAddr *C.char, _type int, cvalue *C.char) bool {
 		return false
 	}
 	source := controller.VM.ContractAddress
-	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	miner := common.HexToAddress(C.GoString(minerAddr))
 	mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 	if mexist != nil &&
 		controller.mm.CancelStake(source.Bytes(), mexist, value.Uint64(), controller.AccountDB, controller.BlockHeader.Height) &&
@@ -176,7 +176,7 @@ func MinerRefundStake(minerAddr *C.char, _type int) bool {
 	var success = false
 	ss := controller.AccountDB.Snapshot()
 	source := controller.VM.ContractAddress
-	miner := common.HexStringToAddress(C.GoString(minerAddr))
+	miner := common.HexToAddress(C.GoString(minerAddr))
 	mexist := controller.mm.GetMinerByID(miner.Bytes(), byte(_type), controller.AccountDB)
 	height := controller.BlockHeader.Height
 	if mexist != nil {

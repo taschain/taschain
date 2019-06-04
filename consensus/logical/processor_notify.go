@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -20,7 +35,7 @@ func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
 	for _, msg := range futures {
 		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
-		ok, err := p.verifyCastMessage(mtype, msg, bh)
+		ok, err := p.verifyCastMessage(msg, bh)
 		tlog.logEnd("result=%v %v", ok, err)
 	}
 
@@ -51,7 +66,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	tlog := newMsgTraceLog("OnBlockAddSuccess", bh.Hash.ShortS(), "")
 	tlog.log("preHash=%v, height=%v", bh.PreHash.ShortS(), bh.Height)
 
-	gid := groupsig.DeserializeID(bh.GroupID)
+	gid := groupsig.DeserializeId(bh.GroupID)
 	if p.IsMinerGroup(gid) {
 		p.blockContexts.addCastedHeight(bh.Height, bh.PreHash)
 		vctx := p.blockContexts.getVctxByHeight(bh.Height)
@@ -81,7 +96,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(*types.Group)
-	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeID(group.ID).GetHexString(), group.Header.WorkHeight)
+	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeId(group.ID).GetHexString(), group.Header.WorkHeight)
 	if group.ID == nil || len(group.ID) == 0 {
 		return
 	}
@@ -108,12 +123,12 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 				break
 			}
 			if bh.PreHash != pre.Hash {
-				panic(fmt.Sprintf("pre error:bh %v, prehash %v, height %v, real pre hash %v height %v", bh.Hash.String(), bh.PreHash.String(), bh.Height, pre.Hash.String(), pre.Height))
+				panic(fmt.Sprintf("pre error:bh %v, prehash %v, height %v, real pre hash %v height %v", bh.Hash.Hex(), bh.PreHash.Hex(), bh.Height, pre.Hash.Hex(), pre.Height))
 			}
 			gid := p.CalcVerifyGroupFromChain(pre, bh.Height)
 			if !bytes.Equal(gid.Serialize(), bh.GroupID) {
 				old := p.MainChain.QueryTopBlock()
-				stdLogger.Errorf("adjust top block: old %v %v %v, new %v %v %v", old.Hash.String(), old.PreHash.String(), old.Height, pre.Hash.String(), pre.PreHash.String(), pre.Height)
+				stdLogger.Errorf("adjust top block: old %v %v %v, new %v %v %v", old.Hash.Hex(), old.PreHash.Hex(), old.Height, pre.Hash.Hex(), pre.PreHash.Hex(), pre.Height)
 				p.MainChain.ResetTop(pre)
 				break
 			}

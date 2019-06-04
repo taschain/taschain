@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package net
 
 import (
@@ -25,7 +40,7 @@ func pbToGroupInfo(gi *tas_middleware_pb.ConsensusGroupInitInfo) *model.Consensu
 	gis := pbToConsensusGroupInitSummary(gi.GI)
 	mems := make([]groupsig.ID, len(gi.Mems))
 	for idx, mem := range gi.Mems {
-		mems[idx] = groupsig.DeserializeID(mem)
+		mems[idx] = groupsig.DeserializeId(mem)
 	}
 	return &model.ConsensusGroupInitInfo{
 		GI:   *gis,
@@ -58,7 +73,7 @@ func unMarshalConsensusSharePieceMessage(b []byte) (*model.ConsensusSharePieceMe
 
 	gHash := common.BytesToHash(m.GHash)
 
-	dest := groupsig.DeserializeID(m.Dest)
+	dest := groupsig.DeserializeId(m.Dest)
 
 	share := pbToSharePiece(m.SharePiece)
 	message := model.ConsensusSharePieceMessage{
@@ -86,7 +101,7 @@ func unMarshalConsensusSignPubKeyMessage(b []byte) (*model.ConsensusSignPubKeyMe
 	message := model.ConsensusSignPubKeyMessage{
 		GHash:             gisHash,
 		SignPK:            pk,
-		GroupID:           groupsig.DeserializeID(m.GroupID),
+		GroupID:           groupsig.DeserializeId(m.GroupID),
 		BaseSignedMessage: *base,
 		MemCnt:            *m.MemCnt,
 	}
@@ -111,7 +126,7 @@ func unMarshalConsensusGroupInitedMessage(b []byte) (*model.ConsensusGroupInited
 	}
 	message := model.ConsensusGroupInitedMessage{
 		GHash:             common.BytesToHash(m.GHash),
-		GroupID:           groupsig.DeserializeID(m.GroupID),
+		GroupID:           groupsig.DeserializeId(m.GroupID),
 		GroupPK:           groupsig.DeserializePubkeyBytes(m.GroupPK),
 		CreateHeight:      ch,
 		ParentSign:        sign,
@@ -130,7 +145,7 @@ func unMarshalConsensusSignPKReqMessage(b []byte) (*model.ConsensusSignPubkeyReq
 		return nil, e
 	}
 	message := &model.ConsensusSignPubkeyReqMessage{
-		GroupID:           groupsig.DeserializeID(m.GroupID),
+		GroupID:           groupsig.DeserializeId(m.GroupID),
 		BaseSignedMessage: *baseMessage(m.SignData),
 	}
 	return message, nil
@@ -387,7 +402,7 @@ func unMarshalCreateGroupPingMessage(b []byte) (*model.CreateGroupPingMessage, e
 
 	m := &model.CreateGroupPingMessage{
 		BaseSignedMessage: base,
-		FromGroupID:       groupsig.DeserializeID(message.FromGroupID),
+		FromGroupID:       groupsig.DeserializeId(message.FromGroupID),
 		PingID:            *message.PingID,
 		BaseHeight:        *message.BaseHeight,
 	}

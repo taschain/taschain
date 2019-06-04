@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -304,7 +319,7 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 			hash := common.BytesToHash(iter.Value())
 			bh := chain.queryBlockHeaderByHash(hash)
 			if bh == nil {
-				panic(fmt.Sprintf("data error:height %v, hash %v", height, hash.String()))
+				panic(fmt.Sprintf("data error:height %v, hash %v", height, hash.Hex()))
 			}
 			if bh.Height != height {
 				panic(fmt.Sprintf("key height not equal to value height:keyHeight=%v, valueHeight=%v", realHeight, bh.Height))
@@ -322,7 +337,7 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 func (chain *FullBlockChain) queryBlockBodyBytes(hash common.Hash) []byte {
 	bs, err := chain.txdb.Get(hash.Bytes())
 	if err != nil {
-		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), hash.String())
+		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), hash.Hex())
 		return nil
 	}
 	return bs
@@ -335,7 +350,7 @@ func (chain *FullBlockChain) queryBlockTransactionsAll(hash common.Hash) []*type
 	}
 	txs, err := decodeBlockTransactions(bs)
 	if err != nil {
-		Logger.Errorf("decode transactions err:%v, key:%v", err.Error(), hash.String())
+		Logger.Errorf("decode transactions err:%v, key:%v", err.Error(), hash.Hex())
 		return nil
 	}
 	return txs
@@ -442,13 +457,14 @@ func (chain *FullBlockChain) queryBlockTransactionsOptional(txIdx int, height ui
 	}
 	bs, err := chain.txdb.Get(bh.Hash.Bytes())
 	if err != nil {
-		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), bh.Hash.String())
+		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), bh.Hash.Hex())
 		return nil
 	}
 	tx, err := decodeTransaction(txIdx, txHash, bs)
 	if tx != nil {
 		return tx
+	} else {
+		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.Hex(), err.Error())
+		return nil
 	}
-	Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.String(), err.Error())
-	return nil
 }

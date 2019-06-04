@@ -78,7 +78,7 @@ unsigned long long wrap_tx_gas_limit()
 	return TxGasLimit();
 }
 
-void wrap_contract_call(const char* address, const char* func_name, const char* json_parms, ExecuteResult *result)
+void wrap_contract_call(const char* address, const char* func_name, const char* json_parms, tvm_execute_result_t *result)
 {
     char* ContractCall();
     ContractCall(address, func_name, json_parms, result);
@@ -132,15 +132,10 @@ type ExecuteResult struct {
 	Abi        string
 }
 
-// RunBinaryCode Run python binary code
-func RunBinaryCode(buf *C.char, len C.int) {
-	C.runbytecode(buf, len)
-}
-
 // CallContract Execute the function of a contract which python code store in contractAddr
 func CallContract(contractAddr string, funcName string, params string) *ExecuteResult {
 	result := &ExecuteResult{}
-	conAddr := common.HexStringToAddress(contractAddr)
+	conAddr := common.HexToAddress(contractAddr)
 	contract := LoadContract(conAddr)
 	if contract.Code == "" {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
@@ -166,7 +161,7 @@ func CallContract(contractAddr string, funcName string, params string) *ExecuteR
 		return result
 	}
 
-	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.GetHexString()}
+	msg := Msg{Data: []byte{}, Value: 0, Sender: conAddr.Hex()}
 	errorCode, errorMsg, _ := controller.VM.CreateContractInstance(msg)
 	if errorCode != 0 {
 		result.ResultType = C.RETURN_TYPE_EXCEPTION
@@ -197,11 +192,6 @@ func CallContract(contractAddr string, funcName string, params string) *ExecuteR
 		return result
 	}
 	return controller.VM.executeABIKindEval(abi)
-}
-
-// RunByteCode Run python byte code
-func RunByteCode(code *C.char, len C.int) {
-	C.runbytecode(code, len)
 }
 
 func bridgeInit() {
@@ -279,11 +269,6 @@ func (tvm *TVM) SetGas(gas int) {
 // SetLibLine Correct the error line when python code is running
 func (tvm *TVM) SetLibLine(line int) {
 	C.tvm_set_lib_line(C.int(line))
-}
-
-// Pycode2Bytecode python code to byte code
-func (tvm *TVM) Pycode2Bytecode(str string) {
-	C.pycode2bytecode(C.CString(str))
 }
 
 // DelTVM Run tvm gc to collect mem
@@ -385,15 +370,15 @@ func (tvm *TVM) ExecutedScriptKindFile(script string) *ExecuteResult {
 }
 
 func (tvm *TVM) executedPycode(code string, parseKind C.tvm_parse_kind_t) *ExecuteResult {
-	cResult := &C.ExecuteResult{}
-	C.initResult((*C.ExecuteResult)(unsafe.Pointer(cResult)))
+	cResult := &C.tvm_execute_result_t{}
+	C.tvm_init_result((*C.tvm_execute_result_t)(unsafe.Pointer(cResult)))
 	var param = C.CString(code)
 	var contractName = C.CString(tvm.ContractName)
 
 	//fmt.Println("-----------------code start-------------------")
 	//fmt.Println(code)
 	//fmt.Println("-----------------code end---------------------")
-	C.tvm_execute(param, contractName, parseKind, (*C.ExecuteResult)(unsafe.Pointer(cResult)))
+	C.tvm_execute(param, contractName, parseKind, (*C.tvm_execute_result_t)(unsafe.Pointer(cResult)))
 	C.free(unsafe.Pointer(param))
 	C.free(unsafe.Pointer(contractName))
 
@@ -407,12 +392,12 @@ func (tvm *TVM) executedPycode(code string, parseKind C.tvm_parse_kind_t) *Execu
 		result.Abi = C.GoString(cResult.abi)
 	}
 	//C.printResult((*C.ExecuteResult)(unsafe.Pointer(cResult)))
-	C.deinitResult((*C.ExecuteResult)(unsafe.Pointer(cResult)))
+	C.tvm_deinit_result((*C.tvm_execute_result_t)(unsafe.Pointer(cResult)))
 	return result
 }
 
 func (tvm *TVM) loadMsg(msg Msg) (int, string) {
-	script := pycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.GetHexString())
+	script := pycodeLoadMsg(msg.Sender, msg.Value, tvm.ContractAddress.Hex())
 	return tvm.ExecutedScriptVMSucceed(script)
 }
 

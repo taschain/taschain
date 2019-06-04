@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -104,9 +119,9 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	//brTStake := new(big.Rat).SetFloat64(float64(totalStake))
 	vs := vrfThreshold(stake, totalStake)
 
-	s1, _ := pr.Float64()
-	s2, _ := vs.Float64()
-	blog := newBizLog("vrfSatisfy")
+	//s1, _ := pr.Float64()
+	//s2, _ := vs.Float64()
+	//blog := newBizLog("vrfSatisfy")
 
 	ok = pr.Cmp(vs) < 0
 	//计算qn
@@ -116,12 +131,12 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 
 	step := vs.Quo(vs, new(big.Rat).SetInt64(int64(model.Param.MaxQN)))
 
-	st, _ := step.Float64()
+	//st, _ := step.Float64()
 
 	r, _ := pr.Quo(pr, step).Float64()
 	qn = uint64(math.Floor(r) + 1)
 
-	blog.log("minerstake %v, totalstake %v, proveValue %v, stake %v, step %v, qn %v", stake, totalStake, s1, s2, st, qn)
+	//blog.log("minerstake %v, totalstake %v, proveValue %v, stake %v, step %v, qn %v", stake, totalStake, s1, s2, st, qn)
 
 	return
 	//return true

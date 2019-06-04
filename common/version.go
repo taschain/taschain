@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package common
 
 /*
@@ -18,10 +33,10 @@ package common
 //const GtasVersion = "0.8.0"		//链优化
 //const GtasVersion = "0.8.1"		//bug fix。提案时验证时间是否在前一块时间之后
 //const GtasVersion = "0.8.2"		//时间同步和矫正
-const GtasVersion = "0.9.0"		//共识不校验交易
+const GtasVersion = "0.9.0" //共识不校验交易,代质押功能
 
 const ConsensusVersion = 1
 
-const ChainDataVersion = 3
+const ChainDataVersion = 4
 
 const ProtocalVersion = 1

@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
@@ -40,8 +55,8 @@ func convertBlockHeader(b *types.Block) *Block {
 		PreHash: bh.PreHash,
 		CurTime: bh.CurTime.Local(),
 		PreTime: bh.PreTime().Local(),
-		Castor:  groupsig.DeserializeID(bh.Castor),
-		GroupID: groupsig.DeserializeID(bh.GroupID),
+		Castor:  groupsig.DeserializeId(bh.Castor),
+		GroupID: groupsig.DeserializeId(bh.GroupID),
 		Prove:   common.ToHex(bh.ProveValue),
 		TotalQN: bh.TotalQN,
 		TxNum:   uint64(len(b.Transactions)),
@@ -63,12 +78,12 @@ func convertBonusTransaction(tx *types.Transaction) *BonusTransaction {
 
 	targets := make([]groupsig.ID, len(ids))
 	for i, id := range ids {
-		targets[i] = groupsig.DeserializeID(id)
+		targets[i] = groupsig.DeserializeId(id)
 	}
 	return &BonusTransaction{
 		Hash:      tx.Hash,
 		BlockHash: bhash,
-		GroupID:   groupsig.DeserializeID(gid),
+		GroupID:   groupsig.DeserializeId(gid),
 		TargetIDs: targets,
 		Value:     value,
 	}

@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -55,6 +70,13 @@ func buildTxSimpleIndexer() *txSimpleIndexer {
 		db:    db,
 	}
 }
+
+func (indexer *txSimpleIndexer) close() {
+	if indexer.db != nil {
+		indexer.db.Close()
+	}
+}
+
 func (indexer *txSimpleIndexer) cacheLen() int {
 	return indexer.cache.Len()
 }
@@ -246,7 +268,7 @@ func (ts *txSyncer) clearJob() {
 		if remove {
 			rm := ts.pool.bonPool.removeByBlockHash(bhash)
 			ts.indexer.remove(tx)
-			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.String(), rm)
+			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.Hex(), rm)
 		}
 		return true
 	})
@@ -442,6 +464,12 @@ func (ts *txSyncer) onTxReq(msg notify.Message) {
 	ts.logger.Debugf("send transactions to %v size %v", nm.Source(), len(txs))
 	message := network.Message{Code: network.TxSyncResponse, Body: body}
 	network.GetNetInstance().Send(nm.Source(), message)
+}
+
+func (ts *txSyncer) Close() {
+	if ts.indexer != nil {
+		ts.indexer.close()
+	}
 }
 
 func (ts *txSyncer) onTxResponse(msg notify.Message) {

@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
@@ -106,30 +121,30 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 		return r
 	}
 	aci := r.Data.(*Account)
-	privateKey := common.HexStringToSecKey(aci.Sk)
-	pubkey := common.HexStringToPubKey(aci.Pk)
-	if privateKey.GetPubKey().GetHexString() != pubkey.GetHexString() {
+	privateKey := common.HexToSecKey(aci.Sk)
+	pubkey := common.HexToPubKey(aci.Pk)
+	if privateKey.GetPubKey().Hex() != pubkey.Hex() {
 		return opError(fmt.Errorf("privatekey or pubkey error"))
 	}
 	source := pubkey.GetAddress()
-	if source.GetHexString() != aci.Address {
+	if source.Hex() != aci.Address {
 		return opError(fmt.Errorf("address error"))
 	}
 
 	nonce, err := ca.nonce(aci.Address)
 	if err != nil {
 		return opError(err)
+	} else {
+		tranx := txRawToTransaction(tx)
+		tranx.Nonce = nonce + 1
+		tx.Nonce = nonce + 1
+		tranx.Hash = tranx.GenHash()
+		sign := privateKey.Sign(tranx.Hash.Bytes())
+		tranx.Sign = sign.Bytes()
+		tx.Sign = sign.Hex()
+		//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
+		//fmt.Printf("%+v\n", tranx)
 	}
-	tranx := txRawToTransaction(tx)
-	tranx.Nonce = nonce + 1
-	tx.Nonce = nonce + 1
-	tranx.Hash = tranx.GenHash()
-	sign := privateKey.Sign(tranx.Hash.Bytes())
-	tranx.Sign = sign.Bytes()
-	tx.Sign = sign.GetHexString()
-	//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
-	//fmt.Printf("%+v\n", tranx)
-
 	jsonByte, err := json.Marshal(tx)
 	if err != nil {
 		return opError(err)
@@ -182,8 +197,8 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 	bpk.SetHexString(aci.Miner.BPk)
 
 	st := uint64(0)
-	if mtype == types.MinerTypeLight && stake < common.VerifyStake {
-		fmt.Println("stake of applying verify node must > 100 Tas")
+	if mtype == types.MinerTypeLight && common.TAS2RA(stake) < common.VerifyStake {
+		fmt.Println("stake of applying verify node must > 100 TAS")
 		return opError(errors.New("stake value error!"))
 	} else {
 		st = common.TAS2RA(stake)
