@@ -172,7 +172,7 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 	topBH := bs.chain.QueryTopBlock()
 	localTopBlock := newTopBlockInfo(topBH)
 
-	if bs.chain.IsAdujsting() {
+	if bs.chain.IsAdjusting() {
 		bs.logger.Debugf("chain is adjusting, won't sync")
 		return false
 	}
