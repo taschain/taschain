@@ -42,6 +42,7 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	}
 }
 
+// Execute executes all types transactions and returns the receipts
 func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.BlockHeader, txs []*types.Transaction, pack bool) (state common.Hash, evits []common.Hash, executed []*types.Transaction, recps []*types.Receipt, err error) {
 	beginTime := time.Now()
 	receipts := make([]*types.Receipt, 0)

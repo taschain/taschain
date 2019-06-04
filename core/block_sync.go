@@ -30,11 +30,10 @@ import (
 )
 
 const (
-	sendLocalTopInterval       = 3
-	syncNeightborsInterval     = 3
-	syncNeightborTimeout       = 5
-	blockSyncCandidatePoolSize = 100
-	//blockResponseSize = 15
+	sendLocalTopInterval       = 3		// Interval of sending local top block to neighbor
+	syncNeightborsInterval     = 3		// Interval of requesting synchronize block from neighbor
+	syncNeightborTimeout       = 5		// Timeout of requesting synchronize block from neighbor
+	blockSyncCandidatePoolSize = 100	// Size of candidate peer pool for block synchronize
 )
 
 const (
@@ -78,6 +77,8 @@ func newTopBlockInfo(topBH *types.BlockHeader) *TopBlockInfo {
 	}
 }
 
+// InitBlockSyncer initialize the blockSyncer. Register the ticker for sending and requesting blocks to neighbors timely
+// and also subscribe these events to handle requests from neighbors
 func InitBlockSyncer(chain *FullBlockChain) {
 	bs := &blockSyncer{
 		candidatePool: make(map[string]*TopBlockInfo),

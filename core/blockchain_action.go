@@ -443,12 +443,6 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 
 func (chain *FullBlockChain) successOnChainCallBack(remoteBlock *types.Block) {
 	notify.BUS.Publish(notify.BlockAddSucc, &notify.BlockOnChainSuccMessage{Block: remoteBlock})
-
-	//GroupChainImpl.RemoveDismissGroupFromCache(b.Header.Height)
-	//if BlockSyncer != nil {
-	//	topBlockInfo := TopBlockInfo{Hash: gchain.latestBlock.Hash, TotalQn: gchain.latestBlock.TotalQN, Height: gchain.latestBlock.Height, PreHash: gchain.latestBlock.PreHash}
-	//	go BlockSyncer.sendTopBlockInfoToNeighbor(topBlockInfo)
-	//}
 }
 
 func (chain *FullBlockChain) onBlockAddSuccess(message notify.Message) {

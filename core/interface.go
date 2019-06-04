@@ -40,6 +40,7 @@ type BlockChain interface {
 	// 3, need adjust the blockchain, there will be a fork
 	AddBlockOnChain(source string, b *types.Block) types.AddBlockResult
 
+	// TotalQN of chain
 	TotalQN() uint64
 
 	LatestStateDB() *account.AccountDB
@@ -84,10 +85,11 @@ type BlockChain interface {
 
 	Close()
 
-	AddBonusTrasanction(transaction *types.Transaction)
+
 
 	GetBonusManager() *BonusManager
 
+	// GetAccountDBByHash returns account database with specified block hash
 	GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error)
 
 	GetAccountDBByHeight(height uint64) (vm.AccountDB, error)
@@ -137,17 +139,17 @@ type TransactionPool interface {
 
 	TxNum() uint64
 
-	SaveReceipts(blockHash common.Hash, receipts types.Receipts) error
-
-	DeleteReceipts(txs []common.Hash) error
-
 	RemoveFromPool(txs []common.Hash)
 
 	BackToPool(txs []*types.Transaction)
 
-	Clear()
+	//Clear()
 
 	RecoverAndValidateTx(tx *types.Transaction) error
+
+	saveReceipts(blockHash common.Hash, receipts types.Receipts) error
+
+	deleteReceipts(txs []common.Hash) error
 }
 
 // GroupInfoI is a group management interface
@@ -161,7 +163,9 @@ type VMExecutor interface {
 
 // AccountRepository contains account query interface
 type AccountRepository interface {
+	// GetBalance return the balance of specified address
 	GetBalance(address common.Address) *big.Int
 
+	// GetBalance returns the nonce of specified address
 	GetNonce(address common.Address) uint64
 }

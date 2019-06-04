@@ -89,6 +89,7 @@ func (m *TxPoolAddMessage) GetData() interface{} {
 	panic("implement me")
 }
 
+// NewTransactionPool returns a new transaction tool object
 func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
 	pool := &TxPool{
 		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
@@ -120,10 +121,12 @@ func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from txSource) (boo
 	}
 }
 
+// AddTransaction try to add a transaction into the tool
 func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	return pool.tryAddTransaction(tx, 0)
 }
 
+// AddTransaction try to add a list of transactions into the tool
 func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	if nil == txs || 0 == len(txs) {
 		return
@@ -135,6 +138,7 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	notify.BUS.Publish(notify.TxPoolAddTxs, &TxPoolAddMessage{txs: txs, txSrc: from})
 }
 
+// AddTransaction try to add a list of transactions into the tool asynchronously
 func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
@@ -162,6 +166,7 @@ func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction) {
 	}
 }
 
+// GetTransaction trys to find a transaction from pool by hash and return it
 func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) *types.Transaction {
 	var tx = pool.bonPool.get(hash)
 	if bonus || tx != nil {
@@ -177,23 +182,23 @@ func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) *types.Transact
 	return nil
 }
 
-func (pool *TxPool) Clear() {
-	pool.batch.Reset()
-}
-
+// GetReceived returns the received transactions in the pool with a limited size
 func (pool *TxPool) GetReceived() []*types.Transaction {
 	return pool.received.asSlice(maxTxPoolSize)
 }
 
+// TxNum returns the number of transactions in the pool
 func (pool *TxPool) TxNum() uint64 {
 	return uint64(pool.received.Len() + pool.bonPool.len())
 }
 
+// PackForCast returns a list of transactions for casting a block
 func (pool *TxPool) PackForCast() []*types.Transaction {
 	result := pool.packTx()
 	return result
 }
 
+// RecoverAndValidateTx recovers the sender of the transaction and also validates the transaction
 func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) error {
 	if !tx.Hash.IsValid() {
 		return ErrHash
@@ -333,6 +338,7 @@ func (pool *TxPool) packTx() []*types.Transaction {
 	return txs
 }
 
+// RemoveFromPool removes the transactions from pool by hash
 func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
@@ -341,6 +347,7 @@ func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
 	}
 }
 
+// BackToPool will put the transactions back to pool
 func (pool *TxPool) BackToPool(txs []*types.Transaction) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
@@ -356,6 +363,7 @@ func (pool *TxPool) BackToPool(txs []*types.Transaction) {
 	}
 }
 
+// GetBonusTxs returns all the bonus transactions in the pool
 func (pool *TxPool) GetBonusTxs() []*types.Transaction {
 	txs := make([]*types.Transaction, 0)
 	pool.bonPool.forEach(func(tx *types.Transaction) bool {

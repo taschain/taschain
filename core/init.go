@@ -17,6 +17,7 @@ package core
 
 import "github.com/taschain/taschain/middleware/types"
 
+// InitCore initialize the PeerManager, BlockChainImpl and GroupChainImpl
 func InitCore(light bool, helper types.ConsensusHelper) error {
 	light = false
 	initPeerManager()
