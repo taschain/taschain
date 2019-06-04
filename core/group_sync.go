@@ -267,7 +267,7 @@ func (gs *groupSyncer) trySyncRoutine() bool {
 		ReqHeight:       gs.gchain.Height() + 1,
 	}
 
-	notify.BUS.Publish(notify.GroupSync, &SyncMessage{CandidateInfo: candInfo})
+	notify.BUS.Publish(notify.GroupSync, &syncMessage{CandidateInfo: candInfo})
 
 	gs.requestGroups(candInfo)
 	return true
@@ -301,11 +301,11 @@ func (gs *groupSyncer) requestGroups(ci *SyncCandidateInfo) {
 		return gs.syncComplete(id, true)
 	}, syncGroupNeightborTimeout)
 
-	gr := &SyncRequest{
+	gr := &syncRequest{
 		ReqSize:   int32(PeerManager.getPeerReqBlockCount(id)),
 		ReqHeight: ci.ReqHeight,
 	}
-	body, err := MarshalSyncRequest(gr)
+	body, err := marshalSyncRequest(gr)
 	if err != nil {
 		gs.logger.Errorf("marshalSyncRequest error %v", err)
 		return
@@ -318,7 +318,7 @@ func (gs *groupSyncer) requestGroups(ci *SyncCandidateInfo) {
 func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 	groupReqMsg := notify.AsDefault(msg)
 
-	gr, err := UnmarshalSyncRequest(groupReqMsg.Body())
+	gr, err := unmarshalSyncRequest(groupReqMsg.Body())
 	if err != nil {
 		gs.logger.Errorf("unmarshalSyncRequest error %v", err)
 		return

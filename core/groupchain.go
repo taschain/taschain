@@ -234,6 +234,7 @@ func (chain *GroupChain) genesisMember() map[string]byte {
 	return mems
 }
 
+// WhetherMemberInActiveGroup checks whether the id belongs any active group
 func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uint64) bool {
 	iter := chain.NewIterator()
 	for g := iter.Current(); g != nil; g = iter.MovePre() {
