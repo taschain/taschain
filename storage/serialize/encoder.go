@@ -39,9 +39,6 @@ func Encode(w io.Writer, val interface{}) error {
 	return nil
 }
 
-func EncodeBytes(b []byte, val interface{}) error {
-	return Encode(bytes.NewBuffer(b), val)
-}
 
 func EncodeToBytes(val interface{}) ([]byte, error) {
 	buf := new(bytes.Buffer)
