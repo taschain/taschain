@@ -16,13 +16,17 @@
 package rpc
 
 import (
-	//"context"
-	//"net"
+	"context"
+	"net"
 	"time"
+
+	"github.com/taschain/taschain/cmd/gtas/cli/ipc_win_lib"
+
 )
 
 // defaultPipeDialTimeout is used if the dialing context has no deadline. It is much smaller than the
-// defaultDialTimeout because named pipes are local and there is no need to wait so long.
+// defaultDialTimeipcListen
+// out because named pipes are local and there is no need to wait so long.
 const defaultPipeDialTimeout = 2 * time.Second
 
 // ipcListen will create a named pipe on the given endpoint.

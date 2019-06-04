@@ -98,6 +98,11 @@ func (adb *AccountDB) setError(err error) {
 	}
 }
 
+// RemoveData set data nil
+func (adb *AccountDB) RemoveData(addr common.Address,key string) {
+	adb.SetData(addr,key,nil)
+}
+
 // Error get the first non-nil error it is called with.
 func (adb *AccountDB) Error() error {
 	return adb.dbErr

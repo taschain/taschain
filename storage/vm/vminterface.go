@@ -18,7 +18,6 @@ package vm
 import (
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/storage/account"
 	"github.com/taschain/taschain/storage/trie"
 	"math/big"
 )
@@ -26,7 +25,6 @@ import (
 type AccountDB interface {
 	CreateAccount(common.Address)
 
-	GetTrie() account.Trie
 	SubBalance(common.Address, *big.Int)
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int
