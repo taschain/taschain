@@ -22,7 +22,11 @@ import (
 )
 
 func TestGroupChain_Add(t *testing.T) {
-	initContext4Test()
+	err := initContext4Test()
+	if err != nil {
+		t.Fatalf("fail to initContext4Test")
+	}
+
 	defer clear()
 
 	id1 := genHash("test1")
@@ -31,9 +35,9 @@ func TestGroupChain_Add(t *testing.T) {
 		Header: &types.GroupHeader{},
 	}
 
-	err := GroupChainImpl.AddGroup(group1)
+	err = GroupChainImpl.AddGroup(group1)
 	if err != nil {
-		t.Fatalf("fail to add group1")
+		t.Fatalf("fail to add group1: %s", err)
 	}
 
 	if 1 != GroupChainImpl.Height() {
@@ -86,6 +90,7 @@ func TestGroupChain_Add(t *testing.T) {
 	chain := GroupChainImpl
 	iter := chain.groupsHeight.NewIterator()
 	defer iter.Release()
+
 
 	limit := 100
 	for iter.Next() {
