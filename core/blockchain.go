@@ -60,13 +60,14 @@ type BlockChainConfig struct {
 	receipt     string
 }
 
+
+// FullBlockChain manages chain imports, reverts, chain reorganisations.
 type FullBlockChain struct {
 	blocks      *tasdb.PrefixedDatabase
 	blockHeight *tasdb.PrefixedDatabase
-	txdb        *tasdb.PrefixedDatabase
-	//checkdb tasdb.Database
-	statedb *tasdb.PrefixedDatabase
-	batch   tasdb.Batch
+	txDb        *tasdb.PrefixedDatabase
+	stateDb     *tasdb.PrefixedDatabase
+	batch       tasdb.Batch
 
 	stateCache account.AccountDatabase
 
@@ -91,7 +92,7 @@ type FullBlockChain struct {
 
 	//verifiedBodyCache *lru.Cache
 
-	isAdujsting bool // IsAdujsting which means there may be a fork
+	isAdjusting bool // isAdjusting which means there may be a fork
 
 	consensusHelper types.ConsensusHelper
 
@@ -129,7 +130,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		config:          getBlockChainConfig(),
 		latestBlock:     nil,
 		init:            true,
-		isAdujsting:     false,
+		isAdjusting:     false,
 		consensusHelper: helper,
 		ticker:          ticker.NewGlobalTicker("chain"),
 		ts:              time2.TSInstance,
@@ -159,12 +160,12 @@ func initBlockChain(helper types.ConsensusHelper) error {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
-	chain.txdb, err = ds.NewPrefixDatabase(chain.config.tx)
+	chain.txDb, err = ds.NewPrefixDatabase(chain.config.tx)
 	if err != nil {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
-	chain.statedb, err = ds.NewPrefixDatabase(chain.config.state)
+	chain.stateDb, err = ds.NewPrefixDatabase(chain.config.state)
 	if err != nil {
 		Logger.Debugf("Init block chain error! Error:%s", err.Error())
 		return err
@@ -179,7 +180,7 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.batch = chain.blocks.CreateLDBBatch()
 	chain.transactionPool = NewTransactionPool(chain, receiptdb)
 
-	chain.stateCache = account.NewDatabase(chain.statedb)
+	chain.stateCache = account.NewDatabase(chain.stateDb)
 
 	chain.executor = NewTVMExecutor(chain)
 	initMinerManager(chain.ticker)
@@ -311,7 +312,7 @@ func (chain *FullBlockChain) compareBlockWeight(bh1 *types.BlockHeader, bh2 *typ
 func (chain *FullBlockChain) Close() {
 	chain.blocks.Close()
 	chain.blockHeight.Close()
-	chain.statedb.Close()
+	chain.stateDb.Close()
 }
 
 func (chain *FullBlockChain) GetBonusManager() *BonusManager {

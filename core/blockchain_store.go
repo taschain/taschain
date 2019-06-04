@@ -50,7 +50,7 @@ func (chain *FullBlockChain) saveBlockHeight(height uint64, dataBytes []byte) er
 }
 
 func (chain *FullBlockChain) saveBlockTxs(blockHash common.Hash, dataBytes []byte) error {
-	return chain.txdb.AddKv(chain.batch, blockHash.Bytes(), dataBytes)
+	return chain.txDb.AddKv(chain.batch, blockHash.Bytes(), dataBytes)
 }
 
 // commitBlock persist a block in a batch
@@ -119,10 +119,10 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 }
 
 func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
-	if !chain.isAdujsting {
-		chain.isAdujsting = true
+	if !chain.isAdjusting {
+		chain.isAdjusting = true
 		defer func() {
-			chain.isAdujsting = false
+			chain.isAdjusting = false
 		}()
 	}
 
@@ -324,9 +324,9 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 }
 
 func (chain *FullBlockChain) queryBlockBodyBytes(hash common.Hash) []byte {
-	bs, err := chain.txdb.Get(hash.Bytes())
+	bs, err := chain.txDb.Get(hash.Bytes())
 	if err != nil {
-		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), hash.Hex())
+		Logger.Errorf("get txDb err:%v, key:%v", err.Error(), hash.Hex())
 		return nil
 	}
 	return bs
@@ -444,9 +444,9 @@ func (chain *FullBlockChain) queryBlockTransactionsOptional(txIdx int, height ui
 	if bh == nil {
 		return nil
 	}
-	bs, err := chain.txdb.Get(bh.Hash.Bytes())
+	bs, err := chain.txDb.Get(bh.Hash.Bytes())
 	if err != nil {
-		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), bh.Hash.Hex())
+		Logger.Errorf("queryBlockTransactionsOptional get txDb err:%v, key:%v", err.Error(), bh.Hash.Hex())
 		return nil
 	}
 	tx, err := decodeTransaction(txIdx, txHash, bs)

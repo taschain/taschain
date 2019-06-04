@@ -69,7 +69,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
-		buffer.WriteString("fail to new statedb, lateset height: ")
+		buffer.WriteString("fail to new stateDb, lateset height: ")
 		buffer.WriteString(fmt.Sprintf("%d", latestBlock.Height))
 		buffer.WriteString(", block height: ")
 		buffer.WriteString(fmt.Sprintf("%d error:", block.Header.Height))
@@ -418,7 +418,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 	}
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
-		Logger.Errorf("Fail to new statedb, error:%s", err)
+		Logger.Errorf("Fail to new stateDb, error:%s", err)
 		return false, nil
 	}
 
@@ -507,9 +507,9 @@ func (chain *FullBlockChain) batchAddBlockOnChain(source string, module string, 
 			return
 		}
 	}
-	chain.isAdujsting = true
+	chain.isAdjusting = true
 	defer func() {
-		chain.isAdujsting = false
+		chain.isAdjusting = false
 	}()
 
 	for _, b := range addBlocks {

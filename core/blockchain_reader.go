@@ -67,7 +67,7 @@ func (chain *FullBlockChain) GetTransactionPool() TransactionPool {
 // IsAdujsting means whether need to adjust blockchain,
 // which means there may be a fork
 func (chain *FullBlockChain) IsAdujsting() bool {
-	return chain.isAdujsting
+	return chain.isAdjusting
 }
 
 func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
