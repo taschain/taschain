@@ -91,7 +91,6 @@ func TestGroupChain_Add(t *testing.T) {
 	iter := chain.groupsHeight.NewIterator()
 	defer iter.Release()
 
-
 	limit := 100
 	for iter.Next() {
 		gid := iter.Value()

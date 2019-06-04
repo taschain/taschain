@@ -14,9 +14,9 @@ type blockResponseMessage struct {
 }
 
 type SyncCandidateInfo struct {
-	Candidate       string		// Candidate's ID
-	CandidateHeight uint64		// Candidate's current block/group height
-	ReqHeight       uint64		// Candidate's current request block/group height
+	Candidate       string // Candidate's ID
+	CandidateHeight uint64 // Candidate's current block/group height
+	ReqHeight       uint64 // Candidate's current request block/group height
 }
 
 type syncMessage struct {
