@@ -28,26 +28,26 @@ func TestCreatePool(t *testing.T) {
 
 	fmt.Printf("received: %d transactions\n", len(pool.GetReceived()))
 
-	transaction := genTestTx( 123457, "1", "2", 0, 3)
+	transaction := genTestTx(123457, "1", "2", 0, 3)
 
 	_, err := pool.AddTransaction(transaction)
 	if err != nil {
 		t.Fatalf("fail to AddTransaction")
 	}
-	fmt.Printf("received: %d transactions\n",len(pool.GetReceived()))
+	fmt.Printf("received: %d transactions\n", len(pool.GetReceived()))
 
 	h := common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
 
-	transaction = genTestTx( 12347, "1", "2", 1, 3)
+	transaction = genTestTx(12347, "1", "2", 1, 3)
 
 	_, err = pool.AddTransaction(transaction)
 	if err != nil {
 		t.Fatalf("fail to AddTransaction")
 	}
 
-	fmt.Printf("received: %d transactions\n",len(pool.GetReceived()))
+	fmt.Printf("received: %d transactions\n", len(pool.GetReceived()))
 
-	tGet:= pool.GetTransaction(false,h)
+	tGet := pool.GetTransaction(false, h)
 	println(tGet)
 
 	casting := pool.PackForCast()
@@ -64,24 +64,24 @@ func TestContainer(t *testing.T) {
 	var gasePrice1 uint64 = 12347
 	var gasePrice2 uint64 = 12345
 
-	transaction1 := genTestTx( gasePrice1, "1", "2", 0, 3)
-	_,err := pool.AddTransaction(transaction1)
+	transaction1 := genTestTx(gasePrice1, "1", "2", 0, 3)
+	_, err := pool.AddTransaction(transaction1)
 	if err != nil {
 		t.Fatalf("fail to AddTransaction ")
 	}
 
-	transaction2 := genTestTx( gasePrice2, "1", "2", 1, 3)
-	_,err = pool.AddTransaction(transaction2)
+	transaction2 := genTestTx(gasePrice2, "1", "2", 1, 3)
+	_, err = pool.AddTransaction(transaction2)
 	if err != nil {
 		t.Fatalf("fail to AddTransaction ")
 	}
 
-	tGet := pool.GetTransaction(false,transaction1.Hash)
+	tGet := pool.GetTransaction(false, transaction1.Hash)
 	if tGet.GasPrice != gasePrice1 {
 		t.Fatalf("gas price is wrong")
 	}
 
-	tGet = pool.GetTransaction(false,transaction2.Hash)
+	tGet = pool.GetTransaction(false, transaction2.Hash)
 	if tGet.GasPrice != gasePrice2 {
 		t.Fatalf("gas price is wrong")
 	}
@@ -98,8 +98,8 @@ func TestMaxTxsPerBlock(t *testing.T) {
 	pool := chain.GetTransactionPool()
 
 	for i := 0; i < 100000; i++ {
-		transaction := genTestTx( 11, "1", "2", uint64(i+1), 3)
-		_,err := pool.AddTransaction(transaction)
+		transaction := genTestTx(11, "1", "2", uint64(i+1), 3)
+		_, err := pool.AddTransaction(transaction)
 		if err != nil {
 			t.Fatalf("fail to AddTransaction ")
 		}

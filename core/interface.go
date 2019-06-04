@@ -85,8 +85,6 @@ type BlockChain interface {
 
 	Close()
 
-
-
 	GetBonusManager() *BonusManager
 
 	// GetAccountDBByHash returns account database with specified block hash

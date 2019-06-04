@@ -209,9 +209,8 @@ func (mm *MinerManager) addMiner(id []byte, miner *types.Miner, accountdb vm.Acc
 	}
 	if miner.Stake < common.VerifyStake && miner.Type == types.MinerTypeLight {
 		return -1
-	} else {
-		mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
 	}
+	mm.updateMinerCount(miner.Type, minerCountIncrease, accountdb)
 	data, _ := msgpack.Marshal(miner)
 	accountdb.SetData(db, string(id), data)
 	if miner.Type == types.MinerTypeHeavy {

@@ -67,7 +67,7 @@ func (chain *FullBlockChain) GetTransactionPool() TransactionPool {
 // IsAdujsting means whether need to adjust blockchain,
 // which means there may be a fork
 func (chain *FullBlockChain) IsAdujsting() bool {
-	return chain.isAdujsting
+	return chain.isAdjusting
 }
 
 func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
@@ -255,6 +255,7 @@ func (chain *FullBlockChain) GetNonce(address common.Address) uint64 {
 
 	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
 }
+
 // GetAccountDBByHash returns account database with specified block hash
 func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	chain.rwLock.RLock()

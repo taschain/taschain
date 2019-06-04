@@ -69,7 +69,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
 		var buffer bytes.Buffer
-		buffer.WriteString("fail to new statedb, lateset height: ")
+		buffer.WriteString("fail to new stateDb, lateset height: ")
 		buffer.WriteString(fmt.Sprintf("%d", latestBlock.Height))
 		buffer.WriteString(", block height: ")
 		buffer.WriteString(fmt.Sprintf("%d error:", block.Header.Height))
@@ -186,7 +186,7 @@ func (chain *FullBlockChain) processFutureBlock(b *types.Block, source string) {
 		Logger.Warnf("detect fork. hash=%v, height=%v, preHash=%v, topHash=%v, topHeight=%v, topPreHash=%v", bh.Hash.Hex(), bh.Height, bh.PreHash.Hex(), top.Hash.Hex(), top.Height, top.PreHash.Hex())
 		go chain.forkProcessor.tryToProcessFork(source, b)
 	} else { //
-		go BlockSyncer.syncFrom(source)
+		go blockSync.syncFrom(source)
 	}
 }
 
@@ -309,12 +309,11 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		if ok {
 			ret = types.AddBlockSucc
 			return
-		} else {
-			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
-			ret = types.AddBlockFailed
-			err = ErrCommitBlockFail
-			return
 		}
+		Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
+		ret = types.AddBlockFailed
+		err = ErrCommitBlockFail
+		return
 	}
 
 	cmpWeight := chain.compareChainWeight(bh)
@@ -350,12 +349,11 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		if ok {
 			ret = types.AddBlockSucc
 			return
-		} else {
-			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
-			ret = types.AddBlockFailed
-			err = ErrCommitBlockFail
-			return
 		}
+		Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
+		ret = types.AddBlockFailed
+		err = ErrCommitBlockFail
+		return
 	}
 }
 
@@ -420,7 +418,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 	}
 	state, err := account.NewAccountDB(preRoot, chain.stateCache)
 	if err != nil {
-		Logger.Errorf("Fail to new statedb, error:%s", err)
+		Logger.Errorf("Fail to new stateDb, error:%s", err)
 		return false, nil
 	}
 
@@ -509,9 +507,9 @@ func (chain *FullBlockChain) batchAddBlockOnChain(source string, module string, 
 			return
 		}
 	}
-	chain.isAdujsting = true
+	chain.isAdjusting = true
 	defer func() {
-		chain.isAdujsting = false
+		chain.isAdjusting = false
 	}()
 
 	for _, b := range addBlocks {

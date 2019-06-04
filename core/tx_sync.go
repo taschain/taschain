@@ -362,7 +362,7 @@ func (ts *txSyncer) onTxNotify(msg notify.Message) {
 }
 
 func (ts *txSyncer) reqTxsRoutine() bool {
-	if BlockSyncer == nil || BlockSyncer.isSyncing() {
+	if blockSync == nil || blockSync.isSyncing() {
 		ts.logger.Debugf("block syncing, won't req txs")
 		return false
 	}
