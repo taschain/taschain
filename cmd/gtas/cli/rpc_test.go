@@ -32,7 +32,7 @@ func TestRPC(t *testing.T) {
 	gtas := NewGtas()
 	gtas.simpleInit("tas.ini")
 	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
-	err := gtas.fullInit(true,true,"",0,"127.0.0.1","super",false,"testkey",false,100)
+	err := gtas.fullInit(true, true, "", 0, "127.0.0.1", "super", false, "testkey", false, 100)
 	if err != nil {
 		t.Error(err)
 	}
@@ -43,15 +43,15 @@ func TestRPC(t *testing.T) {
 	nonce := core.BlockChainImpl.GetNonce(senderAddr)
 	privateKey := common.HexToSecKey("0x045c8153e5a849eef465244c0f6f40a43feaaa6855495b62a400cc78f9a6d61c76c09c3aaef393aa54bd2adc5633426e9645dfc36723a75af485c5f5c9f2c94658562fcdfb24e943cf257e25b9575216c6647c4e75e264507d2d57b3c8bc00b361")
 
-	tx := &txRawData{Target:"0x8ad32757d4dbcea703ba4b982f6fd08dad84bfcb",Value:10,Gas:1000,Gasprice:10000,TxType:0,Nonce:nonce}
+	tx := &txRawData{Target: "0x8ad32757d4dbcea703ba4b982f6fd08dad84bfcb", Value: 10, Gas: 1000, Gasprice: 10000, TxType: 0, Nonce: nonce}
 	tranx := txRawToTransaction(tx)
 	tranx.Hash = tranx.GenHash()
 	sign := privateKey.Sign(tranx.Hash.Bytes())
 	tranx.Sign = sign.Bytes()
 	tx.Sign = sign.Hex()
 
-	txdata,err:= json.Marshal(tx)
-	if err != nil{
+	txdata, err := json.Marshal(tx)
+	if err != nil {
 		t.Error(err)
 	}
 	var port uint = 8080
@@ -82,7 +82,6 @@ func TestRPC(t *testing.T) {
 	}
 }
 
-
 func resetDb(dbPath string) error {
 	core.BlockChainImpl.(*core.FullBlockChain).Close()
 	core.GroupChainImpl.Close()
@@ -94,18 +93,18 @@ func resetDb(dbPath string) error {
 		return err
 	}
 	for _, d := range dir {
-		if d.IsDir() && strings.HasPrefix(d.Name(),"d_"){
-			fmt.Printf("deleting folder: %s \n",d.Name())
+		if d.IsDir() && strings.HasPrefix(d.Name(), "d_") {
+			fmt.Printf("deleting folder: %s \n", d.Name())
 			err = os.RemoveAll(d.Name())
 			if err != nil {
 				return err
 			}
 		}
-		if d.IsDir() && strings.Compare(dbPath,d.Name()) == 0{
+		if d.IsDir() && strings.Compare(dbPath, d.Name()) == 0 {
 			os.RemoveAll(d.Name())
 		}
 
-		if d.IsDir() && strings.Compare("logs",d.Name()) == 0{
+		if d.IsDir() && strings.Compare("logs", d.Name()) == 0 {
 			os.RemoveAll(d.Name())
 		}
 	}

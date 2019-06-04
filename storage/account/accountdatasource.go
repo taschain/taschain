@@ -74,19 +74,15 @@ func NewDatabase(db tasdb.Database) AccountDatabase {
 	}
 }
 
-
-
 type publicStorageDB struct {
-	db *trie.NodeDatabase
-	mu sync.Mutex
+	db            *trie.NodeDatabase
+	mu            sync.Mutex
 	codeSizeCache *lru.Cache
 }
 
 type storageDB struct {
 	publicStorageDB
 }
-
-
 
 func (db *publicStorageDB) TrieDB() *trie.NodeDatabase {
 	return db.db
@@ -110,8 +106,6 @@ func (db *publicStorageDB) ContractCodeSize(addrHash, codeHash common.Hash) (int
 	}
 	return len(code), err
 }
-
-
 
 func (db *storageDB) OpenTrie(root common.Hash) (Trie, error) {
 	db.mu.Lock()

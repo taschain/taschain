@@ -283,7 +283,6 @@ func (c *accountObject) Address() common.Address {
 	return c.address
 }
 
-
 // Code returns the contract code associated with this object, if any.
 func (ao *accountObject) Code(db AccountDatabase) []byte {
 	if ao.code != nil {
@@ -358,4 +357,3 @@ func (ao *accountObject) Nonce() uint64 {
 func (ao *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
 }
-

@@ -24,8 +24,6 @@ import (
 	"github.com/taschain/taschain/storage/tasdb"
 )
 
-
-
 // testAccount is the data associated with an account used by the state tests.
 type testAccount struct {
 	address common.Address

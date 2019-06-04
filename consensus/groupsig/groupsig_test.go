@@ -368,7 +368,6 @@ func test(t *testing.T) {
 	testShareSeckey(t)
 }
 
-
 func Test_GroupsigIDStringConvert(t *testing.T) {
 	str := "0xedb67046af822fd6a778f3a1ec01ad2253e5921d3c1014db958a952fdc1b98e2"
 	id := NewIDFromString(str)

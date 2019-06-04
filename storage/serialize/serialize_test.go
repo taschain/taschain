@@ -12,6 +12,7 @@
 //
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package serialize
 
 import (
@@ -35,7 +36,6 @@ func TestSerialize(t *testing.T) {
 	if err != nil {
 		t.Errorf("encoding error")
 	}
-
 
 	var b = Account{}
 	decodeErr := DecodeBytes(byte, &b)

@@ -29,8 +29,8 @@ type StateSuite struct {
 	state *AccountDB
 }
 
-func setUp() *StateSuite{
-	s:= new(StateSuite)
+func setUp() *StateSuite {
+	s := new(StateSuite)
 	s.db, _ = tasdb.NewMemDatabase()
 	s.state, _ = NewAccountDB(common.Hash{}, NewDatabase(s.db))
 	return s
@@ -38,9 +38,8 @@ func setUp() *StateSuite{
 
 var toAddr = common.BytesToAddress
 
-
-func  TestNull(t *testing.T) {
-	s:= setUp()
+func TestNull(t *testing.T) {
+	s := setUp()
 	address := common.HexToAddress("0x823140710bf13990e4500136726d8b55")
 	s.state.CreateAccount(address)
 	s.state.SetData(address, "emptykey", []byte(""))
@@ -52,7 +51,7 @@ func  TestNull(t *testing.T) {
 }
 
 func TestSnapshot(t *testing.T) {
-	s:= setUp()
+	s := setUp()
 	stateObjAddr := toAddr([]byte("aa"))
 	var storageAddr string = "test"
 	data1 := []byte("value1")
@@ -71,7 +70,7 @@ func TestSnapshot(t *testing.T) {
 	// get state storage value
 	res := s.state.GetData(stateObjAddr, storageAddr)
 
-	if string(res) != "value1"{
+	if string(res) != "value1" {
 		t.Errorf("expected empty hash. got %s", res)
 	}
 }
@@ -86,6 +85,7 @@ func Keccak256Hash(data ...[]byte) (h common.Hash) {
 	d.Sum(h[:0])
 	return h
 }
+
 // use testing instead of checker because checker does not support
 // printing/logging in tests (-check.vv does not work)
 func TestSnapshot2(t *testing.T) {
@@ -94,7 +94,6 @@ func TestSnapshot2(t *testing.T) {
 
 	stateobjaddr0 := "so0"
 	stateobjaddr1 := "so1"
-
 
 	data0 := common.BytesToHash([]byte{17})
 	data1 := common.BytesToHash([]byte{18})
@@ -187,7 +186,7 @@ func compareStateObjects(so0, so1 *accountObject, t *testing.T) {
 		}
 	}
 	for k, v := range so0.cachedStorage {
-		if string(so1.cachedStorage[k] )!= string(v) {
+		if string(so1.cachedStorage[k]) != string(v) {
 			t.Errorf("Origin storage key %x mismatch: have %v, want none.", k, v)
 		}
 	}
