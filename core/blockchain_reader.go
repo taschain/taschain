@@ -70,6 +70,7 @@ func (chain *FullBlockChain) IsAdjusting() bool {
 	return chain.isAdjusting
 }
 
+// LatestStateDB returns chain's last account database
 func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 	chain.rwLock.RLock()
 	defer chain.rwLock.RUnlock()
@@ -265,6 +266,7 @@ func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB,
 	return account.NewAccountDB(header.StateTree, chain.stateCache)
 }
 
+// GetAccountDBByHeight returns account database with specified block height
 func (chain *FullBlockChain) GetAccountDBByHeight(height uint64) (vm.AccountDB, error) {
 	chain.rwLock.RLock()
 	defer chain.rwLock.RUnlock()

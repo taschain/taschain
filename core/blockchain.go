@@ -315,10 +315,12 @@ func (chain *FullBlockChain) Close() {
 	chain.stateDb.Close()
 }
 
+// GetBonusManager returns the bonus manager
 func (chain *FullBlockChain) GetBonusManager() *BonusManager {
 	return chain.bonusManager
 }
 
+// GetConsensusHelper returns consensus helper reference
 func (chain *FullBlockChain) GetConsensusHelper() types.ConsensusHelper {
 	return chain.consensusHelper
 }
@@ -330,7 +332,7 @@ func (chain *FullBlockChain) ResetTop(bh *types.BlockHeader) {
 	chain.resetTop(bh)
 }
 
-// Only used in a debug file, should be removed later
+// Remove removes the block and blocks after it from the chain. Only used in a debug file, should be removed later
 func (chain *FullBlockChain) Remove(block *types.Block) bool {
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
