@@ -49,7 +49,7 @@ func TestNTPQuery(t *testing.T) {
 
 func TestSync(t *testing.T) {
 	InitTimeSync()
-	time.Sleep(time.Hour)
+	time.Sleep(time.Second * 3)
 }
 
 func TestUTCAndLocal(t *testing.T) {

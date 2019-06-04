@@ -134,7 +134,7 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 		Height:   bh.Height,
 		Hash:     bh.Hash.Hex(),
 		PreHash:  bh.PreHash.Hex(),
-		Proposer: groupsig.DeserializeID(bh.Castor).GetHexString(),
+		Proposer: groupsig.DeserializeId(bh.Castor).GetHexString(),
 		Verifier: gb.Gid.GetHexString(),
 	}
 	monitor.Instance.AddLog(le)
@@ -154,7 +154,7 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 		return
 	}
 
-	gpk := p.getGroupPubKey(groupsig.DeserializeID(bh.GroupID))
+	gpk := p.getGroupPubKey(groupsig.DeserializeId(bh.GroupID))
 	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
 		blog.log("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
@@ -310,7 +310,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		return
 	}
 
-	groupID := groupsig.DeserializeID(bh.GroupID)
+	groupID := groupsig.DeserializeId(bh.GroupID)
 	group := p.GetGroup(groupID)
 
 	targetIDIndexs := make([]int32, 0)

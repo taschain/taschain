@@ -55,8 +55,8 @@ func convertBlockHeader(b *types.Block) *Block {
 		PreHash: bh.PreHash,
 		CurTime: bh.CurTime.Local(),
 		PreTime: bh.PreTime().Local(),
-		Castor:  groupsig.DeserializeID(bh.Castor),
-		GroupID: groupsig.DeserializeID(bh.GroupID),
+		Castor:  groupsig.DeserializeId(bh.Castor),
+		GroupID: groupsig.DeserializeId(bh.GroupID),
 		Prove:   common.ToHex(bh.ProveValue),
 		TotalQN: bh.TotalQN,
 		TxNum:   uint64(len(b.Transactions)),
@@ -78,12 +78,12 @@ func convertBonusTransaction(tx *types.Transaction) *BonusTransaction {
 
 	targets := make([]groupsig.ID, len(ids))
 	for i, id := range ids {
-		targets[i] = groupsig.DeserializeID(id)
+		targets[i] = groupsig.DeserializeId(id)
 	}
 	return &BonusTransaction{
 		Hash:      tx.Hash,
 		BlockHash: bhash,
-		GroupID:   groupsig.DeserializeID(gid),
+		GroupID:   groupsig.DeserializeId(gid),
 		TargetIDs: targets,
 		Value:     value,
 	}

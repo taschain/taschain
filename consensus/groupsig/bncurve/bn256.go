@@ -64,16 +64,16 @@ func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 }
 
 //获得x,y坐标(仿射坐标)
-//func (g *G1) GetXY() (*gfP, *gfP, bool) {
-//	p := &curvePoint{}
-//	p.Set(g.p)
-//	p.MakeAffine()
-//
-//	return &p.x, &p.y, p.y.IsOdd()
-//}
+func (g *G1) getXY() (*gfP, *gfP, bool) {
+	p := &curvePoint{}
+	p.Set(g.p)
+	p.MakeAffine()
+
+	return &p.x, &p.y, p.y.IsOdd()
+}
 
 //通过x坐标恢复出点(x,y)
-func (g *G1) SetX(px *gfP, isOdd bool) error {
+func (g *G1) setX(px *gfP, isOdd bool) error {
 	//计算t=x³+b in gfP.
 	pt := &gfP{}
 	gfpMul(pt, px, px)
@@ -291,7 +291,7 @@ func (g *G1) Unmarshal(m []byte) ([]byte, error) {
 		} else {
 			isOdd = false
 		}
-		g.SetX(&g.p.x, isOdd)
+		g.setX(&g.p.x, isOdd)
 
 		if !g.p.IsOnCurve() {
 			return nil, errors.New("bncurve: malformed point")

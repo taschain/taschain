@@ -34,18 +34,17 @@ func TestSerialize(t *testing.T) {
 	accountDump(a)
 	byte, err := EncodeToBytes(a)
 	if err != nil {
-		fmt.Printf("encode error\n" + err.Error())
+		t.Errorf("encoding error")
 	}
-	fmt.Println(byte)
 
 	var b = Account{}
 	decodeErr := DecodeBytes(byte, &b)
 	if decodeErr != nil {
-		fmt.Printf("decode error\n" + decodeErr.Error())
+		t.Errorf("decode error")
 	}
 	accountDump(b)
 }
 
 func accountDump(a Account) {
-	fmt.Printf("Account nounce:%d,Root:%s,CodeHash:%v,Balance:%v\n", a.Nonce, a.Root.String(), a.CodeHash, a.Balance.Sign())
+	fmt.Printf("Account nounce:%d,Root:%s,CodeHash:%v,Balance:%v\n", a.Nonce, a.Root.Hex(), a.CodeHash, a.Balance.Sign())
 }

@@ -141,12 +141,13 @@ func TestDecodeTransactionByHash(t *testing.T) {
 	t.Logf("block is %+v", b.Header)
 	var testHash common.Hash
 	var testIndex int
-	r := 11 //rand.Intn(len(b.Transactions))
+	r := rand.Intn(len(b.Transactions))
+
 	for i, tx := range b.Transactions {
 		if i == r {
 			testHash = tx.Hash
 			testIndex = i
-			t.Log("test hash", i, testHash.String())
+			t.Log("test hash", i, testHash.Hex())
 		}
 	}
 	bs, err := encodeBlockTransactions(b)
@@ -167,7 +168,7 @@ func TestDecodeTransactionByHash(t *testing.T) {
 }
 
 func TestMarshalSign(t *testing.T) {
-	s := common.HexStringToSign("0x220ee8a9b1f85445ef27e1ae82f985087fe40854ccc3f8a6c6a5d47116420dc6000000000000000000000000000000000000000000000000000000000000000000")
+	s := common.HexToSign("0x220ee8a9b1f85445ef27e1ae82f985087fe40854ccc3f8a6c6a5d47116420dc6000000000000000000000000000000000000000000000000000000000000000000")
 	bs, err := msgpack.Marshal(s)
 	t.Log(bs, err)
 
@@ -176,7 +177,7 @@ func TestMarshalSign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(sign.GetHexString())
+	t.Log(sign.Hex())
 }
 
 func TestMarshalTx(t *testing.T) {

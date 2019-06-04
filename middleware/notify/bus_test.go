@@ -30,7 +30,6 @@ func TestBus_Publish(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	bus := NewBus()
 	bus.Publish("test", &DummyMessage{})
-
 }
 
 func TestNewBus(t *testing.T) {

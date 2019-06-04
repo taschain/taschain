@@ -170,7 +170,7 @@ type ConsensusCurrentMessage struct {
 }
 
 func (msg *ConsensusCurrentMessage) GenHash() common.Hash {
-	buf := msg.PreHash.String()
+	buf := msg.PreHash.Hex()
 	buf += string(msg.GroupID[:])
 	buf += msg.PreTime.String()
 	buf += strconv.FormatUint(msg.BlockHeight, 10)

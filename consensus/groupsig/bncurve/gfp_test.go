@@ -45,6 +45,7 @@ func TestGFp(t *testing.T) {
 	fmt.Println("b:", b.String())
 
 	gfpMul(h, a, b)
+	fmt.Println("h:", h.String())
 	//if *h != *h {
 	//	t.Errorf("addition mismatch: have %#x, want %#x", *h, *w)
 	//}

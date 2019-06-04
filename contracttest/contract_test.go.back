@@ -23,6 +23,7 @@ import (
 	"github.com/taschain/taschain/consensus/mediator"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/core"
+	time2 "github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/taslog"
@@ -66,7 +67,7 @@ func GeneteRandom() uint64 {
 //	BlockChainImpl.transactionPool.Clear()
 //}
 //
-func genContractTx(price uint64, gaslimit uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int32, txType int32) *types.Transaction {
+func genContractTx(price uint64, gaslimit uint64, source string, target string, nonce uint64, value uint64, data []byte, extraData []byte, extraDataType int8, txType int8) *types.Transaction {
 	var sourceAddr, targetAddr *common.Address
 
 	sourcebyte := common.HexStringToAddress(source)
@@ -95,7 +96,7 @@ func genContractTx(price uint64, gaslimit uint64, source string, target string, 
 
 	privateKey := common.HexStringToSecKey(SK)
 	sign := privateKey.Sign(result.Hash.Bytes())
-	result.Sign = &sign
+	result.Sign = sign.Bytes()
 	return result
 }
 
@@ -352,8 +353,9 @@ func doAddBlockOnChain() (ok bool) {
 	pre := core.BlockChainImpl.QueryTopBlock()
 	castHeight := pre.Height + 1
 
-	worker := logical.NewVRFWorker(processor.GetSelfMinerDO(), pre, castHeight, time.Now().Add(10*time.Second))
-	totalStake := core.MinerManagerImpl.GetTotalStakeByHeight(castHeight)
+	time2.InitTimeSync()
+	worker := logical.NewVRFWorker(processor.GetSelfMinerDO(), pre, castHeight, time2.TimeToTimeStamp(time.Now().Add(10*time.Second)), time2.TSInstance)
+	totalStake := core.MinerManagerImpl.GetTotalStake(castHeight)
 	pi, qn, err := worker.Prove(totalStake)
 	if err != nil {
 		fmt.Printf("vrf worker prove fail, err=%v\n", err.Error())

@@ -46,7 +46,7 @@ func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, no
 		TxType:   txType,
 		Data:     data,
 	}
-	sk := common.HexStringToSecKey(privateKey)
+	sk := common.HexToSecKey(privateKey)
 	if sk == nil {
 		return failResult(fmt.Sprintf("parse private key fail:%v", privateKey))
 	}
@@ -58,5 +58,5 @@ func (api *GtasAPI) TxUnSafe(privateKey, target string, value, gas, gasprice, no
 	if err := sendTransaction(trans); err != nil {
 		return failResult(err.Error())
 	}
-	return successResult(trans.Hash.String())
+	return successResult(trans.Hash.Hex())
 }

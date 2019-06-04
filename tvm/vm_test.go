@@ -22,31 +22,34 @@ import (
 func TestVmTest(t *testing.T) {
 	//db, _ := tasdb.NewMemDatabase()
 	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
-	vm := NewTvm(nil, nil, "")
+
+	contract := &Contract{ContractName: "test"}
+	vm := NewTvm(nil, contract, "")
 	vm.SetGas(9999999999999999)
+	vm.ContractName = "test"
 	script := `
 a = 1.2
 `
-	if vm.Execute(script) == true {
+	if result := vm.ExecutedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 eval("a = 10")
 `
-	if vm.Execute(script) == true {
+	if result := vm.ExecutedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 exec("a = 10")
 `
-	if vm.Execute(script) == true {
+	if result := vm.ExecutedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 with open("a.txt", "w") as f:
 	f.write("a")
 `
-	if vm.Execute(script) == true {
+	if result := vm.ExecutedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 }
@@ -57,11 +60,11 @@ func BenchmarkAdd(b *testing.B) {
 	script := `
 a = 1
 `
-	vm.Execute(script)
+	vm.ExecutedScriptVmSucceed(script)
 	script = `
 a += 1
 `
 	for i := 0; i < b.N; i++ { //use b.N for looping
-		vm.Execute(script)
+		vm.ExecutedScriptVmSucceed(script)
 	}
 }

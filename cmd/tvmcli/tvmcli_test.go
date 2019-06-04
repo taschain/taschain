@@ -16,21 +16,35 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestTvm(t *testing.T) {
 	tvmCli := NewTvmCli()
-	f, err := ioutil.ReadFile(filepath.Dir(os.Args[0]) + "/" + "erc20.py") //读取文件
+	f, err := os.Open("erc20.py") //读取文件
 	if err != nil {
-		fmt.Println("read the erc20.py file failed ", err)
 		t.Fail()
 	}
-	contractAddress := tvmCli.Deploy("Token", string(f))
+	defer f.Close()
+	codeStr := ""
+	buf := bufio.NewReader(f)
+	for {
+		line, err := buf.ReadString('\n')
+		codeStr = fmt.Sprintf("%s%s \n", codeStr, line)
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				t.Fail()
+				return
+			}
+		}
+	}
+	contractAddress := tvmCli.Deploy("Token", codeStr)
 	tvmCli.DeleteTvmCli()
 
 	tvmCli = NewTvmCli()

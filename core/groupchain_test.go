@@ -16,167 +16,73 @@
 package core
 
 import (
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/middleware"
+	"fmt"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/taslog"
 	"testing"
 )
 
-//
-//import (
-//	"testing"
-//	"middleware/types"
-//	"middleware"
-//)
-//
-//func TestGroupChain_Add(t *testing.T)  {
-//	ClearGroup(defaultGroupChainConfig())
-//	initGroupChain()
-//	middleware.InitMiddleware()
-//	id1 := genHash("test1")
-//	group1 := &types.Group{
-//		Id: id1,
-//	}
-//	GroupChainImpl.AddGroup(group1, nil, nil)
-//
-//	if 1 != GroupChainImpl.Height() {
-//		t.Fatalf("fail to add group1")
-//	}
-//
-//
-//
-//	id2 := genHash("test2")
-//	group2 := &types.Group{
-//		Id:     id2,
-//		Parent: id1,
-//		PreGroup: id1,
-//	}
-//
-//	//if 2 != GroupChainImpl.Height() {
-//	//	t.Fatalf("fail to add group2")
-//	//}
-//
-//	id4 := genHash("test3")
-//	group4 := &types.Group{
-//		Id:     id4,
-//		Parent: id1,
-//		PreGroup: id2,
-//	}
-//
-//	GroupChainImpl.AddGroup(group4, nil, nil)
-//	GroupChainImpl.AddGroup(group2, nil, nil)
-//
-//	// 相同id，测试覆盖
-//	group3 := &types.Group{
-//		Id:        id2,
-//		Parent:    id1,
-//		PreGroup: id2,
-//		Signature: []byte{1, 2},
-//	}
-//	GroupChainImpl.AddGroup(group3, nil, nil)
-//	if 3 != GroupChainImpl.Height() {
-//		t.Fatalf("fail to add group4")
-//	}
-//}
-//
-//func TestGroupChain_AddGroup(t *testing.T) {
-//	ClearGroup(defaultGroupChainConfig())
-//	initGroupChain()
-//
-//	first := types.GenesisGroup()
-//	if nil == GroupChainImpl.getGroupById(first.Dummy) {
-//		t.Fatalf("fail to put genesis")
-//	}
-//	if nil != GroupChainImpl.getGroupById(first.Id) {
-//		t.Fatalf("fail to put genesis")
-//	}
-//
-//	id1 := genHash("test1")
-//	group1 := &types.Group{
-//		Id: id1,
-//	}
-//	GroupChainImpl.AddGroup(group1, nil, nil)
-//	if 1 != GroupChainImpl.Height() {
-//		t.Fatalf("fail to add group1")
-//	}
-//
-//	id2 := genHash("test2")
-//	group2 := &types.Group{
-//		Id:     id2,
-//		Parent: id1,
-//	}
-//	GroupChainImpl.AddGroup(group2, nil, nil)
-//	if 2 != GroupChainImpl.Height() {
-//		t.Fatalf("fail to add group2")
-//	}
-//
-//	// 相同id，测试覆盖
-//	group3 := &types.Group{
-//		Id:        id2,
-//		Parent:    id1,
-//		Signature: []byte{1, 2},
-//	}
-//	GroupChainImpl.AddGroup(group3, nil, nil)
-//	if 2 != GroupChainImpl.Height() {
-//		t.Fatalf("fail to add group3")
-//	}
-//	check := GroupChainImpl.getGroupById(id2)
-//	if nil == check || check.Signature == nil || check.Signature[0] != 1 {
-//		t.Fatalf("fail to overwrite by id")
-//	}
-//
-//	// 相同Dummy，测试覆盖
-//	group4 := &types.Group{
-//		Dummy:  []byte{1, 2, 3, 4, 5},
-//		Parent: id1,
-//	}
-//	GroupChainImpl.AddGroup(group4, nil, nil)
-//	if 3 != GroupChainImpl.Height() {
-//		t.Fatalf("fail to add group4")
-//	}
-//	group4.Signature = []byte{6, 7}
-//	GroupChainImpl.AddGroup(group4, nil, nil)
-//	if 3 != GroupChainImpl.Height() {
-//		t.Fatalf("fail to overwrite group4")
-//	}
-//	check = GroupChainImpl.getGroupById([]byte{1, 2, 3, 4, 5})
-//	if nil == check || check.Signature == nil || check.Signature[0] != 6 {
-//		t.Fatalf("fail to overwrite by dummyid")
-//	}
-//
-//	//now := GroupChainImpl.GetAllGroupID()
-//	//if nil == now {
-//	//	t.Fatalf("fail to get all groupID")
-//	//}
-//
-//	//fmt.Printf("len now: %d\n",len(now))
-//	group := GroupChainImpl.GetGroupById(id2)
-//	if nil == group {
-//		t.Fatalf("fail to GetGroupById2")
-//	}
-//
-//	group = GroupChainImpl.GetGroupById(id2)
-//	if nil == group {
-//		t.Fatalf("fail to GetGroupById2")
-//	}
-//
-//}
-//
-//func TestGroupChain_init(t *testing.T) {
-//	group := types.GenesisGroup()
-//	if nil == group {
-//		t.Fatalf("fail to genesisGroup")
-//	}
-//}
-func TestQueryGroupAfter(t *testing.T) {
-	common.InitConf("/Users/pxf/workspace/tas_develop/test9/tas9.ini")
-	middleware.InitMiddleware()
-	common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
-	initGroupChain(&types.GenesisInfo{}, nil)
+func TestGroupChain_Add(t *testing.T) {
+	initContext4Test()
+	defer clear()
 
-	//lg := GroupChainImpl.LastGroup()
-	//t.Log(lg.GroupHeight, lg.Id)
+	id1 := genHash("test1")
+	group1 := &types.Group{
+		Id:     id1,
+		Header: &types.GroupHeader{},
+	}
+
+	err := GroupChainImpl.AddGroup(group1)
+	if err != nil {
+		t.Fatalf("fail to add group1")
+	}
+
+	if 1 != GroupChainImpl.Height() {
+		t.Fatalf("fail to add group1")
+	}
+
+	id2 := genHash("test2")
+	group2 := &types.Group{
+		Id: id2,
+		Header: &types.GroupHeader{
+			PreGroup: id1,
+		},
+	}
+
+	err = GroupChainImpl.AddGroup(group2)
+	if err != nil {
+		t.Fatalf("fail to add group2")
+	}
+
+	id3 := genHash("test3")
+	group3 := &types.Group{
+		Id: id3,
+		Header: &types.GroupHeader{
+			PreGroup: id2,
+		},
+	}
+
+	err = GroupChainImpl.AddGroup(group3)
+	if err != nil {
+		fmt.Printf("fail to add group: %s", err)
+		t.Fatalf("fail to add group4")
+	}
+
+	h := GroupChainImpl.Height()
+	fmt.Printf("h = %d\n", h)
+	if 3 != GroupChainImpl.Height() {
+		t.Fatalf("fail to add group4")
+	}
+
+	group := GroupChainImpl.GetGroupById(id2)
+	if nil == group {
+		t.Fatalf("fail to GetGroupById2")
+	}
+
+	group = GroupChainImpl.GetGroupById(id3)
+	if nil == group {
+		t.Fatalf("fail to GetGroupById3")
+	}
+
 	chain := GroupChainImpl
 	iter := chain.groupsHeight.NewIterator()
 	defer iter.Release()
@@ -190,9 +96,4 @@ func TestQueryGroupAfter(t *testing.T) {
 			limit--
 		}
 	}
-
-	//gs := GroupChainImpl.GetGroupsAfterHeight(0, 20)
-	//for _, g := range gs {
-	//	t.Log(g.GroupHeight, g.Id)
-	//}
 }

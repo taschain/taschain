@@ -70,6 +70,13 @@ func buildTxSimpleIndexer() *txSimpleIndexer {
 		db:    db,
 	}
 }
+
+func (indexer *txSimpleIndexer) close() {
+	if indexer.db != nil {
+		indexer.db.Close()
+	}
+}
+
 func (indexer *txSimpleIndexer) cacheLen() int {
 	return indexer.cache.Len()
 }
@@ -261,7 +268,7 @@ func (ts *txSyncer) clearJob() {
 		if remove {
 			rm := ts.pool.bonPool.removeByBlockHash(bhash)
 			ts.indexer.remove(tx)
-			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.String(), rm)
+			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.Hex(), rm)
 		}
 		return true
 	})
@@ -457,6 +464,12 @@ func (ts *txSyncer) onTxReq(msg notify.Message) {
 	ts.logger.Debugf("send transactions to %v size %v", nm.Source(), len(txs))
 	message := network.Message{Code: network.TxSyncResponse, Body: body}
 	network.GetNetInstance().Send(nm.Source(), message)
+}
+
+func (ts *txSyncer) Close() {
+	if ts.indexer != nil {
+		ts.indexer.close()
+	}
 }
 
 func (ts *txSyncer) onTxResponse(msg notify.Message) {

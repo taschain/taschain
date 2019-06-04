@@ -18,8 +18,6 @@ package core
 import (
 	"fmt"
 	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/middleware"
-	"github.com/taschain/taschain/middleware/types"
 	"testing"
 )
 
@@ -30,25 +28,20 @@ import (
  */
 
 func TestFullBlockChain_HasBlock(t *testing.T) {
-	common.InitConf("/Users/pxf/workspace/tas_develop/tas/deploy/daily/tas1.ini")
-	types.InitMiddleware()
-	middleware.InitMiddleware()
-	initBlockChain(nil)
-
+	initContext4Test()
+	defer clear()
 	hasBLock := BlockChainImpl.HasBlock(common.HexToHash("0x7f57774109cad543d9acfbcfa3630b30ca652d2310470341b78c62ee7463633b"))
 	t.Log(hasBLock)
 }
 
 func TestFullBlockChain_QueryBlockFloor(t *testing.T) {
-	common.InitConf("/Users/pxf/workspace/tas_develop/test9/tas9.ini")
-	middleware.InitMiddleware()
-	initBlockChain(nil)
-
+	initContext4Test()
+	defer clear()
 	chain := BlockChainImpl.(*FullBlockChain)
 
 	fmt.Println("=====")
 	bh := chain.queryBlockHeaderByHeight(0)
-	fmt.Println(bh, bh.Hash.String())
+	fmt.Println(bh, bh.Hash.Hex())
 	//top := gchain.latestBlock
 	//t.Log(top.Height, top.Hash.String())
 	//

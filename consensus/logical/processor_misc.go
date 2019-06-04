@@ -87,7 +87,7 @@ func (p *Processor) prepareMiner() {
 				p.joinGroup(jg)
 			}
 			if sgi.GInfo.GI.CreateHeight() == 0 {
-				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().String())
+				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().GetHexString())
 				p.genesisMember = true
 			}
 		}
@@ -159,7 +159,7 @@ func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 
 func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 	pi := base.VRFProve(bh.ProveValue)
-	castor := groupsig.DeserializeID(bh.Castor)
+	castor := groupsig.DeserializeId(bh.Castor)
 	miner := p.minerReader.getProposeMiner(castor)
 	if miner == nil {
 		stdLogger.Infof("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
@@ -317,7 +317,7 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	//if preBH == nil {
 	//	return false, errors.New(fmt.Sprintf("preBlock is nil,hash %v", bh.PreHash.ShortS()))
 	//}
-	//gid := groupsig.DeserializeID(bh.GroupID)
+	//gid := groupsig.DeserializeId(bh.GroupID)
 	//
 	//slog.AddStage("getGroup")
 	//group := p.GetGroup(gid)
