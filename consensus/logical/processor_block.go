@@ -26,11 +26,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/5/16 下午7:44
-**  Description:
- */
 type FutureMessageHolder struct {
 	messages sync.Map
 }
@@ -79,41 +74,12 @@ func (holder *FutureMessageHolder) size() int {
 	return cnt
 }
 
-//func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
-//	b := msg.Block
-//	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash.ShortS())
-//
-//	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
-//}
-//
-//func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*model.ConsensusBlockMessage {
-//	if vs := p.futureBlockMsgs.getMessages(hash); vs != nil {
-//		ret := make([]*model.ConsensusBlockMessage, len(vs))
-//		for idx, m := range vs {
-//			ret[idx] = m.(*model.ConsensusBlockMessage)
-//		}
-//		return ret
-//	}
-//	return nil
-//}
-//
-//func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
-//	p.futureBlockMsgs.remove(hash)
-//}
-
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
-	//begin := time.Now()
-	//defer func() {
-	//	log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
-	//}()
 	bh := block.Header
 
 	rlog := newRtLog("doAddOnChain")
-	//blog.log("start, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
 	result = int8(p.MainChain.AddBlockOnChain("", block))
 
-	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
-	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	rlog.log("height=%v, hash=%v, result=%v.", bh.Height, bh.Hash.ShortS(), result)
 	castor := groupsig.DeserializeID(bh.Castor)
 	tlog := newHashTraceLog("doAddOnChain", bh.Hash, castor)
@@ -170,7 +136,7 @@ func (p *Processor) blockPreview(bh *types.BlockHeader) string {
 }
 
 func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
-	//组建组网络
+	// Establish a group network
 	p.NetServer.BuildGroupNet(sgi.GroupID.GetHexString(), sgi.GetMembers())
 }
 
@@ -233,11 +199,6 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 	if len(g.Signature) == 0 {
 		return false, fmt.Errorf("sign is empty")
 	}
-	//top := p.MainChain.Height()
-	//if top > g.Header.WorkHeight {
-	//	err = fmt.Errorf("group too late for work, workheight %v, top %v", g.Header.WorkHeight, top)
-	//	return
-	//}
 	mems := make([]groupsig.ID, len(g.Members))
 	for idx, mem := range g.Members {
 		mems[idx] = groupsig.DeserializeID(mem)
@@ -250,7 +211,7 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 		Mems: mems,
 	}
 
-	//检验头和签名
+	// Check head and signature
 	if _, ok, err := p.groupManager.checkGroupInfo(gInfo); ok {
 		gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
 		gid := groupsig.NewIDFromPubkey(gpk).Serialize()

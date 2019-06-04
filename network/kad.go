@@ -29,21 +29,21 @@ import (
 )
 
 const (
-	alpha              = 3  // 并发限制
-	bucketSize         = 35 // kad桶大小
-	maxReplacements    = 10 // kad 预备桶成员大小
+	alpha              = 3  // Concurrency limit
+	bucketSize         = 35 // Kad barrel size
+	maxReplacements    = 10 // Kad prepares bucket member sizes
 	maxSetupCheckCount = 12
 
 	hashBits          = 256
-	nBuckets          = hashBits / 15       // kad桶数量
-	bucketMinDistance = hashBits - nBuckets // 最近桶的对数距离
+	nBuckets          = hashBits / 15       // Kad bucket number
+	bucketMinDistance = hashBits - nBuckets // The logarithmic distance of the nearest bucket
 
 	refreshInterval    = 5 * time.Minute
 	checkInterval      = 12 * time.Second
 	nodeBondExpiration = 5 * time.Second
 )
 
-// getSha256Hash 计算哈希
+// makeSha256Hash calculate the hash
 func makeSha256Hash(data []byte) []byte {
 	h := sha256.New()
 	h.Write(data)
@@ -52,10 +52,10 @@ func makeSha256Hash(data []byte) []byte {
 
 //Kad kad
 type Kad struct {
-	mutex   sync.Mutex        // 保护成员 buckets, bucket content, nursery, rand
-	buckets [nBuckets]*bucket // 根据节点距离排序的节点的索引
-	seeds   []*Node           // 启动节点列表
-	rand    *mrand.Rand       // 随机数生成器
+	mutex   sync.Mutex        // Protected members: buckets, bucket content, nursery, rand
+	buckets [nBuckets]*bucket // Index of nodes sorted by node distance
+	seeds   []*Node           // Start node list
+	rand    *mrand.Rand       // Random number generator
 
 	refreshReq chan chan struct{}
 	initDone   chan struct{}
@@ -75,8 +75,8 @@ type NetInterface interface {
 }
 
 type bucket struct {
-	entries      []*Node // 活动节点
-	replacements []*Node // 备用补充节点
+	entries      []*Node // Active node
+	replacements []*Node // Standby supplementary node
 }
 
 func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr, seeds []*Node) (*Kad, error) {
@@ -101,7 +101,7 @@ func newKad(t NetInterface, ourID NodeID, ourAddr *nnet.UDPAddr, seeds []*Node) 
 	return kad, nil
 }
 
-//print 打印桶成员信息
+// print bucket member information
 func (kad *Kad) print() {
 	Logger.Debugf(" [kad] print bucket size: %v", kad.len())
 
@@ -194,7 +194,7 @@ func (kad *Kad) isInitDone() bool {
 	}
 }
 
-//Find 只在桶里查找
+//find look in buckets only
 func (kad *Kad) find(targetID NodeID) *Node {
 	hash := makeSha256Hash(targetID[:])
 	kad.mutex.Lock()
@@ -215,7 +215,7 @@ func (kad *Kad) resolve(targetID NodeID) *Node {
 	if len(cl.entries) > 0 && cl.entries[0].ID == targetID {
 		return cl.entries[0]
 	}
-	// 找不到，开始向临近节点询问
+	// Unable to find it, start asking adjacent nodes
 	result := kad.Lookup(targetID)
 	for _, n := range result {
 		if n.ID == targetID {
@@ -531,7 +531,7 @@ func (kad *Kad) replace(b *bucket, last *Node) *Node {
 func (b *bucket) bump(n *Node) bool {
 	for i := range b.entries {
 		if b.entries[i].ID == n.ID {
-			// move it to the front
+			// Move it to the front
 			copy(b.entries[1:], b.entries[:i])
 			b.entries[0] = n
 			return true

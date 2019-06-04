@@ -7,12 +7,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/14 下午2:53
-**  Description:
- */
-
 type MessageBase struct {
 }
 
@@ -46,8 +40,6 @@ func (msg *SyncMessage) GetData() interface{} {
 type transactionRequestMessage struct {
 	TransactionHashes []common.Hash
 	CurrentBlockHash  common.Hash
-	//BlockHeight       uint64
-	//BlockPv           *big.Int
 }
 
 type SyncRequest struct {

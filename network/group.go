@@ -209,7 +209,7 @@ func newGroupManager() *GroupManager {
 	return gm
 }
 
-//buildGroup 创建组，如果组已经存在，则重建组网络
+//buildGroup create a group, or rebuild the group network if the group already exists
 func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
@@ -227,7 +227,7 @@ func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	return g
 }
 
-//RemoveGroup 移除组
+//RemoveGroup remove the group
 func (gm *GroupManager) removeGroup(id string) {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
@@ -238,7 +238,6 @@ func (gm *GroupManager) removeGroup(id string) {
 }
 
 func (gm *GroupManager) doRefresh() {
-	//fmt.Printf("groupManager doRefresh ")
 	gm.mutex.RLock()
 	defer gm.mutex.RUnlock()
 
@@ -247,7 +246,7 @@ func (gm *GroupManager) doRefresh() {
 	}
 }
 
-//SendGroup 向所有已经连接的组内节点发送自定义数据包
+//SendGroup send custom packets to all connected nodes in the group
 func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer, code uint32) {
 	Logger.Infof("send group, id:%v code:%v", id, code)
 	gm.mutex.RLock()

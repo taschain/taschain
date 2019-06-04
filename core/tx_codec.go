@@ -10,12 +10,6 @@ import (
 	"io"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/20 上午11:32
-**  Description:
- */
-
 const codecVersion = 1
 
 func marshalTx(tx *types.Transaction) ([]byte, error) {

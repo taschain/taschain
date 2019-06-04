@@ -43,7 +43,6 @@ type AccountDB struct {
 	db   AccountDatabase
 	trie Trie
 
-	//accountObjects      map[common.Address]*accountObject
 	accountObjects      *sync.Map
 	accountObjectsDirty map[common.Address]struct{}
 
@@ -62,28 +61,14 @@ type AccountDB struct {
 	lock sync.Mutex
 }
 
-//func NewAccountDBWithMap(root common.Hash, db AccountDatabase, nodes map[string]*[]byte) (*AccountDB, error) {
-//	tr, err := db.OpenTrieWithMap(root, nodes)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return &AccountDB{
-//		db:   db,
-//		trie: tr,
-//		//accountObjects:      make(map[common.Address]*accountObject),
-//		accountObjectsDirty: make(map[common.Address]struct{}),
-//	}, nil
-//}
-
 func NewAccountDB(root common.Hash, db AccountDatabase) (*AccountDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
 		return nil, err
 	}
 	accountdb := &AccountDB{
-		db:   db,
-		trie: tr,
-		//accountObjects:      make(map[common.Address]*accountObject),
+		db:                  db,
+		trie:                tr,
 		accountObjects:      new(sync.Map),
 		accountObjectsDirty: make(map[common.Address]struct{}),
 	}
@@ -301,7 +286,6 @@ func (adb *AccountDB) getAccountObjectFromTrie(addr common.Address) (stateObject
 	}
 
 	obj := newAccountObject(adb, addr, data, adb.MarkAccountObjectDirty)
-	//adb.setAccountObject(obj)
 	return obj
 }
 
@@ -378,7 +362,9 @@ func (adb *AccountDB) DataNext(iterator uintptr) string {
 		key = string(iter.Key)
 		value = string(iter.Value)
 	}
-	if !iter.Next() { //no data
+
+	// Means no data
+	if !iter.Next() {
 		hasValue = 0
 	}
 	if key == "" {
@@ -386,7 +372,7 @@ func (adb *AccountDB) DataNext(iterator uintptr) string {
 	}
 	if len(value) > 0 {
 		valueType := value[0:1]
-		if valueType == "0" { //this is map node
+		if valueType == "0" { // This is map node
 			hasValue = 2
 		} else {
 			value = value[1:]
@@ -402,16 +388,14 @@ func (adb *AccountDB) Copy() *AccountDB {
 	defer adb.lock.Unlock()
 
 	state := &AccountDB{
-		db:   adb.db,
-		trie: adb.trie,
-		//accountObjects:      make(map[common.Address]*accountObject, len(adb.accountObjectsDirty)),
+		db:                  adb.db,
+		trie:                adb.trie,
 		accountObjectsDirty: make(map[common.Address]struct{}, len(adb.accountObjectsDirty)),
 		refund:              adb.refund,
 		logSize:             adb.logSize,
 	}
 
 	for addr := range adb.accountObjectsDirty {
-		//state.accountObjects[addr] = adb.accountObjects[addr].deepCopy(state, state.MarkAccountObjectDirty)
 		state.accountObjectsDirty[addr] = struct{}{}
 	}
 	return state
@@ -496,7 +480,6 @@ func (adb *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err err
 	defer adb.clearJournalAndRefund()
 	var e *error
 	adb.accountObjects.Range(func(key, value interface{}) bool {
-		//for addr, accountObject := range adb.accountObjects {
 		addr := key.(common.Address)
 		_, isDirty := adb.accountObjectsDirty[addr]
 		accountObject := value.(*accountObject)
@@ -514,7 +497,6 @@ func (adb *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err err
 			if err := accountObject.CommitTrie(adb.db); err != nil {
 				e = &err
 				return false
-				//return common.Hash{}, err
 			}
 
 			adb.updateAccountObject(accountObject)
@@ -540,6 +522,5 @@ func (adb *AccountDB) Commit(deleteEmptyObjects bool) (root common.Hash, err err
 		}
 		return nil
 	})
-	//adb.db.PushTrie(root, adb.trie)
 	return root, err
 }

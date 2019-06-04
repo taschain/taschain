@@ -30,7 +30,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-//P2pProtoVersion 版本号
+// Version is p2pProtoVersion
 const Version = 1
 
 const (
@@ -68,7 +68,7 @@ const (
 	flowMeterInterval        = 1 * time.Minute
 )
 
-//NetCore p2p网络传输类
+// NetCore p2p network transport class
 type NetCore struct {
 	ourEndPoint      RpcEndPoint
 	id               NodeID
@@ -87,8 +87,8 @@ type NetCore struct {
 	flowMeter      *FlowMeter
 	bufferPool     *BufferPool
 
-	chainID         uint16 //链id
-	protocolVersion uint16 //协议id
+	chainID         uint16 // Chain id
+	protocolVersion uint16 // Protocol id
 }
 
 type pending struct {
@@ -109,14 +109,14 @@ type reply struct {
 	matched chan<- bool
 }
 
-//netCoreNodeID NodeID 转网络id
+//netCoreNodeID convert NodeID to network id
 func netCoreNodeID(id NodeID) uint64 {
 	h := fnv.New64a()
 	h.Write(id[:])
 	return uint64(h.Sum64())
 }
 
-//nodeFromRPC rpc节点转换
+//nodeFromRPC is RPC node transformation
 func (nc *NetCore) nodeFromRPC(sender *nnet.UDPAddr, rn RpcNode) (*Node, error) {
 	if rn.Port <= 1024 {
 		return nil, errors.New("low port")
@@ -142,7 +142,7 @@ type NetCoreConfig struct {
 	ProtocolVersion uint16
 }
 
-//MakeEndPoint 创建节点描述对象
+// MakeEndPoint create the node description object
 func MakeEndPoint(addr *nnet.UDPAddr, tcpPort int32) RpcEndPoint {
 	ip := addr.IP.To4()
 	if ip == nil {
@@ -155,7 +155,7 @@ func nodeToRPC(n *Node) RpcNode {
 	return RpcNode{Id: n.ID.GetHexString(), Ip: n.IP.String(), Port: int32(n.Port)}
 }
 
-//Init 初始化
+// InitNetCore For initialization
 func (nc *NetCore) InitNetCore(cfg NetCoreConfig) (*NetCore, error) {
 
 	nc.id = cfg.ID
@@ -301,7 +301,6 @@ func (nc *NetCore) handleReply(from NodeID, ptype MessageType, req interface{}) 
 	matched := make(chan bool, 1)
 	select {
 	case nc.gotreply <- reply{from, ptype, req, matched}:
-		// loop will handle it
 		return <-matched
 	case <-nc.closing:
 		return false
@@ -338,7 +337,8 @@ func (nc *NetCore) loop() {
 	defer timeout.Stop()
 	defer flowMeter.Stop()
 
-	<-timeout.C // ignore first timeout
+	// ignore first timeout
+	<-timeout.C
 
 	resetTimeout := func() {
 		if plist.Front() == nil || nextTimeout == plist.Front().Value {
@@ -414,7 +414,7 @@ func init() {
 
 }
 
-//Send 发送包
+// SendMessage Send the package
 func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageType, req proto.Message, code uint32) {
 	packet, _, err := nc.encodePacket(ptype, req)
 	if err != nil {
@@ -424,7 +424,7 @@ func (nc *NetCore) SendMessage(toid NodeID, toaddr *nnet.UDPAddr, ptype MessageT
 	nc.bufferPool.FreeBuffer(packet)
 }
 
-//SendAll 向所有已经连接的节点发送自定义数据包
+// SendAll send custom packets to all connected nodes
 func (nc *NetCore) SendAll(data []byte, code uint32, broadcast bool, msgDigest MsgDigest, relayCount int32) {
 
 	dataType := DataType_DataNormal
@@ -440,7 +440,7 @@ func (nc *NetCore) SendAll(data []byte, code uint32, broadcast bool, msgDigest M
 	return
 }
 
-//BroadcastRandom 随机发送广播数据包
+// BroadcastRandom sending broadcast packets randomly
 func (nc *NetCore) BroadcastRandom(data []byte, code uint32, relayCount int32) {
 	dataType := DataType_DataGlobalRandom
 
@@ -453,7 +453,7 @@ func (nc *NetCore) BroadcastRandom(data []byte, code uint32, relayCount int32) {
 	return
 }
 
-//SendGroup 向所有已经连接的组内节点发送自定义数据包
+// SendGroup send custom packets to all connected nodes in the group
 func (nc *NetCore) SendGroup(id string, data []byte, code uint32, broadcast bool, relayCount int32) {
 	dataType := DataType_DataNormal
 	if broadcast {
@@ -468,7 +468,7 @@ func (nc *NetCore) SendGroup(id string, data []byte, code uint32, broadcast bool
 	return
 }
 
-//GroupBroadcastWithMembers 通过组成员发组广播
+// GroupBroadcastWithMembers broadcast through group members
 func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32, msgDigest MsgDigest, groupMembers []string, relayCount int32) {
 	dataType := DataType_DataGroup
 
@@ -479,7 +479,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 	const MaxSendCount = 1
 	nodesHasSend := make(map[NodeID]bool)
 	count := 0
-	//先找已经连接的
+	// Find the one that's already connected
 	for i := 0; i < len(groupMembers) && count < MaxSendCount; i++ {
 		id := NewNodeID(groupMembers[i])
 		p := nc.peerManager.peerByID(id)
@@ -490,7 +490,7 @@ func (nc *NetCore) GroupBroadcastWithMembers(id string, data []byte, code uint32
 		}
 	}
 
-	//已经连接的不够，通过穿透服务器连接
+	// The number of connections has not been enough, through the penetration server connection
 	for i := 0; i < len(groupMembers) && count < MaxSendCount && count < len(groupMembers); i++ {
 		id := NewNodeID(groupMembers[i])
 		if nodesHasSend[id] != true && id != nc.id {
@@ -526,7 +526,7 @@ func (nc *NetCore) SendGroupMember(id string, data []byte, code uint32, memberID
 	return
 }
 
-//SendData 发送自定义数据包C
+// Send send a custom packet
 func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte, code uint32) {
 	packet, _, err := nc.encodeDataPacket(data, DataType_DataNormal, code, "", &toid, nil, -1)
 	if err != nil {
@@ -537,32 +537,31 @@ func (nc *NetCore) Send(toid NodeID, toaddr *nnet.UDPAddr, data []byte, code uin
 	nc.bufferPool.FreeBuffer(packet)
 }
 
-//OnConnected 处理连接成功的回调
+// OnConnected handling callbacks for successful connections
 func (nc *NetCore) OnConnected(id uint64, session uint32, p2pType uint32) {
 
 	nc.peerManager.newConnection(id, session, p2pType, false)
 
 }
 
-//OnConnected 处理接受连接的回调
+// OnAccepted handles callbacks to accept connections
 func (nc *NetCore) OnAccepted(id uint64, session uint32, p2pType uint32) {
 
 	nc.peerManager.newConnection(id, session, p2pType, true)
 }
 
-//OnDisconnected 处理连接断开的回调
+// OnDisconnected handles callbacks for disconnected connections
 func (nc *NetCore) OnDisconnected(id uint64, session uint32, p2pCode uint32) {
 
 	nc.peerManager.OnDisconnected(id, session, p2pCode)
 }
 
-//OnSendWaited 发送队列空闲
+// OnSendWaited when the send queue is idle
 func (nc *NetCore) OnSendWaited(id uint64, session uint32) {
 	nc.peerManager.OnSendWaited(id, session)
-	//Logger.Debugf("OnSendWaited netid:%v  session:%v ", id, session)
 }
 
-//OnChecked 网络类型检查
+// OnChecked check network type
 func (nc *NetCore) OnChecked(p2pType uint32, privateIP string, publicIP string) {
 	nc.ourEndPoint = MakeEndPoint(&nnet.UDPAddr{IP: nnet.ParseIP(publicIP), Port: 0}, 0)
 	nc.natType = p2pType
@@ -571,7 +570,7 @@ func (nc *NetCore) OnChecked(p2pType uint32, privateIP string, publicIP string) 
 
 }
 
-//OnRecved 数据回调
+// OnRecved is data callback
 func (nc *NetCore) OnRecved(netID uint64, session uint32, data []byte) {
 	nc.recvData(netID, session, data)
 }
@@ -646,8 +645,6 @@ func (nc *NetCore) handleMessage(p *Peer) error {
 		return err
 	}
 	fromID := p.ID
-
-	//	Logger.Debugf("handleMessage : msgType: %v ", msgType)
 
 	switch msgType {
 	case MessageType_MessagePing:
@@ -906,12 +903,12 @@ func (nc *NetCore) handleData(req *MsgData, packet []byte, fromID NodeID) {
 		bizID := nc.messageManager.ByteToBizID(req.BizMessageId)
 		nc.messageManager.forwardBiz(bizID)
 	}
-	//需处理
+	// Need to deal with
 	if len(req.DestNodeId) == 0 || dstNodeID == nc.id {
 		nc.onHandleDataMessage(req, srcNodeID)
 	}
 	broadcast := false
-	//需广播
+	// Need to be broadcast
 	if len(req.DestNodeId) == 0 || dstNodeID != nc.id {
 		broadcast = true
 	}

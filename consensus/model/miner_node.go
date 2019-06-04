@@ -7,12 +7,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/11 下午1:49
-**  Description: 矿工节点
- */
-
 type MinerDO struct {
 	PK          groupsig.Pubkey
 	VrfPK       base.VRFPublicKey
@@ -31,12 +25,12 @@ func (md *MinerDO) EffectAt(h uint64) bool {
 	return h >= md.ApplyHeight
 }
 
-//在该高度是否可以铸块
+// CanCastAt means whether it can be cast block at this height
 func (md *MinerDO) CanCastAt(h uint64) bool {
 	return md.IsWeight() && !md.IsAbort(h) && md.EffectAt(h)
 }
 
-//在该高度是否可以加入组
+// CanJoinGroupAt means whether it can join the group at this height
 func (md *MinerDO) CanJoinGroupAt(h uint64) bool {
 	return md.IsLight() && !md.IsAbort(h) && md.EffectAt(h)
 }
@@ -51,7 +45,7 @@ func (md *MinerDO) IsWeight() bool {
 
 type SelfMinerDO struct {
 	MinerDO
-	SecretSeed base.Rand //私密随机数
+	SecretSeed base.Rand // Private random number
 	SK         groupsig.Seckey
 	VrfSK      base.VRFPrivateKey
 }

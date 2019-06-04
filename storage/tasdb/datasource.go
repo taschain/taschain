@@ -1,11 +1,5 @@
 package tasdb
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/18 上午10:21
-**  Description:
- */
-
 type TasDataSource struct {
 	db *LDBDatabase
 }

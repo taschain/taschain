@@ -277,7 +277,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	return false
 }
 
-//IsGroupMember check if a user is a member of a group
+// IsGroupMember check if a user is a member of a group
 func (gg *GlobalGroups) IsGroupMember(gid groupsig.ID, uid groupsig.ID) bool {
 	g, err := gg.GetGroupByID(gid)
 	if err == nil {

@@ -10,15 +10,8 @@ import (
 	"strings"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/6/27 上午10:39
-**  Description:
- */
-
-//立即触发一次检查自己是否下个铸块组
+// triggerCastCheck trigger once to check if you are next ingot group
 func (p *Processor) triggerCastCheck() {
-	//p.Ticker.StartTickerRoutine(p.getCastCheckRoutineName(), true)
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
@@ -62,7 +55,8 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	blog := newBizLog("reserveBLock")
 	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
 	if slot.IsRecovered() {
-		vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
+		// The onBlockAddSuccess method is also marked, the call is asynchronous
+		vctx.markCastSuccess()
 		p.blockContexts.addReservedVctx(vctx)
 		if !p.tryNotify(vctx) {
 			blog.log("reserved, height=%v", vctx.castHeight)
@@ -78,7 +72,8 @@ func (p *Processor) tryNotify(vctx *VerifyContext) bool {
 		tlog := newHashTraceLog("tryNotify", bh.Hash, p.GetMinerID())
 		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, p.ts.Since(bh.CurTime))
 
-		p.consensusFinalize(vctx, sc) //上链和组外广播
+		// Winding and out-of-group broadcasting
+		p.consensusFinalize(vctx, sc)
 
 		p.blockContexts.removeReservedVctx(vctx.castHeight)
 		return true
@@ -96,7 +91,8 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 
 	r := p.doAddOnChain(block)
 
-	if r != int8(types.AddBlockSucc) { //分叉调整或 上链失败都不走下面的逻辑
+	// Fork adjustment or add on chain failure does not take the logic below
+	if r != int8(types.AddBlockSucc) {
 		return fmt.Errorf("onchain result %v", r)
 	}
 
@@ -113,7 +109,7 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 	p.NetServer.BroadcastNewBlock(cbm, gb)
 	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, p.ts.Since(bh.CurTime))
 
-	//发送日志
+	// Send log
 	le := &monitor.LogEntry{
 		LogType:  monitor.LogTypeBlockBroadcast,
 		Height:   bh.Height,
@@ -126,9 +122,11 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 	return nil
 }
 
-//在某个区块高度的QN值成功出块，保存上链，向组外广播
-//同一个高度，可能会因QN不同而多次调用该函数
-//但一旦低的QN出过，就不该出高的QN。即该函数可能被多次调用，但是调用的QN值越来越小
+// consensusFinalize means The QN value at a certain block height is successfully popped,
+// saved in the uplink, and broadcast to the outside of the group.
+// The same height, may call this function multiple times due to different QN
+// But once the low QN has passed, it should not be a high QN. That is, the function may be
+// called multiple times, but the QN value of the call is getting smaller and smaller.
 func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 
@@ -140,31 +138,14 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	}
 
 	gpk := p.getGroupPubKey(groupsig.DeserializeID(bh.GroupID))
-	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
+	// Group signature verification
+	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) {
 		blog.log("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
 		return
 	}
 
-	//如果自己是提案者，则直接上链再广播
-	//if false {	//会导致提案者分布不均衡
-	//	err := p.onBlockSignAggregation(bh.Hash, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
-	//	if err != nil {
-	//		blog.log("onBlockSignAggregation fail: %v", err)
-	//		slot.setSlotStatus(slFailed)
-	//		return
-	//	}
-	//} else if false { //通知提案者
-	//	aggrMsg := &model.BlockSignAggrMessage{
-	//		Hash: bh.Hash,
-	//		Sign: slot.gSignGenerator.GetGroupSign(),
-	//		Random: slot.rSignGenerator.GetGroupSign(),
-	//	}
-	//	tlog := newHashTraceLog("consensusFinalize", bh.Hash, p.GetMinerID())
-	//	tlog.log("send sign aggr msg to %v", slot.castor.ShortS())
-	//	p.NetServer.SendBlockSignAggrMessage(aggrMsg, slot.castor)
-	//
-	//向提案者要完整块
+	// Ask the proposer for a complete block
 	msg := &model.ReqProposalBlock{
 		Hash: bh.Hash,
 	}
@@ -233,24 +214,26 @@ func (p *Processor) blockProposal() {
 	tlog.logStart("height=%v,qn=%v, preHash=%v, verifyGroup=%v", bh.Height, qn, bh.PreHash.ShortS(), gid.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
-		skey := p.mi.SK //此处需要用普通私钥，非组相关私钥
+		// Here you need to use a normal private key, a non-group related private key.
+		skey := p.mi.SK
 
 		ccm := &model.ConsensusCastMessage{
 			BH: *bh,
 		}
-		//发给每个人的消息hash是相同的，签名也相同
+		// The message hash sent to everyone is the same, the signature is the same
 		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), ccm) {
 			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
-		//生成全量账本hash
+		// Generate full account book hash
 		proveHashs := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
 		p.NetServer.SendCastVerify(ccm, gb, proveHashs)
 
-		//ccm.GenRandomSign(skey, worker.baseBH.Random)//castor不能对随机数签名
+		// ccm.GenRandomSign(skey, worker.baseBH.Random)
+		// Castor cannot sign random numbers
 		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.Elapsed, ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
 
-		//发送日志
+		// Send log
 		le := &monitor.LogEntry{
 			LogType:  monitor.LogTypeProposal,
 			Height:   bh.Height,
@@ -272,7 +255,7 @@ func (p *Processor) blockProposal() {
 
 }
 
-//请求组内对奖励交易签名
+// reqRewardTransSign sign the reward transaction within the request group
 func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeader) {
 	blog := newBizLog("reqRewardTransSign")
 	blog.log("start, bh=%v", p.blockPreview(bh))
@@ -289,7 +272,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		blog.log("slot not verified or success,status=%v", slot.GetSlotStatus())
 		return
 	}
-	//签过了自己就不用再发了
+	// If you sign yourself, you don’t have to send it again
 	if slot.hasSignedRewardTx() {
 		blog.log("has signed reward tx")
 		return

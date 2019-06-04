@@ -72,7 +72,6 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 
 	go p.checkSelfCastRoutine()
 
-	//p.triggerFutureBlockMsg(bh)
 	p.triggerFutureVerifyMsg(bh)
 	p.triggerFutureRewardSign(bh)
 	p.groupManager.CreateNextGroupRoutine()
@@ -95,7 +94,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	beginHeight := group.Header.WorkHeight
 	topHeight := p.MainChain.Height()
 
-	//当前块高已经超过生效高度了,组可能有点问题
+	// The current block height has exceeded the effective height, group may have a problem
 	if beginHeight > 0 && beginHeight <= topHeight {
 		stdLogger.Errorf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
 		pre := p.MainChain.QueryBlockHeaderFloor(beginHeight - 1)

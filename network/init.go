@@ -37,15 +37,15 @@ const (
 	seedDefaultPort = 1122
 )
 
-//网络配置
+// NetworkConfig is the network configuration
 type NetworkConfig struct {
 	NodeIDHex       string
 	NatIP           string
 	NatPort         uint16
 	SeedIP          string
 	SeedID          string
-	ChainID         uint16 //链id
-	ProtocolVersion uint16 //协议id
+	ChainID         uint16 // Chain id
+	ProtocolVersion uint16 // Protocol version
 	TestMode        bool
 	IsSuper         bool
 }
@@ -64,16 +64,6 @@ func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig 
 		Logger.Errorf("InitSelfNode error:", err.Error())
 		return err
 	}
-
-	//test
-
-	//if index == "4" {
-	//	networkConfig.ChainID = 2
-	//	networkConfig.ProtocolVersion = 2
-	//} else {
-	//	networkConfig.ChainID = 1
-	//	networkConfig.ProtocolVersion = 1
-	//}
 
 	if networkConfig.SeedIP == "" {
 		networkConfig.SeedIP = seedDefaultIP

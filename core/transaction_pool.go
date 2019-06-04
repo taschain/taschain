@@ -27,15 +27,8 @@ import (
 )
 
 const (
-	maxTxPoolSize  = 50000
-	bonusTxMaxSize = 1000
-	//missTxCacheSize  = 60000
-
-	//broadcastListLength         = 100
-	//
-	//oldTxBroadcastTimerInterval = time.Second * 30
-	//oldTxInterval               = time.Second * 60
-
+	maxTxPoolSize   = 50000
+	bonusTxMaxSize  = 1000
 	txCountPerBlock = 3000
 	gasLimitMax     = 500000
 
@@ -51,26 +44,15 @@ var (
 )
 
 type TxPool struct {
-	//bonusTxs *lru.Cache // bonus tx
-	bonPool *bonusPool
-	//missTxs  *lru.Cache
+	bonPool  *bonusPool
 	received *simpleContainer
 
-	// Asynchronously added, accelerates validated transaction when
-	// add block on chain, does not participate in the broadcast
-	asyncAdds *lru.Cache
+	asyncAdds *lru.Cache // Asynchronously added, accelerates validated transaction when add block on chain, does not participate in the broadcast
 
 	receiptdb *tasdb.PrefixedDatabase
 	batch     tasdb.Batch
 
-	chain BlockChain
-	//broadcastList   []*types.Transaction
-	//broadcastTxLock sync.Mutex
-	//broadcastTimer  *time.Timer
-	//
-	//txBroadcastTime       *lru.Cache
-	//oldTxBroadTimer *time.Timer
-
+	chain              BlockChain
 	gasPriceLowerBound uint64
 
 	lock sync.RWMutex
@@ -91,8 +73,6 @@ func (m *TxPoolAddMessage) GetData() interface{} {
 
 func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
 	pool := &TxPool{
-		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
-		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
 		receiptdb:          receiptdb,
 		batch:              chain.batch,
 		asyncAdds:          common.MustNewLRUCache(txCountPerBlock * maxReqBlockCount),
@@ -108,7 +88,6 @@ func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase
 
 func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from txSource) (bool, error) {
 	if err := pool.RecoverAndValidateTx(tx); err != nil {
-		//Logger.Debugf("Tx verify sig error:%s, txRaw from %v, type:%d, txRaw %+v", err.Error(), from, txRaw.Type, txRaw)
 		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
 		return false, err
 	}
@@ -127,7 +106,6 @@ func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
-	//Logger.Debugf("add transactions size %v, txsrc %v", len(txs), from)
 	for _, tx := range txs {
 		pool.tryAddTransaction(tx, from)
 	}
@@ -293,9 +271,6 @@ func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, wh
 		if pool.bonPool.contains(tx.Hash) {
 			return true, 1
 		}
-		//if pool.bonPool.hasBonus(tx.Data) {
-		//	return true, 2
-		//}
 	} else {
 		if pool.received.contains(tx.Hash) {
 			return true, 1

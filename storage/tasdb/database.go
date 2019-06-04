@@ -36,8 +36,6 @@ const (
 
 var (
 	ErrLDBInit = errors.New("LDB instance not inited")
-	//instance     *LDBDatabase
-	//instanceLock = sync.RWMutex{}
 )
 
 type PrefixedDatabase struct {
@@ -71,15 +69,6 @@ func getInstance(file string) (*LDBDatabase, error) {
 
 	return instanceInner, err
 }
-
-//func (db *PrefixedDatabase) Clear() error {
-//	inner := db.db
-//	if nil == inner {
-//		return ErrLDBInit
-//	}
-//
-//	return inner.Clear()
-//}
 
 func (db *PrefixedDatabase) Close() {
 	db.db.Close()
@@ -124,7 +113,6 @@ func (db *PrefixedDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterat
 
 func (db *PrefixedDatabase) NewBatch() Batch {
 	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix}
-	//return db.db.NewBatch()
 }
 
 func (db *PrefixedDatabase) AddKv(batch Batch, k, v []byte) error {
@@ -232,7 +220,7 @@ func (b *prefixBatch) Reset() {
 	b.size = 0
 }
 
-// 加入前缀的key
+// generateKey generate a prefixed key
 func generateKey(raw []byte, prefix string) []byte {
 	bytesBuffer := bytes.NewBuffer([]byte(prefix))
 	if raw != nil {
@@ -278,7 +266,7 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	return ldb, nil
 }
 
-// 生成leveldb实例
+// newLevelDBInstance generate a leveldb instance
 func newLevelDBInstance(file string, cache int, handles int) (*leveldb.DB, error) {
 	db, err := leveldb.OpenFile(file, &opt.Options{
 		OpenFilesCacheCapacity: handles,
@@ -302,7 +290,6 @@ func (ldb *LDBDatabase) Clear() error {
 	ldb.inited = false
 	ldb.Close()
 
-	// todo: 直接删除文件，是不是过于粗暴？
 	os.RemoveAll(ldb.Path())
 
 	db, err := newLevelDBInstance(ldb.Path(), ldb.cacheConfig, ldb.handlesConfig)
@@ -379,22 +366,14 @@ func (ldb *LDBDatabase) Close() {
 		errc := make(chan error)
 		ldb.quitChan <- errc
 		if err := <-errc; err != nil {
-			//ldb.log.Error("Metrics collection failed", "err", err)
 		}
 	}
 
 	ldb.db.Close()
-	//err := ldb.ldb.Close()
-	//if err == nil {
-	//	ldb.log.Info("Database closed")
-	//} else {
-	//	ldb.log.Error("Failed to close database", "err", err)
-	//}
 }
 
 func (ldb *LDBDatabase) NewBatch() Batch {
 	return &ldbBatch{db: ldb.db, b: new(leveldb.Batch)}
-	//return ldb.batch
 }
 
 type ldbBatch struct {

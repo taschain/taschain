@@ -6,12 +6,6 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/13 下午1:41
-**  Description:
- */
-
 func (pool *TxPool) saveReceipt(txHash common.Hash, dataBytes []byte) error {
 	return pool.receiptdb.AddKv(pool.batch, txHash.Bytes(), dataBytes)
 }

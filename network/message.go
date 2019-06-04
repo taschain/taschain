@@ -25,7 +25,7 @@ const BizMessageIDLength = 32
 
 type BizMessageID = [BizMessageIDLength]byte
 
-//MessageManager 消息管理
+//MessageManager is a message management
 type MessageManager struct {
 	messages      map[uint64]time.Time
 	bizMessages   map[BizMessageID]time.Time
@@ -62,7 +62,7 @@ func newMessageManager(id NodeID) *MessageManager {
 	return mm
 }
 
-//生成新的消息id
+// genMessageID generate a new message id
 func (mm *MessageManager) genMessageID() uint64 {
 	mm.mutex.Lock()
 	defer mm.mutex.Unlock()

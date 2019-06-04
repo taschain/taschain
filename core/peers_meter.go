@@ -68,8 +68,7 @@ func (m *peerMeter) updateLastHeard() {
 }
 
 type peerManager struct {
-	//peerMeters map[string]*peerMeter
-	peerMeters *lru.Cache
+	peerMeters *lru.Cache //peerMeters map[string]*peerMeter
 	topInfos   *lru.Cache
 }
 
@@ -78,7 +77,6 @@ func initPeerManager() {
 		peerMeters: common.MustNewLRUCache(100),
 		topInfos:   common.MustNewLRUCache(200),
 	}
-	//go badPeerMeter.loop()
 	PeerManager = &badPeerMeter
 }
 

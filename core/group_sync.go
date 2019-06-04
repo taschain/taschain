@@ -44,7 +44,6 @@ const (
 
 var GroupSyncer *groupSyncer
 
-//
 type GroupInfo struct {
 	Groups []*types.Group
 }
@@ -222,7 +221,6 @@ func (gs *groupSyncer) getCandidateForSync() (string, uint64) {
 			delete(gs.candidatePool, id)
 		}
 	}
-	//gs.candidatePoolDump()
 
 	candidateID := ""
 	var candidateMaxHeight uint64

@@ -20,15 +20,14 @@ import (
 	"github.com/taschain/taschain/consensus/groupsig"
 )
 
-///////////////////////////////////////////////////////////////////////////////
-//矿工消息签名函数
+// SignMessage is miner message signature function
 func SignMessage(msg common.Hash, sk groupsig.Seckey) (sign []byte) {
 	s := groupsig.Sign(sk, msg.Bytes())
 	sign = s.Serialize()
 	return
 }
 
-//矿工消息验签函数
+// VerifyMessage is miner message check function
 func VerifyMessage(msg common.Hash, sign []byte, pk groupsig.Pubkey) bool {
 	var s groupsig.Signature
 	if s.Deserialize(sign) != nil {

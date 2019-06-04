@@ -39,7 +39,6 @@ type stateNode struct {
 	currentIdx int32
 	execNum    int32
 	queue      []*StateMsg
-	//lock       sync.RWMutex
 }
 
 type StateMsg struct {
@@ -51,10 +50,9 @@ type StateMsg struct {
 type StateMachine struct {
 	ID      string
 	Current *stateNode
-	//Current atomic.Value
-	Head *stateNode
-	Time time.Time
-	lock sync.Mutex
+	Head    *stateNode
+	Time    time.Time
+	lock    sync.Mutex
 }
 
 type StateMachines struct {
@@ -62,12 +60,9 @@ type StateMachines struct {
 	machines  *lru.Cache
 	generator StateMachineGenerator
 	ticker    *ticker.GlobalTicker
-	//machines map[string]*StateMachine
 }
 
 var GroupInsideMachines StateMachines
-
-//var GroupOutsideMachines StateMachines
 
 var logger taslog.Logger
 
@@ -81,13 +76,7 @@ func InitStateMachines() {
 		ticker:    ticker.NewGlobalTicker("state_machine"),
 	}
 
-	//GroupOutsideMachines = StateMachines{
-	//	name:      "GroupOutsideMachines",
-	//	generator: &groupOutsideMachineGenerator{},
-	//}
-
 	GroupInsideMachines.startCleanRoutine()
-	//GroupOutsideMachines.startCleanRoutine()
 }
 
 func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
@@ -116,8 +105,6 @@ func newStateMachine(id string) *StateMachine {
 }
 
 func (n *stateNode) queueSize() int32 {
-	//n.lock.RLock()
-	//defer n.lock.RUnlock()
 	return int32(len(n.queue))
 }
 
@@ -126,8 +113,6 @@ func (n *stateNode) state() string {
 }
 
 func (n *stateNode) dataIndex(id string) int32 {
-	//n.lock.RLock()
-	//defer n.lock.RUnlock()
 	for idx, d := range n.queue {
 		if d.ID == id {
 			return int32(idx)
@@ -141,8 +126,6 @@ func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
 	if idx >= 0 {
 		return idx, false
 	}
-	//n.lock.Lock()
-	//defer n.lock.Unlock()
 	n.queue = append(n.queue, stateMsg)
 	return int32(len(n.queue)) - 1, true
 }
@@ -215,7 +198,6 @@ func (m *StateMachine) transform() {
 	node := m.currentNode()
 	qs := node.queueSize()
 
-	//node.lock.Lock()
 	d := qs - node.currentIdx
 	switch d {
 	case 0:
@@ -223,7 +205,8 @@ func (m *StateMachine) transform() {
 	case 1:
 		msg := node.queue[node.currentIdx]
 		node.handler(msg.Data)
-		node.queue[node.currentIdx].Data = true //释放内存
+		// Free memory
+		node.queue[node.currentIdx].Data = true
 		node.currentIdx++
 		node.execNum++
 		logger.Debugf("machine %v handling exec state %v, from %v", m.ID, node.state(), msg.ID)
@@ -235,7 +218,8 @@ func (m *StateMachine) transform() {
 			go func() {
 				defer wg.Done()
 				node.handler(msg.Data)
-				msg.Data = true //释放内存
+				// Free memory
+				msg.Data = true
 			}()
 			node.currentIdx++
 			node.execNum++
@@ -243,8 +227,6 @@ func (m *StateMachine) transform() {
 		}
 		wg.Wait()
 	}
-
-	//node.lock.Unlock()
 
 	if node.leastFinished() && node.next != nil {
 		m.setCurrent(node.next)
@@ -293,17 +275,6 @@ type StateMachineGenerator interface {
 
 type groupInsideMachineGenerator struct{}
 type groupOutsideMachineGenerator struct{}
-
-//func (m *groupOutsideMachineGenerator) Generate(id string) *StateMachine {
-//	machine := newStateMachine(id)
-//	machine.appendNode(newStateNode(network.GroupInitMsg, 1, func(msg interface{}) {
-//		MessageHandler.processor.OnMessageGroupInit(msg.(*model.ConsensusGroupRawMessage))
-//	}))
-//	machine.appendNode(newStateNode(network.GroupInitDoneMsg, model.Param.GetThreshold(), func(msg interface{}) {
-//		MessageHandler.processor.OnMessageGroupInited(msg.(*model.ConsensusGroupInitedMessage))
-//	}))
-//	return machine
-//}
 
 func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *StateMachine {
 	machine := newStateMachine(id)

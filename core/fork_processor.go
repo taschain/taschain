@@ -71,8 +71,6 @@ func initForkProcessor(chain *FullBlockChain) *forkProcessor {
 		chain: chain,
 	}
 	fh.logger = taslog.GetLoggerByIndex(taslog.ForkLogConfig, common.GlobalConf.GetString("instance", "index", ""))
-	//notify.BUS.Subscribe(notify.ChainPieceInfoReq, fh.chainPieceInfoReqHandler)
-	//notify.BUS.Subscribe(notify.ChainPieceInfo, fh.chainPieceInfoHandler)
 	notify.BUS.Subscribe(notify.ChainPieceBlockReq, fh.chainPieceBlockReqHandler)
 	notify.BUS.Subscribe(notify.ChainPieceBlock, fh.chainPieceBlockHandler)
 
@@ -301,8 +299,9 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 	blocks := chainPieceBlockMsg.Blocks
 	topHeader := chainPieceBlockMsg.TopHeader
 
-	if source != ctx.target { //target改变了
-		//如果收到的块里包含了ctx请求的分支，则可以继续上链处理
+	// Target changed
+	if source != ctx.target {
+		// If the received block contains a branch of the ctx request, you can continue the add on chain process.
 		sameFork := false
 		if topHeader != nil && topHeader.Hash == ctx.targetTop.Hash {
 			sameFork = true
@@ -332,13 +331,8 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 	if topHeader == nil || len(blocks) == 0 {
 		return
 	}
-	//如果对方的权重已经低于本地权重，则不用后续处理
-	//if fp.gchain.compareBlockWeight(topHeader, ctx.localTop) < 0 {
-	//	fp.logger.Debugf("local weight is bigger than peer:%v, localTop %v %v, peerTop %v %v", source, ctx.localTop.Hash.String(), ctx.localTop.Height, topHeader.Hash.String(), topHeader.Height)
-	//	return
-	//}
 
-	//给出去的piece不足以找到共同祖先，继续请求piece
+	// Giving a piece to go is not enough to find a common ancestor, continue to request a piece
 	if !chainPieceBlockMsg.FindAncestor {
 		fp.logger.Debugf("cannot find common ancestor from %v, keep finding", source)
 		nextSync := fp.getNextSyncHash()
@@ -355,7 +349,7 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 				fp.logger.Debugf("sync fork block from %v, hash=%v,height=%v,addResult=%v", source, b.Header.Hash.String(), b.Header.Height, ret)
 				return ret == types.AddBlockSucc || ret == types.BlockExisted
 			})
-			//如果本地权重仍低于对方权重，则启动同步
+			// Start synchronization if the local weight is still below the weight of the other party
 			if fp.chain.compareChainWeight(topHeader) < 0 {
 				go BlockSyncer.trySyncRoutine()
 			}

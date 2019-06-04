@@ -11,12 +11,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/2/19 下午2:39
-**  Description:
- */
-
 func baseMessage(sign *tas_middleware_pb.SignData) *model.BaseSignedMessage {
 	return &model.BaseSignedMessage{SI: *pbToSignData(sign)}
 }
@@ -136,7 +130,10 @@ func unMarshalConsensusSignPKReqMessage(b []byte) (*model.ConsensusSignPubkeyReq
 	return message, nil
 }
 
-//--------------------------------------------组铸币--------------------------------------------------------------------
+/*
+Group coinage
+*/
+
 func unMarshalConsensusCurrentMessage(b []byte) (*model.ConsensusCurrentMessage, error) {
 	m := new(tas_middleware_pb.ConsensusCurrentMessage)
 	e := proto.Unmarshal(b, m)
@@ -252,40 +249,6 @@ func pbToSharePiece(s *tas_middleware_pb.SharePiece) *model.SharePiece {
 	sp := model.SharePiece{Share: share, Pub: pub}
 	return &sp
 }
-
-//
-//func pbToStaticGroup(s *tas_middleware_pb.StaticGroupSummary) *model.StaticGroupSummary {
-//	var groupId groupsig.ID
-//	groupId.Deserialize(s.GroupID)
-//
-//	var groupPk groupsig.Pubkey
-//	groupPk.Deserialize(s.GroupPK)
-//
-//	gis := pbToConsensusGroupInitSummary(s.Gis)
-//
-//	groupInfo := model.StaticGroupSummary{GroupID: groupId, GroupPK: groupPk, GIS: *gis}
-//	return &groupInfo
-//}
-//
-//func pbToPubKeyInfo(p *tas_middleware_pb.PubKeyInfo) *model.PubKeyInfo {
-//	var id groupsig.ID
-//	var pk groupsig.Pubkey
-//
-//	e1 := id.Deserialize(p.ID)
-//	if e1 != nil {
-//		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
-//		return nil
-//	}
-//
-//	e2 := pk.Deserialize(p.PublicKey)
-//	if e2 != nil {
-//		logger.Errorf("[handler]groupsig.Pubkey Deserialize error:%s", e2.Error())
-//		return nil
-//	}
-//
-//	pkInfo := model.NewPubKeyInfo(id, pk)
-//	return &pkInfo
-//}
 
 func unMarshalConsensusCreateGroupRawMessage(b []byte) (*model.ConsensusCreateGroupRawMessage, error) {
 	message := new(tas_middleware_pb.ConsensusCreateGroupRawMessage)

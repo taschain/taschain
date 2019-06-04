@@ -223,7 +223,6 @@ func (ao *accountObject) CommitTrie(db AccountDatabase) error {
 	root, err := ao.trie.Commit(nil)
 	if err == nil {
 		ao.data.Root = root
-		//ao.db.db.PushTrie(root, ao.trie)
 	}
 	return err
 }
@@ -356,10 +355,3 @@ func (ao *accountObject) Nonce() uint64 {
 func (ao *accountObject) Value() *big.Int {
 	panic("Value on accountObject should never be called")
 }
-
-//func (self *accountObject) fstring() string {
-//	if self.trie == nil {
-//		self.trie = self.getTrie(self.db.db)
-//	}
-//	return self.trie.Fstring()
-//}

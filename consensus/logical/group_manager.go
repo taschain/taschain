@@ -7,17 +7,10 @@ import (
 	"github.com/taschain/taschain/core"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/6/23 下午4:07
-**  Description: 组生命周期, 包括建组, 解散组
- */
-
 type GroupManager struct {
-	groupChain *core.GroupChain
-	mainChain  core.BlockChain
-	processor  *Processor
-	//creatingGroups *CreatingGroups
+	groupChain       *core.GroupChain
+	mainChain        core.BlockChain
+	processor        *Processor
 	creatingGroupCtx *CreatingGroupContext
 	checker          *GroupCreateChecker
 }
@@ -27,8 +20,7 @@ func NewGroupManager(processor *Processor) *GroupManager {
 		processor:  processor,
 		mainChain:  processor.MainChain,
 		groupChain: processor.GroupChain,
-		//creatingGroups: &CreatingGroups{},
-		checker: newGroupCreateChecker(processor),
+		checker:    newGroupCreateChecker(processor),
 	}
 	return gm
 }
@@ -94,10 +86,6 @@ func (gm *GroupManager) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 		return false, fmt.Errorf("grouphash diff")
 	}
 
-	//if ok, err := gm.isGroupHeaderLegal(msg.GInfo.GI.GHeader); !ok {
-	//	blog.log(err.Error())
-	//	return false, err
-	//}
 	return true, nil
 
 }

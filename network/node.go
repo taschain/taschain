@@ -69,7 +69,7 @@ func (nid NodeID) Bytes() []byte {
 	return nid[:]
 }
 
-// Node Kad 节点
+// Node Kad peer
 type Node struct {
 	ID      NodeID
 	IP      nnet.IP
@@ -85,7 +85,7 @@ type Node struct {
 	pinged  bool
 }
 
-// NewNode 新建节点
+// NewNode create a new node
 func NewNode(id NodeID, ip nnet.IP, port int) *Node {
 	if ipv4 := ip.To4(); ipv4 != nil {
 		ip = ipv4
@@ -216,7 +216,7 @@ func InitSelfNode(config common.ConfManager, isSuper bool, id NodeID) (*Node, er
 	return &n, nil
 }
 
-//内网IP
+// getLocalIP is get intranet IP
 func getLocalIP() string {
 	addrs, err := nnet.InterfaceAddrs()
 
@@ -224,7 +224,7 @@ func getLocalIP() string {
 	}
 
 	for _, address := range addrs {
-		// 检查ip地址判断是否回环地址
+		// Check the IP address to determine whether to loop the address
 		if ipnet, ok := address.(*nnet.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				return ipnet.IP.String()
@@ -246,14 +246,6 @@ func getAvailablePort(ip string, port int) int {
 
 	rand.Seed(time.Now().UnixNano())
 	port += rand.Intn(1000)
-	//listener, e := net.ListenPacket("udp", ip+":"+strconv.Itoa(port))
-	//if e != nil {
-	//	//listener.Close()
-	//	port++
-	//	return getAvailablePort(ip, port)
-	//}
-	//listener.Close()
-
 	return port
 }
 
