@@ -47,7 +47,7 @@ func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.
 	return transaction
 }
 
-// GenerateBonus generate the bonus transaction for the group who just vilified a block
+// GenerateBonus generate the bonus transaction for the group who just validate a block
 func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, groupID []byte, totalValue uint64) (*types.Bonus, *types.Transaction) {
 	group := GroupChainImpl.getGroupByID(groupID)
 	buffer := &bytes.Buffer{}
