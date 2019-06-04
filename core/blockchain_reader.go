@@ -64,9 +64,9 @@ func (chain *FullBlockChain) GetTransactionPool() TransactionPool {
 	return chain.transactionPool
 }
 
-// IsAdujsting means whether need to adjust blockchain,
+// IsAdjusting means whether need to adjust blockchain,
 // which means there may be a fork
-func (chain *FullBlockChain) IsAdujsting() bool {
+func (chain *FullBlockChain) IsAdjusting() bool {
 	return chain.isAdjusting
 }
 

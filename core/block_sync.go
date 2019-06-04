@@ -172,7 +172,7 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 	topBH := bs.chain.QueryTopBlock()
 	localTopBlock := newTopBlockInfo(topBH)
 
-	if bs.chain.IsAdujsting() {
+	if bs.chain.IsAdjusting() {
 		bs.logger.Debugf("chain is adjusting, won't sync")
 		return false
 	}
@@ -223,7 +223,7 @@ func (bs *blockSyncer) syncFrom(from string) bool {
 		ReqHeight:       beginHeight,
 	}
 
-	notify.BUS.Publish(notify.BlockSync, &SyncMessage{CandidateInfo: candInfo})
+	notify.BUS.Publish(notify.BlockSync, &syncMessage{CandidateInfo: candInfo})
 
 	bs.requestBlock(candInfo)
 	return true
@@ -238,12 +238,12 @@ func (bs *blockSyncer) requestBlock(ci *SyncCandidateInfo) {
 
 	bs.logger.Debugf("Req block to:%s,height:%d", id, height)
 
-	br := &SyncRequest{
+	br := &syncRequest{
 		ReqHeight: height,
 		ReqSize:   int32(PeerManager.getPeerReqBlockCount(id)),
 	}
 
-	body, err := MarshalSyncRequest(br)
+	body, err := marshalSyncRequest(br)
 	if err != nil {
 		bs.logger.Errorf("marshalSyncRequest error %v", err)
 		return
@@ -401,7 +401,7 @@ func (bs *blockSyncer) addCandidatePool(source string, topBlockInfo *topBlockInf
 func (bs *blockSyncer) blockReqHandler(msg notify.Message) {
 	m := notify.AsDefault(msg)
 
-	br, err := UnmarshalSyncRequest(m.Body())
+	br, err := unmarshalSyncRequest(m.Body())
 	if err != nil {
 		bs.logger.Errorf("unmarshalSyncRequest error %v", err)
 		return
@@ -414,7 +414,7 @@ func (bs *blockSyncer) blockReqHandler(msg notify.Message) {
 }
 
 func responseBlocks(targetID string, blocks []*types.Block) {
-	body, e := marshalBlockMsgResponse(&BlockResponseMessage{Blocks: blocks})
+	body, e := marshalBlockMsgResponse(&blockResponseMessage{Blocks: blocks})
 	if e != nil {
 		return
 	}
@@ -422,7 +422,7 @@ func responseBlocks(targetID string, blocks []*types.Block) {
 	network.GetNetInstance().Send(targetID, message)
 }
 
-func marshalBlockMsgResponse(bmr *BlockResponseMessage) ([]byte, error) {
+func marshalBlockMsgResponse(bmr *blockResponseMessage) ([]byte, error) {
 	pbblocks := make([]*tas_middleware_pb.Block, 0)
 	for _, b := range bmr.Blocks {
 		pb := types.BlockToPb(b)
@@ -460,7 +460,7 @@ func (bs *blockSyncer) unMarshalTopBlockInfo(b []byte) (*topBlockInfo, error) {
 	return &blockInfo, nil
 }
 
-func (bs *blockSyncer) unMarshalBlockMsgResponse(b []byte) (*BlockResponseMessage, error) {
+func (bs *blockSyncer) unMarshalBlockMsgResponse(b []byte) (*blockResponseMessage, error) {
 	message := new(tas_middleware_pb.BlockResponseMsg)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
@@ -472,6 +472,6 @@ func (bs *blockSyncer) unMarshalBlockMsgResponse(b []byte) (*BlockResponseMessag
 		b := types.PbToBlock(pb)
 		blocks = append(blocks, b)
 	}
-	bmr := BlockResponseMessage{Blocks: blocks}
+	bmr := blockResponseMessage{Blocks: blocks}
 	return &bmr, nil
 }

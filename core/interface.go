@@ -75,8 +75,8 @@ type BlockChain interface {
 	// GetTransactionPool return the transaction pool waiting for the block
 	GetTransactionPool() TransactionPool
 
-	// IsAdujsting means whether need to adjust blockchain, which means there may be a fork
-	IsAdujsting() bool
+	// IsAdjusting means whether need to adjust blockchain, which means there may be a fork
+	IsAdjusting() bool
 
 	Remove(block *types.Block) bool
 

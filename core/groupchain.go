@@ -41,6 +41,7 @@ type GroupChainConfig struct {
 	groupHeight string
 }
 
+// GroupChain manages the group chain imports, reverts, chain reorganisations.
 type GroupChain struct {
 	config *GroupChainConfig
 
@@ -225,7 +226,7 @@ func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 	return nil
 }
 
-func (chain *GroupChain) GenesisMember() map[string]byte {
+func (chain *GroupChain) genesisMember() map[string]byte {
 	mems := make(map[string]byte)
 	for _, mem := range chain.genesisMembers {
 		mems[mem] = 1
@@ -233,6 +234,7 @@ func (chain *GroupChain) GenesisMember() map[string]byte {
 	return mems
 }
 
+// WhetherMemberInActiveGroup checks whether the id belongs any active group
 func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uint64) bool {
 	iter := chain.NewIterator()
 	for g := iter.Current(); g != nil; g = iter.MovePre() {

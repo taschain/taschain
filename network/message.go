@@ -25,7 +25,7 @@ const BizMessageIDLength = 32
 
 type BizMessageID = [BizMessageIDLength]byte
 
-//MessageManager 消息管理
+//MessageManager generate message id,cache message id recently broadcast,clear cache after 5 minutes
 type MessageManager struct {
 	messages      map[uint64]time.Time
 	bizMessages   map[BizMessageID]time.Time
@@ -105,7 +105,7 @@ func (mm *MessageManager) isForwardedBiz(messageID BizMessageID) bool {
 	return ok
 }
 
-func (mm *MessageManager) ByteToBizID(bid []byte) BizMessageID {
+func (mm *MessageManager) byteToBizID(bid []byte) BizMessageID {
 	var id [BizMessageIDLength]byte
 	for i := 0; i < len(bid) && i < BizMessageIDLength; i++ {
 		id[i] = bid[i]

@@ -42,10 +42,10 @@ const (
 	tickerGroupSyncTimeout  = "sync_group_timeout"
 )
 
-var GroupSyncer *groupSyncer
+var groupSync *groupSyncer
 
 //
-type GroupInfo struct {
+type groupInfo struct {
 	Groups []*types.Group
 }
 
@@ -121,13 +121,13 @@ type groupSyncer struct {
 
 // InitGroupSyncer initialize the groupSyncer. Register the ticker for sending and requesting groups to neighbors timely
 // and also subscribe these events to handle requests from neighbors
-func InitGroupSyncer(gchain *GroupChain, bchain *FullBlockChain) {
+func InitGroupSyncer(gChain *GroupChain, bChain *FullBlockChain) {
 	gs := &groupSyncer{
-		gchain:        gchain,
-		bchain:        bchain,
+		gchain:        gChain,
+		bchain:        bChain,
 		syncingPeer:   "",
 		candidatePool: make(map[string]uint64),
-		ticker:        bchain.ticker,
+		ticker:        bChain.ticker,
 		cache:         &groupsCache{},
 	}
 	gs.logger = taslog.GetLoggerByIndex(taslog.GroupSyncLogConfig, common.GlobalConf.GetString("instance", "index", ""))
@@ -143,7 +143,7 @@ func InitGroupSyncer(gchain *GroupChain, bchain *FullBlockChain) {
 	notify.BUS.Subscribe(notify.Group, gs.groupHandler)
 	notify.BUS.Subscribe(notify.BlockAddSucc, gs.onBlockAddSuccess)
 
-	GroupSyncer = gs
+	groupSync = gs
 }
 
 func (gs *groupSyncer) onBlockAddSuccess(msg notify.Message) {
@@ -267,7 +267,7 @@ func (gs *groupSyncer) trySyncRoutine() bool {
 		ReqHeight:       gs.gchain.Height() + 1,
 	}
 
-	notify.BUS.Publish(notify.GroupSync, &SyncMessage{CandidateInfo: candInfo})
+	notify.BUS.Publish(notify.GroupSync, &syncMessage{CandidateInfo: candInfo})
 
 	gs.requestGroups(candInfo)
 	return true
@@ -301,11 +301,11 @@ func (gs *groupSyncer) requestGroups(ci *SyncCandidateInfo) {
 		return gs.syncComplete(id, true)
 	}, syncGroupNeightborTimeout)
 
-	gr := &SyncRequest{
+	gr := &syncRequest{
 		ReqSize:   int32(PeerManager.getPeerReqBlockCount(id)),
 		ReqHeight: ci.ReqHeight,
 	}
-	body, err := MarshalSyncRequest(gr)
+	body, err := marshalSyncRequest(gr)
 	if err != nil {
 		gs.logger.Errorf("marshalSyncRequest error %v", err)
 		return
@@ -318,7 +318,7 @@ func (gs *groupSyncer) requestGroups(ci *SyncCandidateInfo) {
 func (gs *groupSyncer) groupReqHandler(msg notify.Message) {
 	groupReqMsg := notify.AsDefault(msg)
 
-	gr, err := UnmarshalSyncRequest(groupReqMsg.Body())
+	gr, err := unmarshalSyncRequest(groupReqMsg.Body())
 	if err != nil {
 		gs.logger.Errorf("unmarshalSyncRequest error %v", err)
 		return
@@ -394,7 +394,7 @@ func (gs *groupSyncer) batchAddGroup(groups []*types.Group) bool {
 	for idx, group := range groups {
 		e := gs.gchain.AddGroup(group)
 		if e != nil && e != errGroupExist {
-			gs.logger.Errorf("[GroupSyncer]add group on chain error:%s", e.Error())
+			gs.logger.Errorf("[groupSync]add group on chain error:%s", e.Error())
 
 			if e == common.ErrCreateBlockNil {
 				gs.cache.setData(groups[idx:])
@@ -418,7 +418,7 @@ func marshalGroupInfo(e []*types.Group) ([]byte, error) {
 	return proto.Marshal(&groupInfo)
 }
 
-func (gs *groupSyncer) unMarshalGroupInfo(b []byte) (*GroupInfo, error) {
+func (gs *groupSyncer) unMarshalGroupInfo(b []byte) (*groupInfo, error) {
 	message := new(tas_middleware_pb.GroupInfo)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
@@ -429,6 +429,6 @@ func (gs *groupSyncer) unMarshalGroupInfo(b []byte) (*GroupInfo, error) {
 	for i, g := range message.Groups {
 		groups[i] = types.PbToGroup(g)
 	}
-	groupInfo := GroupInfo{Groups: groups}
+	groupInfo := groupInfo{Groups: groups}
 	return &groupInfo, nil
 }
