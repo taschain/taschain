@@ -30,10 +30,10 @@ import (
 )
 
 const (
-	sendLocalTopInterval       = 3		// Interval of sending local top block to neighbor
-	syncNeightborsInterval     = 3		// Interval of requesting synchronize block from neighbor
-	syncNeightborTimeout       = 5		// Timeout of requesting synchronize block from neighbor
-	blockSyncCandidatePoolSize = 100	// Size of candidate peer pool for block synchronize
+	sendLocalTopInterval       = 3   // Interval of sending local top block to neighbor
+	syncNeightborsInterval     = 3   // Interval of requesting synchronize block from neighbor
+	syncNeightborTimeout       = 5   // Timeout of requesting synchronize block from neighbor
+	blockSyncCandidatePoolSize = 100 // Size of candidate peer pool for block synchronize
 )
 
 const (

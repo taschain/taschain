@@ -255,6 +255,7 @@ func (chain *FullBlockChain) GetNonce(address common.Address) uint64 {
 
 	return chain.latestStateDB.GetNonce(common.BytesToAddress(address.Bytes()))
 }
+
 // GetAccountDBByHash returns account database with specified block hash
 func (chain *FullBlockChain) GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error) {
 	chain.rwLock.RLock()

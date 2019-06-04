@@ -33,7 +33,7 @@ import (
 
 const (
 	blockStatusKey = "bcurrent"
-	configSec     = "chain"
+	configSec      = "chain"
 )
 
 var (
@@ -51,14 +51,13 @@ var consensusLogger taslog.Logger
 
 // BlockChainConfig contains the configuration values of leveldb prefix string
 type BlockChainConfig struct {
-	dbfile string
-	block  string
+	dbfile      string
+	block       string
 	blockHeight string
-	state string
-	bonus string
-	tx      string
-	receipt string
-
+	state       string
+	bonus       string
+	tx          string
+	receipt     string
 }
 
 type FullBlockChain struct {
@@ -307,13 +306,13 @@ func (chain *FullBlockChain) compareBlockWeight(bh1 *types.BlockHeader, bh2 *typ
 	bw2 := types.NewBlockWeight(bh2)
 	return bw1.Cmp(bw2)
 }
+
 // Close the open levelDb files
 func (chain *FullBlockChain) Close() {
 	chain.blocks.Close()
 	chain.blockHeight.Close()
 	chain.statedb.Close()
 }
-
 
 func (chain *FullBlockChain) GetBonusManager() *BonusManager {
 	return chain.bonusManager

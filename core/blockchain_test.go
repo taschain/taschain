@@ -36,14 +36,13 @@ import (
 
 var source = "100"
 
-func TestPath(t *testing.T){
+func TestPath(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	fmt.Println("Current test filename: " + filename)
 }
 
-
 func TestBlockChain_AddBlock(t *testing.T) {
-	err :=initContext4Test()
+	err := initContext4Test()
 	defer clear()
 	if err != nil {
 		t.Fatalf("failed to initContext4Test")
@@ -52,10 +51,10 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	//BlockChainImpl.Clear()
 
 	queryAddr := "0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"
-	b := BlockChainImpl.GetBalance(common.HexToAddress(queryAddr));
+	b := BlockChainImpl.GetBalance(common.HexToAddress(queryAddr))
 	addr := genHash("1")
-	fmt.Printf("balance = %d \n",b)
-	fmt.Printf("addr = %s \n",common.BytesToAddress(addr))
+	fmt.Printf("balance = %d \n", b)
+	fmt.Printf("addr = %s \n", common.BytesToAddress(addr))
 
 	// 查询创始块
 	blockHeader := BlockChainImpl.QueryTopBlock()
@@ -71,26 +70,26 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	if nil == txpool {
 		t.Fatalf("fail to get txpool")
 	}
-//	code := `
-//import account
-//def Test(a, b, c, d):
-//	print("hehe")
-//`
+	//	code := `
+	//import account
+	//def Test(a, b, c, d):
+	//	print("hehe")
+	//`
 	// 交易1
-	_, err = txpool.AddTransaction(genTestTx( 12345, "100", "2", 0, 1))
+	_, err = txpool.AddTransaction(genTestTx(12345, "100", "2", 0, 1))
 	if err != nil {
 		t.Fatalf("fail to AddTransaction")
 	}
 	//txpool.AddTransaction(genContractTx(1, 20000000, "1", "", 1, 0, []byte(code), nil, 0))
 	contractAddr := common.BytesToAddress(common.Sha256(common.BytesCombine([]byte("1"), common.Uint64ToByte(0))))
 	//交易2
-	_, err = txpool.AddTransaction(genTestTx( 123456, "2", "3", 0, 1))
+	_, err = txpool.AddTransaction(genTestTx(123456, "2", "3", 0, 1))
 	if err != nil {
 		t.Fatalf("fail to AddTransaction")
 	}
 
 	//交易3 执行失败的交易
-	_, err = txpool.AddTransaction(genTestTx( 123456, "2", "3", 1, 1))
+	_, err = txpool.AddTransaction(genTestTx(123456, "2", "3", 1, 1))
 	if err != nil {
 		t.Fatalf("fail to AddTransaction")
 	}
@@ -104,8 +103,8 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	// 上链
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block) {
 		t.Fatalf("fail to add block")
 	}
 
@@ -124,9 +123,9 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	if 0 != len(txpool.GetReceived()) {
 		t.Fatalf("fail to remove transactions after addBlock")
 	}
-	
+
 	//交易3
-	_, err = txpool.AddTransaction(genTestTx( 1, "1", "2", 2, 10))
+	_, err = txpool.AddTransaction(genTestTx(1, "1", "2", 2, 10))
 	if err != nil {
 		t.Fatalf("fail to AddTransaction")
 	}
@@ -134,9 +133,9 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	//txpool.AddTransaction(genContractTx(1, 20000000, "1", contractAddr.GetHexString(), 3, 0, []byte(`{"FuncName": "Test", "Args": [10.123, "ten", [1, 2], {"key":"value", "key2":"value2"}]}`), nil, 0))
 	fmt.Println(contractAddr.Hex())
 	// 铸块2
-	block2 := BlockChainImpl.CastBlock(2,  common.Hex2Bytes("123"), 0, *castor, *groupid)
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block2) {
+	block2 := BlockChainImpl.CastBlock(2, common.Hex2Bytes("123"), 0, *castor, *groupid)
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block2) {
 		t.Fatalf("fail to add empty block")
 	}
 
@@ -161,8 +160,8 @@ func TestBlockChain_AddBlock(t *testing.T) {
 
 	// 铸块3 空块
 	block3 := BlockChainImpl.CastBlock(3, common.Hex2Bytes("125"), 0, *castor, *groupid)
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block3) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block3) {
 		t.Fatalf("fail to add empty block")
 	}
 	//最新块是块3
@@ -172,8 +171,8 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	block4 := BlockChainImpl.CastBlock(4, common.Hex2Bytes("126"), 0, *castor, *groupid)
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block4) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block4) {
 		t.Fatalf("fail to add empty block")
 	}
 	//最新块是块3
@@ -183,8 +182,8 @@ func TestBlockChain_AddBlock(t *testing.T) {
 	}
 
 	block5 := BlockChainImpl.CastBlock(5, common.Hex2Bytes("126"), 0, *castor, *groupid)
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block5) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block5) {
 		t.Fatalf("fail to add empty block")
 	}
 	//最新块是块5
@@ -218,7 +217,7 @@ func TestBlockChain_AddBlock(t *testing.T) {
 }
 
 func TestBlockChain_CastingBlock(t *testing.T) {
-	err :=initContext4Test()
+	err := initContext4Test()
 	if err != nil {
 		t.Fatalf("failed to initContext4Test")
 	}
@@ -234,7 +233,7 @@ func TestBlockChain_CastingBlock(t *testing.T) {
 }
 
 func TestBlockChain_GetBlockMessage(t *testing.T) {
-	err :=initContext4Test()
+	err := initContext4Test()
 	if err != nil {
 		t.Fatalf("failed to initContext4Test")
 	}
@@ -242,20 +241,20 @@ func TestBlockChain_GetBlockMessage(t *testing.T) {
 	castor := new([]byte)
 	groupid := new([]byte)
 	block1 := BlockChainImpl.CastBlock(1, common.Hex2Bytes("125"), 0, *castor, *groupid)
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block1) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block1) {
 		t.Fatalf("fail to add empty block")
 	}
 
 	block2 := BlockChainImpl.CastBlock(2, common.Hex2Bytes("1256"), 0, *castor, *groupid)
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block2) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block2) {
 		t.Fatalf("fail to add empty block")
 	}
 
 	block3 := BlockChainImpl.CastBlock(3, common.Hex2Bytes("1257"), 0, *castor, *groupid)
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block3) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block3) {
 		t.Fatalf("fail to add empty block")
 	}
 
@@ -279,30 +278,29 @@ func TestBlockChain_GetBlockMessage(t *testing.T) {
 }
 
 func TestBlockChain_GetTopBlocks(t *testing.T) {
-	err :=initContext4Test()
+	err := initContext4Test()
 	if err != nil {
 		t.Fatalf("failed to initContext4Test")
 	}
 	defer clear()
-	
+
 	castor := new([]byte)
 	groupid := new([]byte)
 
 	var i uint64
 	for i = 1; i < 2000; i++ {
-		block := BlockChainImpl.CastBlock(i, common.Hex2Bytes( strconv.FormatInt(int64(i),10)), 0, *castor, *groupid)
-		
-		if 0 != BlockChainImpl.AddBlockOnChain(source,block) {
+		block := BlockChainImpl.CastBlock(i, common.Hex2Bytes(strconv.FormatInt(int64(i), 10)), 0, *castor, *groupid)
+
+		if 0 != BlockChainImpl.AddBlockOnChain(source, block) {
 			t.Fatalf("fail to add empty block")
 		}
 	}
 	chain := BlockChainImpl.(*FullBlockChain)
 	lent := chain.topBlocks.Len()
-	fmt.Printf("len = %d \n",lent)
+	fmt.Printf("len = %d \n", lent)
 	if 20 != chain.topBlocks.Len() {
 		t.Fatalf("error for size:20")
 	}
-
 
 	for i = BlockChainImpl.Height() - 19; i < 2000; i++ {
 		lowestLDB := chain.queryBlockHeaderByHeight(i)
@@ -323,7 +321,7 @@ func TestBlockChain_StateTree(t *testing.T) {
 		t.Fatalf("failed to initContext4Test")
 	}
 	defer clear()
-	
+
 	chain := BlockChainImpl.(*FullBlockChain)
 
 	// 查询创始块
@@ -346,8 +344,8 @@ func TestBlockChain_StateTree(t *testing.T) {
 
 	block0 := BlockChainImpl.CastBlock(1, common.Hex2Bytes("12"), 0, *castor, *groupid)
 	// 上链
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block0) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block0) {
 		t.Fatalf("fail to add block0")
 	}
 
@@ -367,8 +365,8 @@ func TestBlockChain_StateTree(t *testing.T) {
 	}
 
 	// 上链
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block) {
 		t.Fatalf("fail to add block")
 	}
 
@@ -379,8 +377,8 @@ func TestBlockChain_StateTree(t *testing.T) {
 	}
 
 	// 上链
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block2) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block2) {
 		t.Fatalf("fail to add block")
 	}
 
@@ -393,16 +391,16 @@ func TestBlockChain_StateTree(t *testing.T) {
 	}
 
 	// 上链
-	
-	if 0 != BlockChainImpl.AddBlockOnChain(source,block3) {
+
+	if 0 != BlockChainImpl.AddBlockOnChain(source, block3) {
 		t.Fatalf("fail to add block")
 	}
-
 
 	fmt.Printf("state: %d\n", chain.getLatestBlock().StateTree)
 }
 
 var privateKey = "0x045c8153e5a849eef465244c0f6f40a43feaaa6855495b62a400cc78f9a6d61c76c09c3aaef393aa54bd2adc5633426e9645dfc36723a75af485c5f5c9f2c94658562fcdfb24e943cf257e25b9575216c6647c4e75e264507d2d57b3c8bc00b361"
+
 func genTestTx(price uint64, source string, target string, nonce uint64, value uint64) *types.Transaction {
 
 	sourcebyte := common.BytesToAddress(genHash(source))
@@ -411,10 +409,10 @@ func genTestTx(price uint64, source string, target string, nonce uint64, value u
 	tx := &types.Transaction{
 		GasPrice: price,
 
-		Source:   &sourcebyte,
-		Target:   &targetbyte,
-		Nonce:    nonce,
-		Value:    value,
+		Source: &sourcebyte,
+		Target: &targetbyte,
+		Nonce:  nonce,
+		Value:  value,
 	}
 	tx.Hash = tx.GenHash()
 	sk := common.HexToSecKey(privateKey)
@@ -423,7 +421,6 @@ func genTestTx(price uint64, source string, target string, nonce uint64, value u
 
 	return tx
 }
-
 
 func genHash(hash string) []byte {
 	bytes3 := []byte(hash)
@@ -468,11 +465,11 @@ func clear() {
 
 }
 
-func clearTicker(){
+func clearTicker() {
 	if MinerManagerImpl != nil && MinerManagerImpl.ticker != nil {
 		MinerManagerImpl.ticker.RemoveRoutine("build_virtual_net")
 	}
-	if TxSyncer != nil &&TxSyncer.ticker != nil {
+	if TxSyncer != nil && TxSyncer.ticker != nil {
 		TxSyncer.ticker.RemoveRoutine(txNotifyRoutine)
 		TxSyncer.ticker.RemoveRoutine(txReqRoutine)
 		TxSyncer.ticker.RemoveRoutine(txIndexPersistRoutine)
@@ -489,11 +486,10 @@ func initContext4Test() error {
 		return err
 	}
 	BlockChainImpl = nil
-	_ = InitCore(false,NewConsensusHelper4Test(groupsig.ID{}))
+	_ = InitCore(false, NewConsensusHelper4Test(groupsig.ID{}))
 	clearTicker()
 	return nil
 }
-
 
 func NewConsensusHelper4Test(id groupsig.ID) types.ConsensusHelper {
 	return &ConsensusHelperImpl4Test{ID: id}
@@ -524,11 +520,11 @@ func (helper *ConsensusHelperImpl4Test) PackBonus() *big.Int {
 
 func (helper *ConsensusHelperImpl4Test) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	//return Proc.CheckProveRoot(bh)
-	return true, nil	//上链时不再校验，只在共识时校验（update：2019-04-23）
+	return true, nil //上链时不再校验，只在共识时校验（update：2019-04-23）
 }
 
 func (helper *ConsensusHelperImpl4Test) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
-	return true,nil
+	return true, nil
 }
 
 func (helper *ConsensusHelperImpl4Test) VerifyBlockHeader(bh *types.BlockHeader) (bool, error) {
@@ -539,12 +535,9 @@ func (helper *ConsensusHelperImpl4Test) CheckGroup(g *types.Group) (ok bool, err
 	return true, nil
 }
 
-
-
 func (helper *ConsensusHelperImpl4Test) VerifyBonusTransaction(tx *types.Transaction) (ok bool, err error) {
 	return true, nil
 }
-
 
 func (helper *ConsensusHelperImpl4Test) EstimatePreHeight(bh *types.BlockHeader) uint64 {
 	height := bh.Height
@@ -554,9 +547,6 @@ func (helper *ConsensusHelperImpl4Test) EstimatePreHeight(bh *types.BlockHeader)
 	return height - uint64(math.Ceil(float64(bh.Elapsed)/float64(model.Param.MaxGroupCastTime)))
 }
 
-
-
 func (helper *ConsensusHelperImpl4Test) CalculateQN(bh *types.BlockHeader) uint64 {
 	return uint64(11)
 }
-
