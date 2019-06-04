@@ -112,6 +112,7 @@ func explorerConvertGroup(g *types.Group) map[string]interface{} {
 	return gmap
 }
 
+// ExplorerBlockBonus export bonus transaction by block height
 func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	chain := core.BlockChainImpl
 	b := chain.QueryBlockCeil(height)

@@ -198,8 +198,8 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 	if !groupValidateResult {
 		if err == common.ErrSelectGroupNil || err == common.ErrSelectGroupInequal {
 			Logger.Infof("Add block on chain failed: depend on group! trigger group sync")
-			if GroupSyncer != nil {
-				go GroupSyncer.trySyncRoutine()
+			if groupSync != nil {
+				go groupSync.trySyncRoutine()
 			}
 		} else {
 			Logger.Errorf("Fail to validate group sig!Err:%s", err.Error())

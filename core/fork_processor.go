@@ -37,7 +37,7 @@ const tickerReqPieceBlock = "req_chain_piece_block"
 type forkSyncContext struct {
 	target       string
 	targetTop    *topBlockInfo
-	lastReqPiece *ChainPieceReq
+	lastReqPiece *chainPieceReq
 	localTop     *topBlockInfo
 }
 
@@ -55,13 +55,13 @@ type forkProcessor struct {
 	logger taslog.Logger
 }
 
-type ChainPieceBlockMsg struct {
+type chainPieceBlockMsg struct {
 	Blocks       []*types.Block
 	TopHeader    *types.BlockHeader
 	FindAncestor bool
 }
 
-type ChainPieceReq struct {
+type chainPieceReq struct {
 	ChainPiece []common.Hash
 	ReqCnt     int32
 }
@@ -155,8 +155,8 @@ func (fp *forkProcessor) reqPieceTimeout(id string) {
 	if fp.syncCtx.target != id {
 		return
 	}
-	PeerManager.timeoutPeer(fp.syncCtx.target)
-	PeerManager.updateReqBlockCnt(fp.syncCtx.target, false)
+	peerManagerImpl.timeoutPeer(fp.syncCtx.target)
+	peerManagerImpl.updateReqBlockCnt(fp.syncCtx.target, false)
 	fp.reset()
 }
 
@@ -172,9 +172,9 @@ func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
 		return
 	}
 
-	reqCnt := PeerManager.getPeerReqBlockCount(fp.syncCtx.target)
+	reqCnt := peerManagerImpl.getPeerReqBlockCount(fp.syncCtx.target)
 
-	pieceReq := &ChainPieceReq{
+	pieceReq := &chainPieceReq{
 		ChainPiece: chainPieceInfo,
 		ReqCnt:     int32(reqCnt),
 	}
@@ -226,7 +226,7 @@ func (fp *forkProcessor) chainPieceBlockReqHandler(msg notify.Message) {
 	blocks := make([]*types.Block, 0)
 	ancestor := fp.findCommonAncestor(pieceReq.ChainPiece)
 
-	response := &ChainPieceBlockMsg{
+	response := &chainPieceBlockMsg{
 		TopHeader:    fp.chain.QueryTopBlock(),
 		FindAncestor: ancestor != nil,
 		Blocks:       blocks,
@@ -243,7 +243,7 @@ func (fp *forkProcessor) chainPieceBlockReqHandler(msg notify.Message) {
 	fp.sendChainPieceBlock(source, response)
 }
 
-func (fp *forkProcessor) sendChainPieceBlock(targetID string, msg *ChainPieceBlockMsg) {
+func (fp *forkProcessor) sendChainPieceBlock(targetID string, msg *chainPieceBlockMsg) {
 	fp.logger.Debugf("Send chain piece blocks to:%s, findAncestor=%v, blockSize=%v", targetID, msg.FindAncestor, len(msg.Blocks))
 	body, e := marshalChainPieceBlockMsg(msg)
 	if e != nil {
@@ -258,9 +258,9 @@ func (fp *forkProcessor) reqFinished(id string, reset bool) {
 	if fp.syncCtx == nil || fp.syncCtx.target != id {
 		return
 	}
-	PeerManager.heardFromPeer(id)
+	peerManagerImpl.heardFromPeer(id)
 	fp.chain.ticker.RemoveRoutine(tickerReqPieceBlock)
-	PeerManager.updateReqBlockCnt(id, true)
+	peerManagerImpl.updateReqBlockCnt(id, true)
 	if reset {
 		fp.syncCtx = nil
 	}
@@ -357,7 +357,7 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 	}
 }
 
-func unMarshalChainPieceInfo(b []byte) (*ChainPieceReq, error) {
+func unMarshalChainPieceInfo(b []byte) (*chainPieceReq, error) {
 	message := new(tas_middleware_pb.ChainPieceReq)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
@@ -373,11 +373,11 @@ func unMarshalChainPieceInfo(b []byte) (*ChainPieceReq, error) {
 	if message.ReqCnt != nil {
 		cnt = *message.ReqCnt
 	}
-	chainPieceInfo := &ChainPieceReq{ChainPiece: chainPiece, ReqCnt: cnt}
+	chainPieceInfo := &chainPieceReq{ChainPiece: chainPiece, ReqCnt: cnt}
 	return chainPieceInfo, nil
 }
 
-func marshalChainPieceBlockMsg(cpb *ChainPieceBlockMsg) ([]byte, error) {
+func marshalChainPieceBlockMsg(cpb *chainPieceBlockMsg) ([]byte, error) {
 	topHeader := types.BlockHeaderToPb(cpb.TopHeader)
 	blocks := make([]*tas_middleware_pb.Block, 0)
 	for _, b := range cpb.Blocks {
@@ -387,7 +387,7 @@ func marshalChainPieceBlockMsg(cpb *ChainPieceBlockMsg) ([]byte, error) {
 	return proto.Marshal(&message)
 }
 
-func unmarshalChainPieceBlockMsg(b []byte) (*ChainPieceBlockMsg, error) {
+func unmarshalChainPieceBlockMsg(b []byte) (*chainPieceBlockMsg, error) {
 	message := new(tas_middleware_pb.ChainPieceBlockMsg)
 	e := proto.Unmarshal(b, message)
 	if e != nil {
@@ -398,11 +398,11 @@ func unmarshalChainPieceBlockMsg(b []byte) (*ChainPieceBlockMsg, error) {
 	for _, b := range message.Blocks {
 		blocks = append(blocks, types.PbToBlock(b))
 	}
-	cpb := ChainPieceBlockMsg{TopHeader: topHeader, Blocks: blocks, FindAncestor: *message.FindAncestor}
+	cpb := chainPieceBlockMsg{TopHeader: topHeader, Blocks: blocks, FindAncestor: *message.FindAncestor}
 	return &cpb, nil
 }
 
-func marshalChainPieceInfo(chainPieceInfo *ChainPieceReq) ([]byte, error) {
+func marshalChainPieceInfo(chainPieceInfo *chainPieceReq) ([]byte, error) {
 	pieces := make([][]byte, 0)
 	for _, hash := range chainPieceInfo.ChainPiece {
 		pieces = append(pieces, hash.Bytes())

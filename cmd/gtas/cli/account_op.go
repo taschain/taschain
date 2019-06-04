@@ -191,6 +191,7 @@ func passwordSha(password string) string {
 	return common.ToHex(common.Sha256([]byte(password)))
 }
 
+// NewAccount create a new account by password
 func (am *AccountManager) NewAccount(password string, miner bool) *Result {
 	privateKey := common.GenerateKey("")
 	pubkey := privateKey.GetPubKey()
@@ -221,6 +222,7 @@ func (am *AccountManager) NewAccount(password string, miner bool) *Result {
 	return opSuccess(address.Hex())
 }
 
+// AccountList show account list
 func (am *AccountManager) AccountList() *Result {
 	iter := am.store.NewIterator()
 	addrs := make([]string, 0)
@@ -230,6 +232,7 @@ func (am *AccountManager) AccountList() *Result {
 	return opSuccess(addrs)
 }
 
+// Lock lock the account by address
 func (am *AccountManager) Lock(addr string) *Result {
 	aci, err := am.getAccountInfo(addr)
 	if err != nil {
@@ -238,7 +241,7 @@ func (am *AccountManager) Lock(addr string) *Result {
 	aci.Status = statusLocked
 	return opSuccess(nil)
 }
-
+// UnLock unlock the account by address and password
 func (am *AccountManager) UnLock(addr string, password string) *Result {
 	aci, err := am.getAccountInfo(addr)
 	if err != nil {
@@ -261,6 +264,7 @@ func (am *AccountManager) UnLock(addr string, password string) *Result {
 	return opSuccess(nil)
 }
 
+// AccountInfo show account info
 func (am *AccountManager) AccountInfo() *Result {
 	addr := am.currentUnLockedAddr()
 	if addr == "" {
@@ -277,6 +281,7 @@ func (am *AccountManager) AccountInfo() *Result {
 	return opSuccess(&aci.Account)
 }
 
+// DeleteAccount delete current unlocked account
 func (am *AccountManager) DeleteAccount() *Result {
 	addr := am.currentUnLockedAddr()
 	if addr == "" {

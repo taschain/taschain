@@ -60,7 +60,6 @@ func (ws *WalletServer) SignData(source, target, unlockPassword string, value fl
 	}
 	aci := r.Data.(*Account)
 
-	//ws.aop.Lock(source)
 	privateKey := common.HexToSecKey(aci.Sk)
 	pubkey := common.HexToPubKey(aci.Pk)
 	if privateKey.GetPubKey().Hex() != pubkey.Hex() {
@@ -76,13 +75,5 @@ func (ws *WalletServer) SignData(source, target, unlockPassword string, value fl
 	sign := privateKey.Sign(tranx.Hash.Bytes())
 	tranx.Sign = sign.Bytes()
 	txRaw.Sign = sign.Hex()
-	//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
-	//fmt.Printf("%+v\n", tranx)
-	//
-	//jsonByte, err := json.MarshalIndent(txRaw, "", "\t")
-	//fmt.Println(string(jsonByte))
-	//if err != nil {
-	//	return opError(err)
-	//}
 	return opSuccess(txRaw)
 }

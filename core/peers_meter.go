@@ -26,7 +26,7 @@ const (
 	maxReqBlockCount    = 16
 )
 
-var PeerManager *peerManager
+var peerManagerImpl *peerManager
 
 type peerMeter struct {
 	id            string
@@ -77,7 +77,7 @@ func initPeerManager() {
 		peerMeters: common.MustNewLRUCache(100),
 		topInfos:   common.MustNewLRUCache(200),
 	}
-	PeerManager = &badPeerMeter
+	peerManagerImpl = &badPeerMeter
 }
 
 func (bpm *peerManager) getOrAddPeer(id string) *peerMeter {

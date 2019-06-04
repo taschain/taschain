@@ -30,6 +30,9 @@ import (
 
 const MetadataAPI = "rpc"
 
+// CodecOption specifies which type of messages a codec supports.
+//
+// Deprecated: this option is no longer honored by Server.
 type CodecOption int
 
 const (
@@ -194,6 +197,9 @@ func (s *Server) ServeSingleRequest(codec ServerCodec, options CodecOption) {
 	s.serveRequest(codec, true, options)
 }
 
+// Stop stops reading new requests, waits for stopPendingRequestTimeout to allow pending
+// requests to finish, then closes all codecs which will cancel pending requests and
+// subscriptions.
 func (s *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&s.run, 1, 0) {
 		common.DefaultLogger.Debug("RPC Server shutdown initiatied")

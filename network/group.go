@@ -191,7 +191,7 @@ func (g *Group) send(packet *bytes.Buffer, code uint32) {
 			}
 		}
 	}
-	netCore.bufferPool.FreeBuffer(packet)
+	netCore.bufferPool.freeBuffer(packet)
 	return
 }
 
@@ -256,7 +256,7 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer, code uint32) 
 		gm.mutex.RUnlock()
 		return
 	}
-	buf := netCore.bufferPool.GetBuffer(packet.Len())
+	buf := netCore.bufferPool.getBuffer(packet.Len())
 	buf.Write(packet.Bytes())
 	gm.mutex.RUnlock()
 

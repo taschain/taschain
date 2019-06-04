@@ -105,7 +105,7 @@ func (mm *MessageManager) isForwardedBiz(messageID BizMessageID) bool {
 	return ok
 }
 
-func (mm *MessageManager) ByteToBizID(bid []byte) BizMessageID {
+func (mm *MessageManager) byteToBizID(bid []byte) BizMessageID {
 	var id [BizMessageIDLength]byte
 	for i := 0; i < len(bid) && i < BizMessageIDLength; i++ {
 		id[i] = bid[i]

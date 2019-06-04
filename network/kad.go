@@ -50,7 +50,7 @@ func makeSha256Hash(data []byte) []byte {
 	return h.Sum(nil)
 }
 
-//Kad kad
+// Kad kad
 type Kad struct {
 	mutex   sync.Mutex        // Protected members: buckets, bucket content, nursery, rand
 	buckets [nBuckets]*bucket // Index of nodes sorted by node distance
@@ -69,7 +69,7 @@ type Kad struct {
 }
 
 type NetInterface interface {
-	ping(NodeID, *nnet.UDPAddr) error
+	ping(NodeID, *nnet.UDPAddr)
 	findNode(toid NodeID, addr *nnet.UDPAddr, target NodeID) ([]*Node, error)
 	close()
 }
@@ -116,8 +116,10 @@ func (kad *Kad) print() {
 
 func (kad *Kad) seedRand() {
 	var b [8]byte
-	crand.Read(b[:])
-
+	_,err:=crand.Read(b[:])
+	if err != nil {
+		return
+	}
 	kad.mutex.Lock()
 	kad.rand.Seed(int64(binary.BigEndian.Uint64(b[:])))
 	kad.mutex.Unlock()
@@ -194,7 +196,7 @@ func (kad *Kad) isInitDone() bool {
 	}
 }
 
-//find look in buckets only
+// find node in buckets only
 func (kad *Kad) find(targetID NodeID) *Node {
 	hash := makeSha256Hash(targetID[:])
 	kad.mutex.Lock()
@@ -225,6 +227,7 @@ func (kad *Kad) resolve(targetID NodeID) *Node {
 	return nil
 }
 
+//find node on network
 func (kad *Kad) Lookup(targetID NodeID) []*Node {
 	return kad.lookup(targetID, true)
 }
@@ -350,7 +353,10 @@ func (kad *Kad) doRefresh(done chan struct{}) {
 
 	for i := 0; i < 3; i++ {
 		var target NodeID
-		crand.Read(target[:])
+		_,err:=crand.Read(target[:])
+		if err != nil {
+			continue
+		}
 		kad.lookup(target, false)
 	}
 }
@@ -376,13 +382,13 @@ func (kad *Kad) loadSeedNodes(bond bool) {
 
 func (kad *Kad) closest(target []byte, nresults int) *nodesByDistance {
 
-	close := &nodesByDistance{target: target}
+	closestNodes := &nodesByDistance{target: target}
 	for _, b := range kad.buckets {
 		for _, n := range b.entries {
-			close.push(n, nresults)
+			closestNodes.push(n, nresults)
 		}
 	}
-	return close
+	return closestNodes
 }
 
 func (kad *Kad) len() (n int) {

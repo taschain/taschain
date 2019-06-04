@@ -43,6 +43,7 @@ type BlockChain interface {
 	// TotalQN of chain
 	TotalQN() uint64
 
+	// LatestStateDB returns chain's last account database
 	LatestStateDB() *account.AccountDB
 
 	// QueryBlockByHash query the block by hash
@@ -78,27 +79,35 @@ type BlockChain interface {
 	// IsAdjusting means whether need to adjust blockchain, which means there may be a fork
 	IsAdjusting() bool
 
+	// Remove removes the block and blocks after it from the chain. Only used in a debug file, should be removed later
 	Remove(block *types.Block) bool
 
 	// Clear clear blockchain all data
 	Clear() error
 
+	// Close the open levelDb files
 	Close()
 
+	// GetBonusManager returns the bonus manager
 	GetBonusManager() *BonusManager
 
 	// GetAccountDBByHash returns account database with specified block hash
 	GetAccountDBByHash(hash common.Hash) (vm.AccountDB, error)
 
+	// GetAccountDBByHeight returns account database with specified block height
 	GetAccountDBByHeight(height uint64) (vm.AccountDB, error)
 
+	// GetConsensusHelper returns consensus helper reference
 	GetConsensusHelper() types.ConsensusHelper
 
+	// Version of chain Id
 	Version() int
 
+	// ResetTop reset the current top block with parameter bh
 	ResetTop(bh *types.BlockHeader)
 }
 
+// ExecutedTransaction contains the transaction and its receipt
 type ExecutedTransaction struct {
 	Receipt     *types.Receipt
 	Transaction *types.Transaction
@@ -108,10 +117,10 @@ type txSource int
 
 const (
 	txSync    txSource = 1
-	txRequest txSource = 2
 )
 
 type TransactionPool interface {
+	// PackForCast returns a list of transactions for casting a block
 	PackForCast() []*types.Transaction
 
 	// AddTransaction add new transaction to the transaction pool
@@ -122,27 +131,32 @@ type TransactionPool interface {
 
 	// AsyncAddTxs rcv transactions broadcast from other nodes
 	AsyncAddTxs(txs []*types.Transaction)
-	// AddMissTransactions add  local miss transactions while verifying blocks to the transaction pool
-	//AddMissTransactions(txs []*types.Transaction)
 
+	// GetTransaction trys to find a transaction from pool by hash and return it
 	GetTransaction(bonus bool, hash common.Hash) *types.Transaction
 
+	// GetTransactionStatus returns the execute result status by hash
 	GetTransactionStatus(hash common.Hash) (uint, error)
 
+	// GetReceipt returns the transaction's recipe by hash
 	GetReceipt(hash common.Hash) *types.Receipt
 
+	// GetReceived returns the received transactions in the pool with a limited size
 	GetReceived() []*types.Transaction
 
+	// GetBonusTxs returns all the bonus transactions in the pool
 	GetBonusTxs() []*types.Transaction
 
+	// TxNum returns the number of transactions in the pool
 	TxNum() uint64
 
+	// RemoveFromPool removes the transactions from pool by hash
 	RemoveFromPool(txs []common.Hash)
 
+	// BackToPool will put the transactions back to pool
 	BackToPool(txs []*types.Transaction)
 
-	//Clear()
-
+	// RecoverAndValidateTx recovers the sender of the transaction and also validates the transaction
 	RecoverAndValidateTx(tx *types.Transaction) error
 
 	saveReceipts(blockHash common.Hash, receipts types.Receipts) error
