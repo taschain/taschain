@@ -309,12 +309,11 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		if ok {
 			ret = types.AddBlockSucc
 			return
-		} else {
-			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
-			ret = types.AddBlockFailed
-			err = ErrCommitBlockFail
-			return
 		}
+		Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
+		ret = types.AddBlockFailed
+		err = ErrCommitBlockFail
+		return
 	}
 
 	cmpWeight := chain.compareChainWeight(bh)
@@ -350,12 +349,10 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		if ok {
 			ret = types.AddBlockSucc
 			return
-		} else {
-			Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
-			ret = types.AddBlockFailed
-			err = ErrCommitBlockFail
-			return
 		}
+		Logger.Warnf("insert block fail, hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, e)
+		ret = types.AddBlockFailed
+		err = ErrCommitBlockFail
 	}
 }
 
