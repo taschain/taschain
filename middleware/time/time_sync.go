@@ -3,8 +3,8 @@ package time
 import (
 	"fmt"
 	"github.com/beevik/ntp"
+	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/ticker"
-	"github.com/taschain/taschain/utility"
 	"math/rand"
 	"time"
 )
@@ -20,7 +20,7 @@ func TimeToTimeStamp(t time.Time) TimeStamp {
 }
 
 func (ts TimeStamp) Bytes() []byte {
-	return utility.Int64ToByte(int64(ts))
+	return common.Int64ToByte(int64(ts))
 }
 
 func (ts TimeStamp) UTC() time.Time {

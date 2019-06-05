@@ -66,7 +66,7 @@ func TestSign(test *testing.T) {
 	pri_k := GenerateKey("")
 	pub_k := pri_k.GetPubKey()
 
-	pub_buf := pub_k.Bytes() //测试公钥到字节切片的转换
+	pub_buf := pub_k.Bytes()
 	pub_k = *BytesToPublicKey(pub_buf)
 
 	sha3_si := pri_k.Sign(sha3_hash[:])
@@ -126,15 +126,11 @@ func TestSignBytes(test *testing.T) {
 	pri_k := GenerateKey("")
 
 	sha3_hash := sha3.Sum256(buf)
-	sign := pri_k.Sign(sha3_hash[:]) //私钥签名
+	sign := pri_k.Sign(sha3_hash[:])
 
-	//测试签名十六进制转换
-	h := sign.Hex() //签名十六进制表示
+
+	h := sign.Hex()
 	fmt.Println(h)
-
-	//si := HexToSign(h) //从十六进制恢复出签名
-	//fmt.Println(si.Bytes())  //签名打印
-	//fmt.Println(sign.Bytes())
 
 	sign_bytes := sign.Bytes()
 	sign_r := BytesToSign(sign_bytes)
@@ -176,7 +172,7 @@ func BenchmarkSign(b *testing.B) {
 	sha3_hash := sha3.Sum256(msg)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sk.Sign(sha3_hash[:]) //私钥签名
+		sk.Sign(sha3_hash[:])
 	}
 }
 

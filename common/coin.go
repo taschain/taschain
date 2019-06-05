@@ -29,6 +29,7 @@ var (
 
 var re, _ = regexp.Compile("^([0-9]+)(ra|kra|mra|tas)$")
 
+// ParseCoin parses string to amount
 func ParseCoin(s string) (uint64, error) {
 	s = strings.ToLower(strings.TrimSpace(s))
 	if s == "" {

@@ -11,6 +11,8 @@ import (
 **  Description:
  */
 
+// MustNewLRUCache creates a new lru cache.
+// Caution: if fail, the function will cause panic
 func MustNewLRUCache(size int) *lru.Cache {
 	cache, err := lru.New(size)
 	if err != nil {
@@ -19,7 +21,9 @@ func MustNewLRUCache(size int) *lru.Cache {
 	return cache
 }
 
-func MustNewLRUCacheWithEvitCB(size int, cb func(k, v interface{})) *lru.Cache {
+// MustNewLRUCacheWithEvictCB creates a new lru cache with buffer eviction
+// Caution: if fail, the function will cause panic.
+func MustNewLRUCacheWithEvictCB(size int, cb func(k, v interface{})) *lru.Cache {
 	cache, err := lru.NewWithEvict(size, cb)
 	if err != nil {
 		panic(fmt.Errorf("new cache fail:%v", err))

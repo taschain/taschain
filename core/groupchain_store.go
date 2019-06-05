@@ -16,13 +16,13 @@
 package core
 
 import (
+	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/utility"
 	"github.com/vmihailenco/msgpack"
 )
 
 func (chain *GroupChain) getGroupByHeight(height uint64) *types.Group {
-	groupID, _ := chain.groupsHeight.Get(utility.UInt64ToByte(height))
+	groupID, _ := chain.groupsHeight.Get(common.UInt64ToByte(height))
 	if nil != groupID {
 		return chain.getGroupByID(groupID)
 	}
@@ -54,7 +54,7 @@ func (chain *GroupChain) getGroupsAfterHeight(height uint64, limit int) []*types
 	iter := chain.groupsHeight.NewIterator()
 	defer iter.Release()
 
-	if !iter.Seek(utility.UInt64ToByte(height)) {
+	if !iter.Seek(common.UInt64ToByte(height)) {
 		return result
 	}
 
@@ -92,7 +92,7 @@ func (chain *GroupChain) commitGroup(group *types.Group) error {
 	if err := chain.groups.AddKv(batch, group.ID, data); err != nil {
 		return err
 	}
-	if err := chain.groupsHeight.AddKv(batch, utility.UInt64ToByte(group.GroupHeight), group.ID); err != nil {
+	if err := chain.groupsHeight.AddKv(batch, common.UInt64ToByte(group.GroupHeight), group.ID); err != nil {
 		return err
 	}
 	if err := chain.groups.AddKv(batch, []byte(groupStatusKey), group.ID); err != nil {

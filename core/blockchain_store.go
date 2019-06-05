@@ -5,7 +5,6 @@ import (
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/account"
-	"github.com/taschain/taschain/utility"
 )
 
 func (chain *FullBlockChain) saveBlockState(b *types.Block, state *account.AccountDB) error {
@@ -40,7 +39,7 @@ func (chain *FullBlockChain) saveBlockHeader(hash common.Hash, dataBytes []byte)
 }
 
 func (chain *FullBlockChain) saveBlockHeight(height uint64, dataBytes []byte) error {
-	return chain.blockHeight.AddKv(chain.batch, utility.UInt64ToByte(height), dataBytes)
+	return chain.blockHeight.AddKv(chain.batch, common.UInt64ToByte(height), dataBytes)
 }
 
 func (chain *FullBlockChain) saveBlockTxs(blockHash common.Hash, dataBytes []byte) error {
@@ -251,14 +250,14 @@ func (chain *FullBlockChain) hasBlock(hash common.Hash) bool {
 }
 
 func (chain *FullBlockChain) hasHeight(h uint64) bool {
-	if ok, _ := chain.blockHeight.Has(utility.UInt64ToByte(h)); ok {
+	if ok, _ := chain.blockHeight.Has(common.UInt64ToByte(h)); ok {
 		return ok
 	}
 	return false
 }
 
 func (chain *FullBlockChain) queryBlockHash(height uint64) *common.Hash {
-	result, _ := chain.blockHeight.Get(utility.UInt64ToByte(height))
+	result, _ := chain.blockHeight.Get(common.UInt64ToByte(height))
 	if result != nil {
 		hash := common.BytesToHash(result)
 		return &hash
@@ -269,7 +268,7 @@ func (chain *FullBlockChain) queryBlockHash(height uint64) *common.Hash {
 func (chain *FullBlockChain) queryBlockHashCeil(height uint64) *common.Hash {
 	iter := chain.blockHeight.NewIterator()
 	defer iter.Release()
-	if iter.Seek(utility.UInt64ToByte(height)) {
+	if iter.Seek(common.UInt64ToByte(height)) {
 		hash := common.BytesToHash(iter.Value())
 		return &hash
 	}
@@ -279,8 +278,8 @@ func (chain *FullBlockChain) queryBlockHashCeil(height uint64) *common.Hash {
 func (chain *FullBlockChain) queryBlockHeaderBytesFloor(height uint64) (common.Hash, []byte) {
 	iter := chain.blockHeight.NewIterator()
 	defer iter.Release()
-	if iter.Seek(utility.UInt64ToByte(height)) {
-		realHeight := utility.ByteToUInt64(iter.Key())
+	if iter.Seek(common.UInt64ToByte(height)) {
+		realHeight := common.ByteToUInt64(iter.Key())
 		if realHeight == height {
 			hash := common.BytesToHash(iter.Value())
 			return hash, chain.queryBlockHeaderBytes(hash)
@@ -296,8 +295,8 @@ func (chain *FullBlockChain) queryBlockHeaderBytesFloor(height uint64) (common.H
 func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types.BlockHeader {
 	iter := chain.blockHeight.NewIterator()
 	defer iter.Release()
-	if iter.Seek(utility.UInt64ToByte(height)) {
-		realHeight := utility.ByteToUInt64(iter.Key())
+	if iter.Seek(common.UInt64ToByte(height)) {
+		realHeight := common.ByteToUInt64(iter.Key())
 		if realHeight == height {
 			hash := common.BytesToHash(iter.Value())
 			bh := chain.queryBlockHeaderByHash(hash)
@@ -345,7 +344,7 @@ func (chain *FullBlockChain) batchGetBlocksAfterHeight(h uint64, limit int) []*t
 	defer iter.Release()
 
 	// No higher block after the specified block height
-	if !iter.Seek(utility.UInt64ToByte(h)) {
+	if !iter.Seek(common.UInt64ToByte(h)) {
 		return blocks
 	}
 	cnt := 0

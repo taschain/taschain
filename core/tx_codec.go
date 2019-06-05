@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/utility"
 	"github.com/vmihailenco/msgpack"
 	"io"
 )
@@ -28,9 +27,9 @@ func unmarshalTx(data []byte) (*types.Transaction, error) {
 func encodeBlockTransactions(b *types.Block) ([]byte, error) {
 	dataBuf := bytes.NewBuffer([]byte{})
 	// Write the version number
-	dataBuf.Write(utility.UInt16ToByte(uint16(codecVersion)))
+	dataBuf.Write(common.UInt16ToByte(uint16(codecVersion)))
 	// Write the count of transactions
-	dataBuf.Write(utility.UInt16ToByte(uint16(len(b.Transactions))))
+	dataBuf.Write(common.UInt16ToByte(uint16(len(b.Transactions))))
 	// Write each transaction length and transaction data
 	if len(b.Transactions) > 0 {
 		txBuf := bytes.NewBuffer([]byte{})
@@ -40,7 +39,7 @@ func encodeBlockTransactions(b *types.Block) ([]byte, error) {
 				return nil, err
 			}
 			// Write each transaction length
-			dataBuf.Write(utility.UInt16ToByte(uint16(len(txBytes))))
+			dataBuf.Write(common.UInt16ToByte(uint16(len(txBytes))))
 			txBuf.Write(txBytes)
 
 		}
@@ -62,7 +61,7 @@ func decodeBlockTransactions(data []byte) ([]*types.Transaction, error) {
 	if _, err := io.ReadFull(dataReader, twoBytes); err != nil {
 		return nil, err
 	}
-	version := utility.ByteToUInt16(twoBytes)
+	version := common.ByteToUInt16(twoBytes)
 	if version != codecVersion {
 		return nil, fmt.Errorf("version error")
 	}
@@ -70,7 +69,7 @@ func decodeBlockTransactions(data []byte) ([]*types.Transaction, error) {
 	if _, err := io.ReadFull(dataReader, twoBytes); err != nil {
 		return nil, err
 	}
-	txNum := utility.ByteToUInt16(twoBytes)
+	txNum := common.ByteToUInt16(twoBytes)
 	if txNum == 0 {
 		return txs, nil
 	}
@@ -82,7 +81,7 @@ func decodeBlockTransactions(data []byte) ([]*types.Transaction, error) {
 	}
 
 	for i := 0; i < int(txNum); i++ {
-		txLen := utility.ByteToUInt16(lenBytes[2*i : 2*(i+1)])
+		txLen := common.ByteToUInt16(lenBytes[2*i : 2*(i+1)])
 		txBytes := make([]byte, txLen)
 		_, err := io.ReadFull(dataReader, txBytes)
 		if err != nil {
@@ -107,7 +106,7 @@ func decodeTransaction(idx int, txHash common.Hash, data []byte) (*types.Transac
 	if _, err := io.ReadFull(dataReader, twoBytes); err != nil {
 		return nil, err
 	}
-	version := utility.ByteToUInt16(twoBytes)
+	version := common.ByteToUInt16(twoBytes)
 	if version != codecVersion {
 		return nil, fmt.Errorf("version error")
 	}
@@ -115,7 +114,7 @@ func decodeTransaction(idx int, txHash common.Hash, data []byte) (*types.Transac
 	if _, err := io.ReadFull(dataReader, twoBytes); err != nil {
 		return nil, err
 	}
-	txNum := utility.ByteToUInt16(twoBytes)
+	txNum := common.ByteToUInt16(twoBytes)
 	if txNum == 0 {
 		return nil, fmt.Errorf("txNum is zero")
 	}
@@ -127,7 +126,7 @@ func decodeTransaction(idx int, txHash common.Hash, data []byte) (*types.Transac
 	}
 
 	for i := 0; i < int(txNum); i++ {
-		txLen := utility.ByteToUInt16(lenBytes[2*i : 2*(i+1)])
+		txLen := common.ByteToUInt16(lenBytes[2*i : 2*(i+1)])
 		txBytes := make([]byte, txLen)
 		_, err := io.ReadFull(dataReader, txBytes)
 		if err != nil {

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/time"
-	"github.com/taschain/taschain/utility"
 	"math/big"
 )
 
@@ -250,15 +249,15 @@ type BlockHeader struct {
 func (bh *BlockHeader) GenHash() common.Hash {
 	buf := bytes.NewBuffer([]byte{})
 
-	buf.Write(utility.UInt64ToByte(bh.Height))
+	buf.Write(common.UInt64ToByte(bh.Height))
 
 	buf.Write(bh.PreHash.Bytes())
 
-	buf.Write(utility.Int32ToByte(bh.Elapsed))
+	buf.Write(common.Int32ToByte(bh.Elapsed))
 
 	buf.Write(bh.ProveValue)
 
-	buf.Write(utility.UInt64ToByte(bh.TotalQN))
+	buf.Write(common.UInt64ToByte(bh.TotalQN))
 
 	buf.Write(bh.CurTime.Bytes())
 
@@ -266,7 +265,7 @@ func (bh *BlockHeader) GenHash() common.Hash {
 
 	buf.Write(bh.GroupID)
 
-	buf.Write(utility.Int32ToByte(bh.Nonce))
+	buf.Write(common.Int32ToByte(bh.Nonce))
 
 	buf.Write(bh.TxTree.Bytes())
 	buf.Write(bh.ReceiptTree.Bytes())

@@ -24,17 +24,17 @@ import (
 	"io"
 )
 
-//Data struct of the public key
+// PublicKey data struct
 type PublicKey struct {
 	PubKey ecdsa.PublicKey
 }
 
-//Verify the signature and message (hash) by the public key
+// Verify the validation of signature and message
 func (pk PublicKey) Verify(hash []byte, s *Sign) bool {
 	return secp256k1.VerifySignature(pk.Bytes(), hash, s.Bytes()[:64])
 }
 
-//Get the address mapped from the public key
+// GetAddress obtains the address mapped from the public key
 func (pk PublicKey) GetAddress() Address {
 	x := pk.PubKey.X.Bytes()
 	y := pk.PubKey.Y.Bytes()
@@ -42,19 +42,19 @@ func (pk PublicKey) GetAddress() Address {
 
 	addrBuf := sha3.Sum256(x)
 	if len(addrBuf) != AddressLength {
-		panic("地址长度错误")
+		panic("the length is error!")
 	}
 	return BytesToAddress(addrBuf[:])
 }
 
-//Export the public key into a byte array
+// Bytes converts the public key to a byte array
 func (pk PublicKey) Bytes() []byte {
 	buf := elliptic.Marshal(pk.PubKey.Curve, pk.PubKey.X, pk.PubKey.Y)
 	//fmt.Printf("end pub key marshal, len=%v, data=%v\n", len(buf), buf)
 	return buf
 }
 
-//Construct a public key with the byte array imported
+// BytesToPublicKey returns a public key with the byte array imported
 func BytesToPublicKey(data []byte) (pk *PublicKey) {
 	pk = new(PublicKey)
 	pk.PubKey.Curve = getDefaultCurve()
@@ -68,17 +68,17 @@ func BytesToPublicKey(data []byte) (pk *PublicKey) {
 	return
 }
 
-//Export the public key into a hex string
+// Hex converts the public key to a hex string
 func (pk PublicKey) Hex() string {
 	return ToHex(pk.Bytes())
 }
 
-//Encrypt the message using the public key
+// Encrypt returns the cipher text of the message
 func (pk *PublicKey) Encrypt(rand io.Reader, msg []byte) ([]byte, error) {
 	return Encrypt(rand, pk, msg)
 }
 
-//Construct a public key with the hex string imported
+// HexToPubKey returns a public key with the hex string imported
 func HexToPubKey(s string) (pk *PublicKey) {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return
@@ -87,7 +87,7 @@ func HexToPubKey(s string) (pk *PublicKey) {
 	return
 }
 
-//Encrypt the message using the ECIES method
+// Encrypt returns the cipher text of the message
 func Encrypt(rand io.Reader, pub *PublicKey, msg []byte) (ct []byte, err error) {
 	pubECIES := ecies.ImportECDSAPublic(&pub.PubKey)
 	return ecies.Encrypt(rand, pubECIES, msg, nil, nil)
