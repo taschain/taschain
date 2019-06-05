@@ -63,9 +63,6 @@ type topBlockInfo struct {
 	Height uint64
 }
 
-var maxInt194, _ = new(big.Int).SetString("2ffffffffffffffffffffffffffffffffffffffffffffffff", 16)
-var float194 = new(big.Float).SetInt(maxInt194)
-
 func newTopBlockInfo(topBH *types.BlockHeader) *topBlockInfo {
 	return &topBlockInfo{
 		BlockWeight: *types.NewBlockWeight(topBH),
@@ -323,7 +320,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 
 	blockResponse, e := bs.unMarshalBlockMsgResponse(m.Body())
 	if e != nil {
-		bs.logger.Debugf("Discard block response msg because unMarshalBlockMsgResponse error:%d", e.Error())
+		bs.logger.Warnf("Discard block response msg because unMarshalBlockMsgResponse error:%d", e.Error())
 		return
 	}
 

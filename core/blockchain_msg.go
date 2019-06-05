@@ -31,7 +31,7 @@ func (chain *FullBlockChain) newBlockHandler(msg notify.Message) {
 	source := m.Source()
 	block, e := types.UnMarshalBlock(m.Body())
 	if e != nil {
-		Logger.Debugf("UnMarshal block error:%d", e.Error())
+		Logger.Warnf("UnMarshal block error:%d", e.Error())
 		return
 	}
 
