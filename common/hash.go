@@ -28,7 +28,7 @@ var hasherPool = sync.Pool{
 	},
 }
 
-// 计算sha256
+// Sha256 computes Sha256 value of the input byte array
 func Sha256(blockByte []byte) []byte {
 	hasher := hasherPool.Get().(hash.Hash)
 	hasher.Reset()
@@ -39,7 +39,7 @@ func Sha256(blockByte []byte) []byte {
 
 }
 
-//BytesCombine 多个[]byte数组合并成一个[]byte
+// BytesCombine combines multiple byte arrays into one byte array
 func BytesCombine(pBytes ...[]byte) []byte {
 	len := len(pBytes)
 	s := make([][]byte, len)

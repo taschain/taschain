@@ -17,12 +17,12 @@ package time
 
 import (
 	"fmt"
+	"github.com/taschain/taschain/common"
 	"math/rand"
 	"time"
 
 	"github.com/beevik/ntp"
 	"github.com/taschain/taschain/middleware/ticker"
-	"github.com/taschain/taschain/utility"
 )
 
 type TimeStamp int64
@@ -36,7 +36,7 @@ func TimeToTimeStamp(t time.Time) TimeStamp {
 }
 
 func (ts TimeStamp) Bytes() []byte {
-	return utility.Int64ToByte(int64(ts))
+	return common.Int64ToByte(int64(ts))
 }
 
 func (ts TimeStamp) UTC() time.Time {
