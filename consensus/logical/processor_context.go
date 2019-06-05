@@ -188,11 +188,11 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 	if vctx = bctx.getVctxByHeight(height); vctx == nil {
 		vctx = newVerifyContext(group, height, expireTime, preBH)
 		bctx.addVctx(vctx)
-		blog.log("add vctx expire %v", expireTime)
+		blog.debug("add vctx expire %v", expireTime)
 	} else {
 		// In case of hash inconsistency，
 		if vctx.prevBH.Hash != preBH.Hash {
-			blog.log("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, vctx.prevBH.Hash.ShortS(), preBH.Hash.ShortS())
+			blog.error("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, vctx.prevBH.Hash.ShortS(), preBH.Hash.ShortS())
 			preOld := bctx.chain.QueryBlockHeaderByHash(vctx.prevBH.Hash)
 			// The original preBH may be removed by the fork adjustment, then the vctx is invalid, re-use the new preBH
 			if preOld == nil {
@@ -212,7 +212,7 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 			if height == 1 && expireTime.After(vctx.expireTime) {
 				vctx.expireTime = expireTime
 			}
-			blog.log("get exist vctx height %v, expire %v", height, vctx.expireTime)
+			blog.debug("get exist vctx height %v, expire %v", height, vctx.expireTime)
 		}
 	}
 	return vctx

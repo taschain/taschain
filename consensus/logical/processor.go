@@ -141,7 +141,7 @@ func (p Processor) GetMinerInfo() *model.MinerDO {
 	return &p.mi.MinerDO
 }
 
-// isCastLegal check if the ingot group is legal
+// isCastLegal check if the verify group is legal
 func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, group *StaticGroupInfo, err error) {
 	castor := groupsig.DeserializeID(bh.Castor)
 	minerDO := p.minerReader.getProposeMiner(castor)
@@ -165,7 +165,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	if selectGroupIDFromCache == nil {
 		err = common.ErrSelectGroupNil
-		stdLogger.Debugf("selectGroupId is nil")
+		stdLogger.Errorf("selectGroupId is nil")
 		return
 	}
 	var verifyGid = *selectGroupIDFromCache
@@ -183,7 +183,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		}
 		if !selectGroupIDFromChain.IsEqual(gid) {
 			err = common.ErrSelectGroupInequal
-			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIDFromChain.ShortS(), gid.ShortS())
+			stdLogger.Errorf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIDFromChain.ShortS(), gid.ShortS())
 			return
 		}
 		verifyGid = *selectGroupIDFromChain

@@ -145,7 +145,7 @@ func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader)
 	tlog := newMsgTraceLog("VerifyBlock", bh.Hash.ShortS(), "")
 	defer func() {
 		tlog.log("preHash=%v, height=%v, result=%v %v", bh.PreHash.ShortS(), bh.Height, ok, err)
-		newBizLog("VerifyBlock").log("hash=%v, preHash=%v, height=%v, result=%v %v", bh.Hash.ShortS(), bh.PreHash.ShortS(), bh.Height, ok, err)
+		newBizLog("VerifyBlock").info("hash=%v, preHash=%v, height=%v, result=%v %v", bh.Hash.ShortS(), bh.PreHash.ShortS(), bh.Height, ok, err)
 	}()
 	if bh.Hash != bh.GenHash() {
 		err = fmt.Errorf("block hash error")

@@ -30,9 +30,9 @@ func (p *Processor) OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage) 
 	var err error
 	defer func() {
 		if err != nil {
-			blog.log("from %v, gid %v, pingId %v, height=%v, won't pong, err=%v", msg.SI.GetID().ShortS(), msg.FromGroupID.ShortS(), msg.PingID, msg.BaseHeight, err)
+			blog.error("from %v, gid %v, pingId %v, height=%v, won't pong, err=%v", msg.SI.GetID().ShortS(), msg.FromGroupID.ShortS(), msg.PingID, msg.BaseHeight, err)
 		} else {
-			blog.log("from %v, gid %v, pingId %v, height=%v, pong!", msg.SI.GetID().ShortS(), msg.FromGroupID.ShortS(), msg.PingID, msg.BaseHeight)
+			blog.debug("from %v, gid %v, pingId %v, height=%v, pong!", msg.SI.GetID().ShortS(), msg.FromGroupID.ShortS(), msg.PingID, msg.BaseHeight)
 		}
 	}()
 	pk := GetMinerPK(msg.SI.GetID())
@@ -68,7 +68,7 @@ func (p *Processor) OnMessageCreateGroupPong(msg *model.CreateGroupPongMessage) 
 	blog := newBizLog("OMCGPong")
 	var err error
 	defer func() {
-		blog.log("from %v, pingId %v, got pong, ret=%v", msg.SI.GetID().ShortS(), msg.PingID, err)
+		blog.debug("from %v, pingId %v, got pong, ret=%v", msg.SI.GetID().ShortS(), msg.PingID, err)
 	}()
 
 	ctx := p.groupManager.getContext()
@@ -107,7 +107,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	}()
 
 	gh := msg.GInfo.GI.GHeader
-	blog.log("Proc(%v) begin, gHash=%v sender=%v", p.getPrefix(), gh.Hash.ShortS(), msg.SI.SignMember.ShortS())
+	blog.debug("Proc(%v) begin, gHash=%v sender=%v", p.getPrefix(), gh.Hash.ShortS(), msg.SI.SignMember.ShortS())
 
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
@@ -116,7 +116,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 
 	gpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(parentGid, msg.SI.SignMember))
 	if !ok {
-		blog.log("GetMemberSignPubKey not ok, ask id %v", parentGid.ShortS())
+		blog.error("GetMemberSignPubKey not ok, ask id %v", parentGid.ShortS())
 		return
 	}
 
@@ -124,7 +124,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 		return
 	}
 	if gh.Hash != gh.GenHash() || gh.Hash != msg.SI.DataHash {
-		blog.log("hash diff expect %v, receive %v", gh.GenHash().ShortS(), gh.Hash.ShortS())
+		blog.error("hash diff expect %v, receive %v", gh.GenHash().ShortS(), gh.Hash.ShortS())
 		return
 	}
 
@@ -140,7 +140,7 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 			blog.debug("OMCGR SendCreateGroupSignMessage... ")
 			p.NetServer.SendCreateGroupSignMessage(signMsg, parentGid)
 		} else {
-			blog.debug("SendCreateGroupSignMessage sign fail, ski=%v, %v", ski.ID.ShortS(), ski.SK.ShortS())
+			blog.error("SendCreateGroupSignMessage sign fail, ski=%v, %v", ski.ID.ShortS(), ski.SK.ShortS())
 		}
 
 	} else {
@@ -151,24 +151,24 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) {
 	blog := newBizLog("OMCGS")
 
-	blog.log("Proc(%v) begin, gHash=%v, sender=%v", p.getPrefix(), msg.GHash.ShortS(), msg.SI.SignMember.ShortS())
+	blog.debug("Proc(%v) begin, gHash=%v, sender=%v", p.getPrefix(), msg.GHash.ShortS(), msg.SI.SignMember.ShortS())
 	if p.GetMinerID().IsEqual(msg.SI.SignMember) {
 		return
 	}
 
 	if msg.GenHash() != msg.SI.DataHash {
-		blog.log("hash diff")
+		blog.error("hash diff")
 		return
 	}
 
 	ctx := p.groupManager.getContext()
 	if ctx == nil {
-		blog.log("context is nil")
+		blog.warn("context is nil")
 		return
 	}
 	mpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(ctx.parentInfo.GroupID, msg.SI.SignMember))
 	if !ok {
-		blog.log("GetMemberSignPubKey not ok, ask id %v", ctx.parentInfo.GroupID.ShortS())
+		blog.error("GetMemberSignPubKey not ok, ask id %v", ctx.parentInfo.GroupID.ShortS())
 		return
 	}
 	if !msg.VerifySign(mpk) {
@@ -177,7 +177,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 	if ok, err := p.groupManager.onMessageCreateGroupSign(msg); ok {
 		gpk := ctx.parentInfo.GroupPK
 		if !groupsig.VerifySig(gpk, msg.SI.DataHash.Bytes(), ctx.gInfo.GI.Signature) {
-			blog.log("Proc(%v) verify group sign fail", p.getPrefix())
+			blog.error("Proc(%v) verify group sign fail", p.getPrefix())
 			return
 		}
 		initMsg := &model.ConsensusGroupRawMessage{
@@ -194,11 +194,11 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 			groupLogger.Infof("OMCGS send group init: info=%v, gHash=%v, costHeight=%v", ctx.logString(), ctx.gInfo.GroupHash().ShortS(), p.MainChain.Height()-ctx.createTopHeight)
 
 		} else {
-			blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+			blog.error("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
 		}
 
 	} else {
-		blog.log("fail, err=%v", err)
+		blog.error("fail, err=%v", err)
 	}
 }
 
@@ -210,7 +210,7 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	gis := &msg.GInfo.GI
 	gh := gis.GHeader
 
-	blog.log("proc(%v) begin, sender=%v, gHash=%v...", p.getPrefix(), msg.SI.GetID().ShortS(), gHash.ShortS())
+	blog.debug("proc(%v) begin, sender=%v, gHash=%v...", p.getPrefix(), msg.SI.GetID().ShortS(), gHash.ShortS())
 	tlog := newHashTraceLog("OMGI", gHash, msg.SI.GetID())
 
 	if msg.SI.DataHash != msg.GenHash() || gh.Hash != gh.GenHash() {
@@ -238,7 +238,7 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	topHeight := p.MainChain.QueryTopBlock().Height
 	if gis.ReadyTimeout(topHeight) {
 		desc = fmt.Sprintf("OMGI ready timeout, readyHeight=%v, now=%v", gh.ReadyHeight, topHeight)
-		blog.debug(desc)
+		blog.warn(desc)
 		return
 	}
 
@@ -285,7 +285,7 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 					blog.debug("call network service SendKeySharePiece...")
 					p.NetServer.SendKeySharePiece(spm)
 				} else {
-					blog.log("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+					blog.error("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
 				}
 
 			} else {
@@ -298,9 +298,9 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 }
 
 func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, share *model.SharePiece, si *model.SignData, response bool) (recover bool, err error) {
-	blog.log("gHash=%v, sender=%v, response=%v", gHash.ShortS(), si.GetID().ShortS(), response)
+	blog.debug("gHash=%v, sender=%v, response=%v", gHash.ShortS(), si.GetID().ShortS(), response)
 	defer func() {
-		blog.log("recover %v, err %v", recover, err)
+		blog.debug("recover %v, err %v", recover, err)
 	}()
 
 	gc := p.joiningGroups.GetGroup(gHash)
@@ -422,15 +422,15 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	blog := newBizLog("OMSPK")
 	tlog := newHashTraceLog("OMSPK", spkm.GHash, spkm.SI.GetID())
 
-	blog.log("proc(%v) begin , sender=%v, gHash=%v, gid=%v...", p.getPrefix(), spkm.SI.GetID().ShortS(), spkm.GHash.ShortS(), spkm.GroupID.ShortS())
+	blog.debug("proc(%v) begin , sender=%v, gHash=%v, gid=%v...", p.getPrefix(), spkm.SI.GetID().ShortS(), spkm.GHash.ShortS(), spkm.GroupID.ShortS())
 
 	if spkm.GenHash() != spkm.SI.DataHash {
-		blog.log("spkm hash diff")
+		blog.error("spkm hash diff")
 		return
 	}
 
 	if !spkm.VerifySign(spkm.SignPK) {
-		blog.log("miner sign verify fail")
+		blog.error("miner sign verify fail")
 		return
 	}
 
@@ -439,10 +439,10 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	jg, ret := p.belongGroups.addMemSignPk(spkm.SI.GetID(), spkm.GroupID, spkm.SignPK)
 
 	if jg != nil {
-		blog.log("after SignPKMessage exist mem sign pks=%v, ret=%v", jg.memSignPKSize(), ret)
+		blog.debug("after SignPKMessage exist mem sign pks=%v, ret=%v", jg.memSignPKSize(), ret)
 		tlog.log("收到签名公钥数 %v", jg.memSignPKSize())
 		for mem, pk := range jg.getMemberMap() {
-			blog.log("signPKS: %v, %v", mem, pk.GetHexString())
+			blog.debug("signPKS: %v, %v", mem, pk.GetHexString())
 		}
 	}
 
@@ -454,7 +454,7 @@ func (p *Processor) OnMessageSignPKReq(msg *model.ConsensusSignPubkeyReqMessage)
 	sender := msg.SI.GetID()
 	var err error
 	defer func() {
-		blog.log("sender=%v, gid=%v, result=%v", sender.ShortS(), msg.GroupID.ShortS(), err)
+		blog.debug("sender=%v, gid=%v, result=%v", sender.ShortS(), msg.GroupID.ShortS(), err)
 	}()
 
 	jg := p.belongGroups.getJoinedGroup(msg.GroupID)
@@ -484,7 +484,7 @@ func (p *Processor) OnMessageSignPKReq(msg *model.ConsensusSignPubkeyReqMessage)
 	}
 	ski := model.NewSecKeyInfo(p.GetMinerID(), jg.SignKey)
 	if resp.GenSign(ski, resp) {
-		blog.log("answer signPKReq Message, receiver %v, gid %v", sender.ShortS(), msg.GroupID.ShortS())
+		blog.debug("answer signPKReq Message, receiver %v, gid %v", sender.ShortS(), msg.GroupID.ShortS())
 		p.NetServer.AnswerSignPkMessage(resp, sender)
 	} else {
 		err = fmt.Errorf("gen Sign fail, ski=%v,%v", ski.ID.ShortS(), ski.SK.GetHexString())
@@ -509,7 +509,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	blog := newBizLog("OMGIED")
 	gHash := msg.GHash
 
-	blog.log("proc(%v) begin, sender=%v, gHash=%v, gid=%v, gpk=%v...", p.getPrefix(),
+	blog.debug("proc(%v) begin, sender=%v, gHash=%v, gid=%v, gpk=%v...", p.getPrefix(),
 		msg.SI.GetID().ShortS(), gHash.ShortS(), msg.GroupID.ShortS(), msg.GroupPK.ShortS())
 	tlog := newHashTraceLog("OMGIED", gHash, msg.SI.GetID())
 
@@ -521,7 +521,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	// needs to be executed, otherwise the status of the group data is faulty.
 	g := p.GroupChain.GetGroupByID(msg.GroupID.Serialize())
 	if g != nil {
-		blog.log("group already onchain")
+		blog.debug("group already onchain")
 		p.globalGroups.removeInitedGroup(gHash)
 		p.joiningGroups.Clean(gHash)
 		return
@@ -529,7 +529,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 
 	pk := GetMinerPK(msg.SI.GetID())
 	if !msg.VerifySign(*pk) {
-		blog.log("verify sign fail, id=%v, pk=%v, sign=%v", msg.SI.GetID().ShortS(), pk.GetHexString(), msg.SI.DataSign.GetHexString())
+		blog.error("verify sign fail, id=%v, pk=%v, sign=%v", msg.SI.GetID().ShortS(), pk.GetHexString(), msg.SI.DataSign.GetHexString())
 		return
 	}
 
@@ -537,19 +537,19 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	if initedGroup == nil {
 		gInfo, err := p.groupManager.recoverGroupInitInfo(msg.CreateHeight, msg.MemMask)
 		if err != nil {
-			blog.log("recover group info fail, err %v", err)
+			blog.error("recover group info fail, err %v", err)
 			return
 		}
 		if gInfo.GroupHash() != msg.GHash {
-			blog.log("groupHeader hash error, expect %v, receive %v", gInfo.GroupHash().Hex(), msg.GHash.Hex())
+			blog.error("groupHeader hash error, expect %v, receive %v", gInfo.GroupHash().Hex(), msg.GHash.Hex())
 			return
 		}
 		gInfo.GI.Signature = msg.ParentSign
 		initedGroup = createInitedGroup(gInfo)
-		blog.log("add inited group")
+		blog.debug("add inited group")
 	}
 	if initedGroup.gInfo.GI.ReadyTimeout(p.MainChain.Height()) {
-		blog.log("group ready timeout, gid=%v", msg.GroupID.ShortS())
+		blog.warn("group ready timeout, gid=%v", msg.GroupID.ShortS())
 		return
 	}
 
@@ -558,11 +558,11 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 
 	gpk := parentGroup.GroupPK
 	if !groupsig.VerifySig(gpk, msg.GHash.Bytes(), msg.ParentSign) {
-		blog.log("verify parent groupsig fail! gHash=%v", gHash.ShortS())
+		blog.error("verify parent groupsig fail! gHash=%v", gHash.ShortS())
 		return
 	}
 	if !initedGroup.gInfo.GI.Signature.IsEqual(msg.ParentSign) {
-		blog.log("signature differ, old %v, new %v", initedGroup.gInfo.GI.Signature.GetHexString(), msg.ParentSign.GetHexString())
+		blog.error("signature differ, old %v, new %v", initedGroup.gInfo.GI.Signature.GetHexString(), msg.ParentSign.GetHexString())
 		return
 	}
 	initedGroup = p.globalGroups.generator.addInitedGroup(initedGroup)
@@ -600,20 +600,20 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 
 func (p *Processor) OnMessageSharePieceReq(msg *model.ReqSharePieceMessage) {
 	blog := newBizLog("OMSPR")
-	blog.log("gHash=%v, sender=%v", msg.GHash.ShortS(), msg.SI.GetID().ShortS())
+	blog.debug("gHash=%v, sender=%v", msg.GHash.ShortS(), msg.SI.GetID().ShortS())
 
 	pk := GetMinerPK(msg.SI.GetID())
 	if pk == nil || !msg.VerifySign(*pk) {
-		blog.log("verify sign fail")
+		blog.error("verify sign fail")
 		return
 	}
 	gc := p.joiningGroups.GetGroup(msg.GHash)
 	if gc == nil {
-		blog.log("gc is nil")
+		blog.warn("gc is nil")
 		return
 	}
 	if gc.sharePieceMap == nil {
-		blog.log("sharePiece map is nil")
+		blog.warn("sharePiece map is nil")
 		return
 	}
 	piece := gc.sharePieceMap[msg.SI.GetID().GetHexString()]
@@ -623,7 +623,7 @@ func (p *Processor) OnMessageSharePieceReq(msg *model.ReqSharePieceMessage) {
 		Share: piece,
 	}
 	if pieceMsg.GenSign(p.getDefaultSeckeyInfo(), pieceMsg) {
-		blog.log("response share piece to %v, gHash=%v, share=%v", msg.SI.GetID().ShortS(), msg.GHash.ShortS(), piece.Share.ShortS())
+		blog.debug("response share piece to %v, gHash=%v, share=%v", msg.SI.GetID().ShortS(), msg.GHash.ShortS(), piece.Share.ShortS())
 		p.NetServer.ResponseSharePiece(pieceMsg, msg.SI.GetID())
 	}
 }
