@@ -137,12 +137,3 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	}
 }
 
-func (p *Processor) onNewBlockReceive(message notify.Message) {
-	if !p.Ready() {
-		return
-	}
-	msg := &model.ConsensusBlockMessage{
-		Block: message.GetData().(types.Block),
-	}
-	p.OnMessageBlock(msg)
-}
