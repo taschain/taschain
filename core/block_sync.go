@@ -95,18 +95,6 @@ func InitBlockSyncer(chain *FullBlockChain) {
 
 }
 
-func (bs *blockSyncer) onGroupAddSuccess(msg notify.Message) {
-	g := msg.GetData().(*types.Group)
-	beginHeight := g.Header.WorkHeight
-	topHeight := bs.chain.Height()
-
-	// The current block height has exceeded the effective height, and the group may be a bit problematic.
-	if beginHeight < topHeight {
-		s := fmt.Sprintf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", common.Bytes2Hex(g.ID), g.GroupHeight, beginHeight, topHeight)
-		panic(s)
-	}
-}
-
 func (bs *blockSyncer) isSyncing() bool {
 	localHeight := bs.chain.Height()
 	bs.lock.RLock()
@@ -309,7 +297,8 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 
 	source := m.Source()
 	if bs == nil {
-		panic("blockSyncer is nil!")
+		//do nothing
+		return
 	}
 	var complete = false
 	defer func() {

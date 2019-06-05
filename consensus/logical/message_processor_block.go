@@ -420,7 +420,11 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 	if !slot.hasSignedTxHash(reward.TxHash) {
 
 		slog.AddStage("GenerateBonus")
-		genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+		genBonus, _, err := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+		if err != nil {
+			err = fmt.Errorf("failed to generate bonus %s", err)
+			return
+		}
 		if genBonus.TxHash != reward.TxHash {
 			err = fmt.Errorf("bonus txHash diff %v %v", genBonus.TxHash.ShortS(), reward.TxHash.ShortS())
 			return

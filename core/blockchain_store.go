@@ -318,10 +318,12 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 			hash := common.BytesToHash(iter.Value())
 			bh := chain.queryBlockHeaderByHash(hash)
 			if bh == nil {
-				panic(fmt.Sprintf("data error:height %v, hash %v", height, hash.Hex()))
+				Logger.Errorf("data error:height %v, hash %v", height, hash.Hex())
+				return nil
 			}
 			if bh.Height != height {
-				panic(fmt.Sprintf("key height not equal to value height:keyHeight=%v, valueHeight=%v", realHeight, bh.Height))
+				Logger.Errorf("key height not equal to value height:keyHeight=%v, valueHeight=%v", realHeight, bh.Height)
+				return nil
 			}
 			return bh
 		}
