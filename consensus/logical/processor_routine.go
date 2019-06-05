@@ -43,11 +43,10 @@ func (p *Processor) getReleaseRoutineName() string {
 func (p *Processor) checkSelfCastRoutine() bool {
 	if !atomic.CompareAndSwapInt32(&p.isCasting, 0, 1) {
 		return false;
-	} else {
-		defer func() {
-			p.isCasting = 0
-		}()
 	}
+	defer func() {
+		p.isCasting = 0
+	}()
 
 	if !p.Ready() {
 		return false
