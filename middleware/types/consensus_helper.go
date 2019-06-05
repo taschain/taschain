@@ -28,38 +28,38 @@ type GenesisInfo struct {
 // ConsensusHelper are consensus interface collection
 type ConsensusHelper interface {
 
-	//generate genesis group and member pk info
+	// generate genesis group and pk info of members
 	GenerateGenesisInfo() *GenesisInfo
 
-	//vrf prove to value
+	// convert the vrf prove to big int
 	VRFProve2Value(prove []byte) *big.Int
 
-	//bonus for proposal a block
+	// bonus for proposal a block
 	ProposalBonus() *big.Int
 
-	//bonus for packing one bonus transaction
+	// bonus for packing one bonus transaction
 	PackBonus() *big.Int
 
-	//calcaulate the blockheader's qn
-	//it needs to be equal to the blockheader's totalQN - preHeader's totalQN
+	// calculate the blockheader's qn
+	// it needs to be equal to the blockheader's totalQN - preHeader's totalQN
 	CalculateQN(bh *BlockHeader) uint64
 
-	//check the prove root hash for weight node when add block on chain
+	// check the prove root hash for weight node when add block on chain
 	CheckProveRoot(bh *BlockHeader) (bool, error)
 
-	//check the new block
-	//mainly verify the cast legality, group signature
+	// check the new block
+	// mainly verify the cast legality and the group signature
 	VerifyNewBlock(bh *BlockHeader, preBH *BlockHeader) (bool, error)
 
-	//verify the blockheader: mainly verify the group signature
+	// verify the blockheader: mainly verify the group signature
 	VerifyBlockHeader(bh *BlockHeader) (bool, error)
 
-	//check group
+	// check group legality
 	CheckGroup(g *Group) (bool, error)
 
-	//verify bonus transaction
+	// verify bonus transaction
 	VerifyBonusTransaction(tx *Transaction) (bool, error)
 
-	//estimate pre height
+	// estimate pre block's height
 	EstimatePreHeight(bh *BlockHeader) uint64
 }

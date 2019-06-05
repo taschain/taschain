@@ -44,16 +44,17 @@ func (id GroupMinerID) IsValid() bool {
 
 // SignData is data signature structure
 type SignData struct {
-	Version    int32
-	DataHash   common.Hash        // Hash value
-	DataSign   groupsig.Signature // Signature
-	SignMember groupsig.ID        // User ID or group ID, depend on message type
+	Version    int32              // Protocol version
+	DataHash   common.Hash        // Hash value which is the signed message
+	DataSign   groupsig.Signature // The signature
+	SignMember groupsig.ID        // User ID who does the signing work
 }
 
 func (sd SignData) IsEqual(rhs SignData) bool {
 	return sd.DataHash == rhs.DataHash && sd.SignMember.IsEqual(rhs.SignMember) && sd.DataSign.IsEqual(rhs.DataSign)
 }
 
+// GenSignData generate SignData
 func GenSignData(h common.Hash, id groupsig.ID, sk groupsig.Seckey) SignData {
 	return SignData{
 		DataHash:   h,

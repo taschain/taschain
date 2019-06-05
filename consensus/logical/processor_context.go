@@ -74,8 +74,9 @@ func (c *verifyMsgCache) removeVerifyMsgs() {
 	c.verifyMsgs = make([]*model.ConsensusVerifyMessage, 0)
 }
 
+// castBlockContexts stores the proposal messages for proposal role and the verification context for verify roles
 type castBlockContexts struct {
-	proposed        *lru.Cache // hash -> *Block
+	proposed        *lru.Cache // hash -> *Block, only used for proposal role
 	heightVctxs     *lru.Cache // height -> *VerifyContext
 	hashVctxs       *lru.Cache // hash -> *VerifyContext
 	reservedVctx    *lru.Cache // uint64 -> *VerifyContext, Store the verifyContext that already has the checked out block, to be broadcast

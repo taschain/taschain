@@ -30,17 +30,19 @@ import (
 	"github.com/taschain/taschain/storage/tasdb"
 )
 
+// key suffix definition when store the group infos to db
 const (
 	suffixSignKey = "_signKey"
 	suffixGInfo   = "_gInfo"
 )
 
-// JoinedGroup is a castor group participating in the current node (initialized)
+// JoinedGroup stores group-related infos the current node joins in.
+// Note that, nodes outside the group don't care the infos
 type JoinedGroup struct {
 	GroupID groupsig.ID        // Group ID
-	SignKey groupsig.Seckey    // Miner signature private key
-	GroupPK groupsig.Pubkey    // Group public key (backup, which can be taken from the global group)
-	Members groupsig.PubkeyMap // Group member signature public key
+	SignKey groupsig.Seckey    // Miner signature private key related to the group
+	GroupPK groupsig.Pubkey    // Group public key (backup, which can be got from the global group)
+	Members groupsig.PubkeyMap // Group related public keys of all members
 	gHash   common.Hash
 	lock    sync.RWMutex
 }
@@ -101,6 +103,7 @@ func (jg *JoinedGroup) getMemberMap() groupsig.PubkeyMap {
 	return m
 }
 
+// BelongGroups stores all group-related infos which is important to the members
 type BelongGroups struct {
 	cache    *lru.Cache
 	priKey   common.PrivateKey
@@ -320,8 +323,8 @@ func (p *Processor) genBelongGroupStoreFile() string {
 	return storeFile
 }
 
-// GetMemberSignPubKey get the signature public key of the member in the group
-func (p Processor) GetMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pubkey, ok bool) {
+// getMemberSignPubKey get the signature public key of the member in the group
+func (p Processor) getMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pubkey, ok bool) {
 	if jg := p.belongGroups.getJoinedGroup(gmi.Gid); jg != nil {
 		pk, ok = jg.getMemSignPK(gmi.UID)
 		if !ok && !p.GetMinerID().IsEqual(gmi.UID) {

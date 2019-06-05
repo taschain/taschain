@@ -27,6 +27,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
+// FutureMessageHolder store some messages non-processable currently and may be processed in the future
 type FutureMessageHolder struct {
 	messages sync.Map
 }
@@ -141,6 +142,7 @@ func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
 	p.NetServer.BuildGroupNet(sgi.GroupID.GetHexString(), sgi.GetMembers())
 }
 
+// VerifyBlock check if the block is legal, it will take the pre-block into consideration
 func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (ok bool, err error) {
 	tlog := newMsgTraceLog("VerifyBlock", bh.Hash.ShortS(), "")
 	defer func() {
@@ -178,6 +180,7 @@ func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader)
 	return
 }
 
+// VerifyBlockHeader mainly check the group signature of the block
 func (p *Processor) VerifyBlockHeader(bh *types.BlockHeader) (ok bool, err error) {
 	if bh.Hash != bh.GenHash() {
 		err = fmt.Errorf("block hash error")
@@ -196,6 +199,7 @@ func (p *Processor) VerifyBlockHeader(bh *types.BlockHeader) (ok bool, err error
 	return
 }
 
+// VerifyGroup check whether the give group is legal
 func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 	if len(g.Signature) == 0 {
 		return false, fmt.Errorf("sign is empty")

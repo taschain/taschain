@@ -26,7 +26,7 @@ import (
 type testMachineGenerator struct {
 }
 
-func (t *testMachineGenerator) Generate(id string, cnt int) *StateMachine {
+func (t *testMachineGenerator) Generate(id string, cnt int) *stateMachine {
 	machine := newStateMachine(id)
 	machine.appendNode(newStateNode(1, 1, 1, func(msg interface{}) {
 		log.Println(1, msg)
@@ -46,7 +46,7 @@ func (t *testMachineGenerator) Generate(id string, cnt int) *StateMachine {
 func TestStateMachines_GetMachine(t *testing.T) {
 	logger = taslog.GetLoggerByName("test_machine.log")
 	cache := common.MustNewLRUCache(2)
-	testMachines := StateMachines{
+	testMachines := stateMachines{
 		name:      "GroupOutsideMachines",
 		generator: &testMachineGenerator{},
 		machines:  cache,
@@ -56,7 +56,7 @@ func TestStateMachines_GetMachine(t *testing.T) {
 	if machine == nil {
 		t.Fatal("create machine fail")
 	}
-	if machine.Id != "abc" {
+	if machine.ID != "abc" {
 		t.Errorf("machine id error")
 	}
 
@@ -66,7 +66,7 @@ func TestStateMachines_GetMachine(t *testing.T) {
 func TestStateMachine_Transform(t *testing.T) {
 	logger = taslog.GetLoggerByName("test_machine.log")
 	cache := common.MustNewLRUCache(2)
-	testMachines := StateMachines{
+	testMachines := stateMachines{
 		name:      "GroupOutsideMachines",
 		generator: &testMachineGenerator{},
 		machines:  cache,
@@ -76,21 +76,21 @@ func TestStateMachine_Transform(t *testing.T) {
 	if machine == nil {
 		t.Fatal("create machine fail")
 	}
-	if machine.Id != "abc" {
+	if machine.ID != "abc" {
 		t.Errorf("machine id error")
 	}
-	machine.Transform(NewStateMsg(2, "sharepiece 1", "u1"))
-	machine.Transform(NewStateMsg(2, "sharepiece 2", "u2"))
-	machine.Transform(NewStateMsg(2, "sharepiece 4", "u4"))
-	machine.Transform(NewStateMsg(4, "done 1", "u1"))
-	machine.Transform(NewStateMsg(2, "sharepiece 5", "u5"))
-	machine.Transform(NewStateMsg(2, "sharepiece 3", "u3"))
-	machine.Transform(NewStateMsg(3, "pub 4", "u4"))
-	machine.Transform(NewStateMsg(3, "pub 3", "u3"))
-	machine.Transform(NewStateMsg(1, "init 2", "u4"))
-	machine.Transform(NewStateMsg(3, "pub 2", "u2"))
-	machine.Transform(NewStateMsg(1, "init 1", "u2"))
-	//machine.Transform(NewStateMsg(3, "pub 1", "u1"))
+	machine.transform(newStateMsg(2, "sharepiece 1", "u1"))
+	machine.transform(newStateMsg(2, "sharepiece 2", "u2"))
+	machine.transform(newStateMsg(2, "sharepiece 4", "u4"))
+	machine.transform(newStateMsg(4, "done 1", "u1"))
+	machine.transform(newStateMsg(2, "sharepiece 5", "u5"))
+	machine.transform(newStateMsg(2, "sharepiece 3", "u3"))
+	machine.transform(newStateMsg(3, "pub 4", "u4"))
+	machine.transform(newStateMsg(3, "pub 3", "u3"))
+	machine.transform(newStateMsg(1, "init 2", "u4"))
+	machine.transform(newStateMsg(3, "pub 2", "u2"))
+	machine.transform(newStateMsg(1, "init 1", "u2"))
+	//machine.transform(newStateMsg(3, "pub 1", "u1"))
 
 	if !machine.finish() {
 		t.Errorf("machine should be finished")

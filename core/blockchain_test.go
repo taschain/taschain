@@ -521,7 +521,7 @@ func (helper *ConsensusHelperImpl4Test) PackBonus() *big.Int {
 }
 
 func (helper *ConsensusHelperImpl4Test) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
-	//return Proc.CheckProveRoot(bh)
+	//return Proc.checkProveRoot(bh)
 	return true, nil //上链时不再校验，只在共识时校验（update：2019-04-23）
 }
 

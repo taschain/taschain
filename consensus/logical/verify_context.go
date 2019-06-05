@@ -28,44 +28,50 @@ import (
 	"gopkg.in/fatih/set.v0"
 )
 
+// status enum of the verification consensus
 const (
-	// svWorking Casting blocks, waiting for shards
+	// svWorking indicates waiting for shards
 	svWorking = iota
-	// svSuccess indicate block signature has been aggregated
+	// svSuccess indicates block added on chain successfully
 	svSuccess
-	// svNotified means block has notified the sponsor
+	// svNotified means block body requested from proposer already
 	svNotified
-	// svTimeout means Group cast block timeout
+	// svTimeout means the block consensus timeout
 	svTimeout
 )
 
 const (
-	// pieceNormal means received a shard and received normal
+	// pieceNormal means received a normal piece
 	pieceNormal = 1
 
-	// pieceThreshold means received a shard and reached the threshold,
-	// the group signature succeeded
+	// pieceThreshold means received a piece and reached the threshold,
 	pieceThreshold = 2
-	pieceFail      = -1
+
+	// pieceFail meas piece denied
+	pieceFail = -1
 )
 
+// VerifyContext stores the context of verification consensus of each height.
+// It is unique to each height which means replacement will take place when two different instance
+// created for only one height
 type VerifyContext struct {
-	prevBH           *types.BlockHeader
-	castHeight       uint64
-	signedMaxWeight  atomic.Value // *types.BlockWeight
-	signedBlockHashs set.Interface
-	expireTime       time.TimeStamp // cast block timeout
+	prevBH           *types.BlockHeader // Pre-block header the height based on
+	castHeight       uint64             // The height the context related to
+	signedMaxWeight  atomic.Value       // type of *types.BlockWeight, stores max weight block info current node signed
+	signedBlockHashs set.Interface      // block hash set the current node signed, used for duplicated signed judgement
+	expireTime       time.TimeStamp     // block consensus deadline
 	createTime       time.TimeStamp
-	consensusStatus  int32 // cast state
-	slots            map[common.Hash]*SlotContext
-	proposers        map[string]common.Hash
-	successSlot      *SlotContext
-	group            *StaticGroupInfo
-	signedNum        int32 // Numbers of signatures
-	verifyNum        int32 // Numbers of Verify signatures
-	aggrNum          int32 // Numbers of aggregate group signatures
-	lock             sync.RWMutex
-	ts               time.TimeService
+	consensusStatus  int32                        // consensus status
+	slots            map[common.Hash]*SlotContext // verification context of each block proposal related to the context, called slot
+	proposers        map[string]common.Hash       // Record the block hash corresponding to each proposer, Used to limit a proposer to work only once at that height
+
+	successSlot *SlotContext     // The slot that has make the consensus finished
+	group       *StaticGroupInfo // Corresponding verify-group info
+	signedNum   int32            // Numbers of signed blocks
+	verifyNum   int32            // Numbers of verified signatures
+	aggrNum     int32            // Numbers of blocks that group-sign recovered
+	lock        sync.RWMutex
+	ts          time.TimeService
 }
 
 func newVerifyContext(group *StaticGroupInfo, castHeight uint64, expire time.TimeStamp, preBH *types.BlockHeader) *VerifyContext {
@@ -160,6 +166,7 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 		err = fmt.Errorf("elapsed error %v", bh.Elapsed)
 		return
 	}
+	// Check time window
 	if vc.ts.Since(bh.CurTime) < -1 {
 		return fmt.Errorf("block too early: now %v, curtime %v", vc.ts.Now(), bh.CurTime)
 	}
@@ -167,12 +174,14 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 	if bh.Height > 1 && !vc.ts.NowAfter(begin) {
 		return fmt.Errorf("block too early: begin %v, now %v", begin, vc.ts.Now())
 	}
+
+	// Check group id
 	gid := groupsig.DeserializeID(bh.GroupID)
 	if !vc.group.GroupID.IsEqual(gid) {
 		return fmt.Errorf("groupId error:vc-%v, bh-%v", vc.group.GroupID.ShortS(), gid.ShortS())
 	}
 
-	// Only sign qn not less than the block of the highest block that has been signed
+	// Only sign blocks with higher weights than that have been signed
 	if vc.hasSignedMoreWeightThan(bh) {
 		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxWeight().String(), bh.TotalQN)
 		return
@@ -202,6 +211,7 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 	return
 }
 
+// GetSlotByHash return the slot related to the given block hash
 func (vc *VerifyContext) GetSlotByHash(hash common.Hash) *SlotContext {
 	vc.lock.RLock()
 	defer vc.lock.RUnlock()
@@ -209,6 +219,8 @@ func (vc *VerifyContext) GetSlotByHash(hash common.Hash) *SlotContext {
 	return vc.findSlot(hash)
 }
 
+// PrepareSlot returns the slotContext related to the given blockHeader.
+// Replacement will take place if the existing slots reaches the limit defined in the model.Param
 func (vc *VerifyContext) PrepareSlot(bh *types.BlockHeader) (*SlotContext, error) {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
@@ -252,6 +264,7 @@ func (vc *VerifyContext) PrepareSlot(bh *types.BlockHeader) (*SlotContext, error
 
 }
 
+// Clear release the slot
 func (vc *VerifyContext) Clear() {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
@@ -261,9 +274,9 @@ func (vc *VerifyContext) Clear() {
 }
 
 // shouldRemove determine whether the context can be deleted,
-// mainly consider whether to send a dividend transaction
+// mainly consider whether to send a bonus transaction
 func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
-	// Transaction signature timed out, can be deleted
+	// Bonus transaction consensus timed out, can be deleted
 	if vc.castRewardSignExpire() {
 		return true
 	}
@@ -273,13 +286,14 @@ func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
 		return true
 	}
 
-	// No block, but the height is already less than 200, can be deleted
+	// No block, but has stayed more than 200 heights, can be deleted
 	if vc.castHeight+200 < topHeight {
 		return true
 	}
 	return false
 }
 
+// GetSlots gets all the slots
 func (vc *VerifyContext) GetSlots() []*SlotContext {
 	vc.lock.RLock()
 	defer vc.lock.RUnlock()
@@ -290,6 +304,7 @@ func (vc *VerifyContext) GetSlots() []*SlotContext {
 	return slots
 }
 
+// checkNotify check and returns the slotContext the maximum weight of block stored in
 func (vc *VerifyContext) checkNotify() *SlotContext {
 	blog := newBizLog("checkNotify")
 	if !vc.castSuccess() || vc.isNotified() {

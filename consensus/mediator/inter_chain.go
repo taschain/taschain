@@ -28,7 +28,8 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-// ConsensusHelperImpl is consensus module provides external data
+// ConsensusHelperImpl implements ConsensusHelper interface.
+// It provides functions for chain use
 type ConsensusHelperImpl struct {
 	ID groupsig.ID
 }
@@ -37,18 +38,22 @@ func NewConsensusHelper(id groupsig.ID) types.ConsensusHelper {
 	return &ConsensusHelperImpl{ID: id}
 }
 
+// ProposalBonus returns bonus for packing one bonus transaction
 func (helper *ConsensusHelperImpl) ProposalBonus() *big.Int {
 	return new(big.Int).SetUint64(model.Param.ProposalBonus)
 }
 
+// PackBonus returns bonus for packing one bonus transaction
 func (helper *ConsensusHelperImpl) PackBonus() *big.Int {
 	return new(big.Int).SetUint64(model.Param.PackBonus)
 }
 
+// GenerateGenesisInfo generate genesis group and pk info of members
 func (helper *ConsensusHelperImpl) GenerateGenesisInfo() *types.GenesisInfo {
 	return logical.GenerateGenesis()
 }
 
+// VRFProve2Value convert the vrf prove to big int
 func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
 	if len(prove) == 0 {
 		return big.NewInt(0)
@@ -56,27 +61,35 @@ func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
 	return base.VRFProof2hash(base.VRFProve(prove)).Big()
 }
 
+// CalculateQN calculates the blockheader's qn
+// It needs to be equal to the blockheader's totalQN - preHeader's totalQN
 func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
 	return Proc.CalcBlockHeaderQN(bh)
 }
 
+// CheckProveRoot check the prove root hash for weight node when add block on chain
 func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	// No longer check when going up, only check at consensus
 	return true, nil
 }
 
+// VerifyNewBlock check the new block.
+// Mainly verify the cast legality and the group signature
 func (helper *ConsensusHelperImpl) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
 	return Proc.VerifyBlock(bh, preBH)
 }
 
+// VerifyBlockHeader verify the blockheader: mainly verify the group signature
 func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (bool, error) {
 	return Proc.VerifyBlockHeader(bh)
 }
 
+// CheckGroup check group legality
 func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err error) {
 	return Proc.VerifyGroup(g)
 }
 
+// VerifyBonusTransaction verify bonus transaction
 func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction) (ok bool, err error) {
 	signBytes := tx.Sign
 	if len(signBytes) < common.SignLength {
@@ -98,6 +111,7 @@ func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction)
 	return true, nil
 }
 
+// EstimatePreHeight estimate pre block's height
 func (helper *ConsensusHelperImpl) EstimatePreHeight(bh *types.BlockHeader) uint64 {
 	height := bh.Height
 	if height == 1 {

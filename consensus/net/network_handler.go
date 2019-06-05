@@ -24,6 +24,7 @@ import (
 	"github.com/taschain/taschain/network"
 )
 
+// ConsensusHandler used for handling consensus-related messages from network
 type ConsensusHandler struct {
 	processor MessageProcessor
 }
@@ -32,7 +33,7 @@ var MessageHandler = new(ConsensusHandler)
 
 func (c *ConsensusHandler) Init(proc MessageProcessor) {
 	c.processor = proc
-	InitStateMachines()
+	initStateMachines()
 }
 
 func (c *ConsensusHandler) Processor() MessageProcessor {
@@ -43,6 +44,8 @@ func (c *ConsensusHandler) ready() bool {
 	return c.processor != nil && c.processor.Ready()
 }
 
+// Handle is the main entrance for handling messages.
+// It assigns different types of messages to different processor handlers for processing according to the code field
 func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 	code := msg.Code
 	body := msg.Body
@@ -67,14 +70,14 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 			return e
 		}
 
-		GroupInsideMachines.GetMachine(m.GInfo.GI.GetHash().Hex(), len(m.GInfo.Mems)).Transform(NewStateMsg(code, m, sourceID))
+		GroupInsideMachines.GetMachine(m.GInfo.GI.GetHash().Hex(), len(m.GInfo.Mems)).transform(newStateMsg(code, m, sourceID))
 	case network.KeyPieceMsg:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).transform(newStateMsg(code, m, sourceID))
 		logger.Infof("SharepieceMsg receive from:%v, gHash:%v", sourceID, m.GHash.Hex())
 	case network.SignPubkeyMsg:
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
@@ -82,7 +85,7 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 			logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).transform(newStateMsg(code, m, sourceID))
 		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v", sourceID, m.GHash.Hex(), m.GroupID.GetHexString())
 	case network.GroupInitDoneMsg:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
@@ -92,7 +95,7 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 		}
 		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s, groupId:%v", sourceID, m.GHash.Hex(), m.GroupID.GetHexString())
 
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).transform(newStateMsg(code, m, sourceID))
 
 	case network.CurrentGroupCastMsg:
 

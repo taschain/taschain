@@ -125,7 +125,7 @@ func (a Address) BigInteger() *big.Int { return new(big.Int).SetBytes(a[:]) }
 // Hash converts a to hash
 func (a Address) Hash() Hash { return BytesToHash(a[:]) }
 
-// IsValid checks the validity of a
+// isValid checks the validity of a
 func (a Address) IsValid() bool {
 	return len(a.Bytes()) > 0
 }

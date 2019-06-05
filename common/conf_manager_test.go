@@ -15,7 +15,10 @@
 
 package common
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 var (
 	PATH = "tas_test.ini"
@@ -95,4 +98,18 @@ func TestSectionConfFileManager(t *testing.T) {
 	if s != "" {
 		t.Error("del value error")
 	}
+}
+
+func testfunc() {
+	if true {
+		fmt.Println("normal execute...")
+		return
+	}
+	defer func() {
+		fmt.Println("defer executed")
+	}()
+}
+
+func TestDefer(t *testing.T) {
+	testfunc()
 }
