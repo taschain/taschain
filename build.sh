@@ -26,19 +26,19 @@ function buildp2p() {
         exit 1
     fi
 }
-#git submodule update --init
+git submodule update --init
 if [[ $1x = "gtas"x ]]; then
     echo building gtas ...
-    #buildtvm
-    #buildp2p
+    buildtvm
+    buildp2p
 
     go build -o ${output_dir}/gtas $basepath/cmd/gtas &&
     echo build gtas successfully...
 
-    elif [[ $1x = "tvmcli"x ]]; then
+elif [[ $1x = "tvmcli"x ]]; then
     go build $basepath/cmd/tvmcli &&
     echo build tvmcli successfully...
-    elif [[ $1x = "clean"x ]]; then
+elif [[ $1x = "clean"x ]]; then
     rm $basepath/tvm/tvm.h $basepath/tvm/libtvm.a
     rm $basepath/network/p2p_api.h $basepath/network/libp2pcore.a
     echo cleaned
