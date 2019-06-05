@@ -42,6 +42,7 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 	}
 }
 
+// Execute executes all types transactions and returns the receipts
 func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.BlockHeader, txs []*types.Transaction, pack bool) (state common.Hash, evits []common.Hash, executed []*types.Transaction, recps []*types.Receipt, err error) {
 	beginTime := time.Now()
 	receipts := make([]*types.Receipt, 0)
@@ -49,18 +50,14 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 	evictedTxs := make([]common.Hash, 0)
 	castor := common.BytesToAddress(bh.Castor)
 
-	//errs := make([]*types.TransactionError, len(block.Transactions))
-
 	for _, transaction := range txs {
 		if pack && time.Since(beginTime).Seconds() > float64(MaxCastBlockTime) {
 			Logger.Infof("Cast block execute tx time out!Tx hash:%s ", transaction.Hash.Hex())
 			break
 		}
-		//Logger.Debugf("TVMExecutor Execute %v,type:%d", transaction.Hash, transaction.Type)
 		var success = false
 		var contractAddress common.Address
 		var logs []*types.Log
-		//var err *types.TransactionError
 		var cumulativeGasUsed uint64
 
 		if !executor.validateNonce(accountdb, transaction) {
@@ -79,7 +76,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 			success = executor.executeBonusTx(accountdb, transaction, castor)
 			if !success {
 				evictedTxs = append(evictedTxs, transaction.Hash)
-				//failed bonus tx should not be included in block
+				// Failed bonus tx should not be included in block
 				continue
 			}
 		case types.TransactionTypeMinerApply:
@@ -145,7 +142,6 @@ func (executor *TVMExecutor) executeTransferTx(accountdb *account.AccountDB, tra
 	} else {
 		err = types.TxErrorBalanceNotEnough
 	}
-	//Logger.Debugf("TVMExecutor Execute Transfer Source:%s Target:%s Value:%d Height:%d Type:%s,Gas:%d,Success:%t", transaction.Source.String(), transaction.Target.String(), transaction.Value, height, mark,cumulativeGasUsed,success)
 	return success, err, cumulativeGasUsed
 }
 
@@ -256,7 +252,6 @@ func (executor *TVMExecutor) executeBonusTx(accountdb *account.AccountDB, transa
 		accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().PackBonus())
 		success = true
 	}
-	//Logger.Debugf("TVMExecutor Execute Bonus Transaction:%s Group:%s,Success:%t", common.BytesToHash(transaction.Data).Hex(), common.BytesToHash(groupId).ShortS(),success)
 	return success
 }
 
@@ -481,9 +476,7 @@ func createContract(accountdb *account.AccountDB, transaction *types.Transaction
 	return contractAddr, nil
 }
 
-/**
-交易固定消耗gas
-*/
+// intrinsicGas means transaction consumption intrinsic gas
 func intrinsicGas(transaction *types.Transaction) (gas uint64, err *types.TransactionError) {
 	gas = uint64(float32(len(transaction.Data)+len(transaction.ExtraData)) * CodeBytePrice)
 	gas = TransactionGasCost + gas
@@ -499,8 +492,9 @@ func canTransfer(db vm.AccountDB, addr common.Address, amount *big.Int, gasFee *
 }
 
 func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int) {
+
+	// Escape if amount is zero
 	if amount.Sign() == 0 {
-		//escape if amount is zero
 		return
 	}
 	db.SubBalance(sender, amount)

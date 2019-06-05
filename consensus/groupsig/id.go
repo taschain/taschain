@@ -23,67 +23,64 @@ import (
 	"math/big"
 )
 
-// ID -- id for secret sharing, represented by big.Int
+// ID is id for secret sharing, represented by big.Int
+// Secret shared ID, 64 bit int, a total of 256 bits
 type ID struct {
 	value BnInt
 }
 
-//check whether id is equal to rhs
+// IsEqual check whether id is equal to rhs
 func (id ID) IsEqual(rhs ID) bool {
-	// TODO : add IsEqual to bncurve.ID
 	return id.value.IsEqual(&rhs.value)
 }
 
-//Construct a ID with the specified big integer
+// SetBigInt construct a ID with the specified big integer
 func (id *ID) SetBigInt(b *big.Int) error {
 	id.value.SetBigInt(b)
 	return nil
 }
 
-//Construct a ID with the specified decimal string
+// SetDecimalString construct a ID with the specified decimal string
 func (id *ID) SetDecimalString(s string) error {
 	return id.value.SetDecString(s)
 }
 
-//Construct a ID with the input hex string
+// SetHexString construct a ID with the input hex string
 func (id *ID) SetHexString(s string) error {
 	return id.value.SetHexString(s)
 }
 
-// GetLittleEndian --
 func (id *ID) GetLittleEndian() []byte {
 	return id.Serialize()
 }
 
-// SetLittleEndian --
 func (id *ID) SetLittleEndian(buf []byte) error {
 	return id.Deserialize(buf)
 }
 
-//Construct a ID with the input byte array
+// Deserialize construct a ID with the input byte array
 func (id *ID) Deserialize(b []byte) error {
 	return id.value.Deserialize(b)
 }
 
-//Export ID into a big integer
+// GetBigInt export ID into a big integer
 func (id ID) GetBigInt() *big.Int {
 	return new(big.Int).Set(id.value.GetBigInt())
 }
 
-//check id is valid
+// IsValid check id is valid
 func (id ID) IsValid() bool {
 	bi := id.GetBigInt()
 	return bi.Cmp(big.NewInt(0)) != 0
 
 }
 
-//Export ID into a hex string
+// GetHexString export ID into a hex string
 func (id ID) GetHexString() string {
 	return common.ToHex(id.Serialize())
-	//return id.value.GetHexString()
 }
 
-//Export ID into a byte array (little endian)
+// Serialize convert ID to byte slice (LittleEndian)
 func (id ID) Serialize() []byte {
 	idBytes := id.value.Serialize()
 	if len(idBytes) == IDLENGTH {
@@ -115,7 +112,7 @@ func (id ID) ShortS() string {
 	return common.ShortHex12(id.GetHexString())
 }
 
-//由big.Int创建ID
+// NewIDFromBigInt create ID by big.int
 func NewIDFromBigInt(b *big.Int) *ID {
 	id := new(ID)
 	err := id.value.SetBigInt(b)
@@ -126,36 +123,44 @@ func NewIDFromBigInt(b *big.Int) *ID {
 	return id
 }
 
-//由int64创建ID
+// NewIDFromInt64 create ID by int64
 func NewIDFromInt64(i int64) *ID {
 	return NewIDFromBigInt(big.NewInt(i))
 }
 
-//由int32创建ID
+// NewIDFromInt Create ID by int32
 func NewIDFromInt(i int) *ID {
 	return NewIDFromBigInt(big.NewInt(int64(i)))
 }
 
-//Construct ID with the input address
+// NewIDFromAddress create ID from TAS 160-bit address (FP254 curve 256 bit or
+// FP382 curve 384 bit)
+//
+// Bncurve.ID and common.Address do not support two-way back and forth conversions
+// to each other, because their codomain is different (384 bits and 160 bits),
+// and the interchange generates different values.
 func NewIDFromAddress(addr common.Address) *ID {
 	return NewIDFromBigInt(addr.BigInteger())
 }
 
-//由公钥构建ID，公钥->（缩小到160位）地址->（放大到256/384位）ID
+// NewIDFromPubkey construct ID by public key
+//
+// Public key -> (reduced to 160 bits) address -> (zoom in to 256/384 bit) ID
 func NewIDFromPubkey(pk Pubkey) *ID {
-	h := sha3.Sum256(pk.Serialize()) //取得公钥的SHA3 256位哈希
+	// Get the SHA3 256-bit hash of the public key
+	h := sha3.Sum256(pk.Serialize())
 	bi := new(big.Int).SetBytes(h[:])
 	return NewIDFromBigInt(bi)
 }
 
-//Construct ID with the input hex string
+// NewIDFromString  generate ID by string, incoming string must guarantee discreteness
 func NewIDFromString(s string) *ID {
 	bi := new(big.Int).SetBytes(common.FromHex(s))
 	return NewIDFromBigInt(bi)
 }
 
-//Construct ID with the input byte array
-func DeserializeId(bs []byte) ID {
+// DeserializeID construct ID with the input byte array
+func DeserializeID(bs []byte) ID {
 	var id ID
 	if err := id.Deserialize(bs); err != nil {
 		return ID{}
@@ -163,7 +168,7 @@ func DeserializeId(bs []byte) ID {
 	return id
 }
 
-//Convert ID to address
+// ToAddress convert ID to address
 func (id ID) ToAddress() common.Address {
 	return common.BytesToAddress(id.Serialize())
 }

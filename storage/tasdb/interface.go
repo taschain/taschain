@@ -34,8 +34,11 @@ type SecondaryBatch interface {
 type Batch interface {
 	Putter
 	Deleter
-	ValueSize() int // amount of data in the batch
+
+	// ValueSize is amount of data in the batch
+	ValueSize() int
 	Write() error
+
 	// Reset resets the batch for reuse
 	Reset()
 }

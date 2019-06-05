@@ -454,7 +454,7 @@ func clear() {
 		return
 	}
 	for _, d := range dir {
-		if d.IsDir() && strings.HasPrefix(d.Name(), "d_") {
+		if d.IsDir() && (strings.HasPrefix(d.Name(), "d_") || strings.HasPrefix(d.Name(), "groupstore")) {
 			fmt.Printf("deleting folder: %s \n", d.Name())
 			err = os.RemoveAll(d.Name())
 			if err != nil {
@@ -486,6 +486,7 @@ func initContext4Test() error {
 		return err
 	}
 	BlockChainImpl = nil
+	GroupChainImpl = nil
 	_ = InitCore(false, NewConsensusHelper4Test(groupsig.ID{}))
 	clearTicker()
 	return nil

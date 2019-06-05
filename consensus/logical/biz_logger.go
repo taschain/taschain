@@ -22,13 +22,7 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/8/31 下午4:40
-**  Description:
- */
-
-//业务标准输出日志
+// bizLog is Business standard output log
 type bizLog struct {
 	biz string
 }
@@ -45,7 +39,6 @@ func (bl *bizLog) debug(format string, p ...interface{}) {
 	stdLogger.Debugf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
-//接口rt日志
 type rtLog struct {
 	start time.Time
 	key   string
@@ -69,11 +62,11 @@ func (r *rtLog) end() {
 	stdLogger.Debugf(fmt.Sprintf("%v:%v cost ", time.Now().Format(TimestampLayout), r.key))
 }
 
-//消息追踪日志，记录到文件
+// msgTraceLog encapsulate message tracking log, recorded to file
 type msgTraceLog struct {
-	mtype  string //消息类型
-	key    string //关键字
-	sender string //消息发送者
+	mtype  string // Message type
+	key    string // Keyword
+	sender string // Message sender
 }
 
 func newMsgTraceLog(mtype string, key string, sender string) *msgTraceLog {

@@ -15,16 +15,11 @@
 
 package tasdb
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/18 上午10:21
-**  Description:
- */
-
 type TasDataSource struct {
 	db *LDBDatabase
 }
 
+// NewDataSource create levedb instance by file
 func NewDataSource(file string) (*TasDataSource, error) {
 	db, err := getInstance(file)
 	if err != nil {
@@ -33,6 +28,7 @@ func NewDataSource(file string) (*TasDataSource, error) {
 	return &TasDataSource{db: db}, nil
 }
 
+// NewPrefixDatabase create logical database by prefix
 func (ds *TasDataSource) NewPrefixDatabase(prefix string) (*PrefixedDatabase, error) {
 	return &PrefixedDatabase{
 		db:     ds.db,

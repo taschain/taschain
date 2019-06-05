@@ -24,12 +24,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/10/16 下午3:05
-**  Description:
- */
-
 func convertTransaction(tx *types.Transaction) *Transaction {
 	trans := &Transaction{
 		Hash:          tx.Hash,
@@ -55,8 +49,8 @@ func convertBlockHeader(b *types.Block) *Block {
 		PreHash: bh.PreHash,
 		CurTime: bh.CurTime.Local(),
 		PreTime: bh.PreTime().Local(),
-		Castor:  groupsig.DeserializeId(bh.Castor),
-		GroupID: groupsig.DeserializeId(bh.GroupID),
+		Castor:  groupsig.DeserializeID(bh.Castor),
+		GroupID: groupsig.DeserializeID(bh.GroupID),
 		Prove:   common.ToHex(bh.ProveValue),
 		TotalQN: bh.TotalQN,
 		TxNum:   uint64(len(b.Transactions)),
@@ -64,8 +58,7 @@ func convertBlockHeader(b *types.Block) *Block {
 		StateRoot:   bh.StateTree,
 		TxRoot:      bh.TxTree,
 		ReceiptRoot: bh.ReceiptTree,
-		//ProveRoot:   bh.ProveRoot,
-		Random: common.ToHex(bh.Random),
+		Random:      common.ToHex(bh.Random),
 	}
 	return block
 }
@@ -78,12 +71,12 @@ func convertBonusTransaction(tx *types.Transaction) *BonusTransaction {
 
 	targets := make([]groupsig.ID, len(ids))
 	for i, id := range ids {
-		targets[i] = groupsig.DeserializeId(id)
+		targets[i] = groupsig.DeserializeID(id)
 	}
 	return &BonusTransaction{
 		Hash:      tx.Hash,
 		BlockHash: bhash,
-		GroupID:   groupsig.DeserializeId(gid),
+		GroupID:   groupsig.DeserializeID(gid),
 		TargetIDs: targets,
 		Value:     value,
 	}
@@ -116,8 +109,6 @@ func sendTransaction(trans *types.Transaction) error {
 	if trans.Sign == nil {
 		return fmt.Errorf("transaction sign is empty")
 	}
-
-	//common.DefaultLogger.Debugf(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
 
 	if ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(trans); err != nil || !ok {
 		common.DefaultLogger.Errorf("AddTransaction not ok or error:%s", err.Error())

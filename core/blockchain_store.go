@@ -23,12 +23,6 @@ import (
 	"github.com/taschain/taschain/utility"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/11 下午1:30
-**  Description:
- */
-
 func (chain *FullBlockChain) saveBlockState(b *types.Block, state *account.AccountDB) error {
 	root, err := state.Commit(true)
 	if err != nil {
@@ -65,10 +59,10 @@ func (chain *FullBlockChain) saveBlockHeight(height uint64, dataBytes []byte) er
 }
 
 func (chain *FullBlockChain) saveBlockTxs(blockHash common.Hash, dataBytes []byte) error {
-	return chain.txdb.AddKv(chain.batch, blockHash.Bytes(), dataBytes)
+	return chain.txDb.AddKv(chain.batch, blockHash.Bytes(), dataBytes)
 }
 
-//persist a block in a batch
+// commitBlock persist a block in a batch
 func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostState) (ok bool, err error) {
 
 	bh := block.Header
@@ -89,39 +83,42 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 
 	defer chain.batch.Reset()
 
-	//提交state
+	// Commit state
 	if err = chain.saveBlockState(block, ps.state); err != nil {
 		return
 	}
-	//写hash->block
+	// Save hash to block header key value pair
 	if err = chain.saveBlockHeader(bh.Hash, headerBytes); err != nil {
 		return
 	}
-	//写height->hash
+	// Save height to block hash key value pair
 	if err = chain.saveBlockHeight(bh.Height, bh.Hash.Bytes()); err != nil {
 		return
 	}
-	//写交易
+	// Save hash to transactions key value pair
 	if err = chain.saveBlockTxs(bh.Hash, bodyBytes); err != nil {
 		return
 	}
-	//写收据
-	if err = chain.transactionPool.SaveReceipts(bh.Hash, ps.receipts); err != nil {
+	// Save hash to receipt key value pair
+	if err = chain.transactionPool.saveReceipts(bh.Hash, ps.receipts); err != nil {
 		return
 	}
-	//写latest->hash
+	// Save current block
 	if err = chain.saveCurrentBlock(bh.Hash); err != nil {
 		return
 	}
+	// Batch write
 	if err = chain.batch.Write(); err != nil {
 		return
 	}
 	chain.updateLatestBlock(ps.state, bh)
 
-	//交易从交易池中删除
+	// If the block is successfully submitted, the transaction
+	// corresponding to the transaction pool should be deleted
 	if block.Transactions != nil {
 		chain.transactionPool.RemoveFromPool(block.GetTransactionHashs())
 	}
+	// Remove eviction transactions from the transaction pool
 	if ps.evitedTxs != nil {
 		chain.transactionPool.RemoveFromPool(ps.evitedTxs)
 	}
@@ -131,14 +128,14 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 }
 
 func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
-	if !chain.isAdujsting {
-		chain.isAdujsting = true
+	if !chain.isAdjusting {
+		chain.isAdjusting = true
 		defer func() {
-			chain.isAdujsting = false
+			chain.isAdjusting = false
 		}()
 	}
 
-	//加读写锁，此时阻止读
+	// Add read and write locks, block reading at this time
 	chain.rwLock.Lock()
 	defer chain.rwLock.Unlock()
 
@@ -158,15 +155,15 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 	recoverTxs := make([]*types.Transaction, 0)
 	delRecepites := make([]common.Hash, 0)
 	for curr.Hash != block.Hash {
-		//删除块头
+		// Delete the old block header
 		if err = chain.saveBlockHeader(curr.Hash, nil); err != nil {
 			return err
 		}
-		//删除块高
+		// Delete the old block height
 		if err = chain.saveBlockHeight(curr.Height, nil); err != nil {
 			return err
 		}
-		//删除交易
+		// Delete the old block's transactions
 		if err = chain.saveBlockTxs(curr.Hash, nil); err != nil {
 			return err
 		}
@@ -184,11 +181,11 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 		}
 		curr = chain.queryBlockHeaderByHash(curr.PreHash)
 	}
-	//删除收据
-	if err = chain.transactionPool.DeleteReceipts(delRecepites); err != nil {
+	// Delete receipts corresponding to the transactions in the discard block
+	if err = chain.transactionPool.deleteReceipts(delRecepites); err != nil {
 		return err
 	}
-	//重置当前块
+	// Reset the current block
 	if err = chain.saveCurrentBlock(block.Hash); err != nil {
 		return err
 	}
@@ -206,9 +203,10 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 	return nil
 }
 
-// 删除孤块
+// removeOrphan remove the orphan block
 func (chain *FullBlockChain) removeOrphan(block *types.Block) error {
-	//加读写锁，此时阻止读
+
+	// Add read and write locks, block reading at this time
 	chain.rwLock.Lock()
 	defer chain.rwLock.Unlock()
 
@@ -237,7 +235,7 @@ func (chain *FullBlockChain) removeOrphan(block *types.Block) error {
 		for i, tx := range txs {
 			txHashs[i] = tx.Hash
 		}
-		if err = chain.transactionPool.DeleteReceipts(txHashs); err != nil {
+		if err = chain.transactionPool.deleteReceipts(txHashs); err != nil {
 			return err
 		}
 	}
@@ -335,9 +333,9 @@ func (chain *FullBlockChain) queryBlockHeaderByHeightFloor(height uint64) *types
 }
 
 func (chain *FullBlockChain) queryBlockBodyBytes(hash common.Hash) []byte {
-	bs, err := chain.txdb.Get(hash.Bytes())
+	bs, err := chain.txDb.Get(hash.Bytes())
 	if err != nil {
-		Logger.Errorf("get txdb err:%v, key:%v", err.Error(), hash.Hex())
+		Logger.Errorf("get txDb err:%v, key:%v", err.Error(), hash.Hex())
 		return nil
 	}
 	return bs
@@ -361,7 +359,7 @@ func (chain *FullBlockChain) batchGetBlocksAfterHeight(h uint64, limit int) []*t
 	iter := chain.blockHeight.NewIterator()
 	defer iter.Release()
 
-	//没有更高的块
+	// No higher block after the specified block height
 	if !iter.Seek(utility.UInt64ToByte(h)) {
 		return blocks
 	}
@@ -455,16 +453,15 @@ func (chain *FullBlockChain) queryBlockTransactionsOptional(txIdx int, height ui
 	if bh == nil {
 		return nil
 	}
-	bs, err := chain.txdb.Get(bh.Hash.Bytes())
+	bs, err := chain.txDb.Get(bh.Hash.Bytes())
 	if err != nil {
-		Logger.Errorf("queryBlockTransactionsOptional get txdb err:%v, key:%v", err.Error(), bh.Hash.Hex())
+		Logger.Errorf("queryBlockTransactionsOptional get txDb err:%v, key:%v", err.Error(), bh.Hash.Hex())
 		return nil
 	}
 	tx, err := decodeTransaction(txIdx, txHash, bs)
 	if tx != nil {
 		return tx
-	} else {
-		Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.Hex(), err.Error())
-		return nil
 	}
+	Logger.Errorf("queryBlockTransactionsOptional decode tx error: hash=%v, err=%v", txHash.Hex(), err.Error())
+	return nil
 }

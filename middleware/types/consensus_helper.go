@@ -19,21 +19,13 @@ import (
 	"math/big"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/26 下午6:39
-**  Description:
- */
-
 type GenesisInfo struct {
 	Group  Group
 	VrfPKs [][]byte
 	Pks    [][]byte
 }
 
-/*
-	共识接口合集
-*/
+// ConsensusHelper are consensus interface collection
 type ConsensusHelper interface {
 
 	//generate genesis group and member pk info

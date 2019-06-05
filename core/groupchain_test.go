@@ -22,18 +22,22 @@ import (
 )
 
 func TestGroupChain_Add(t *testing.T) {
-	initContext4Test()
+	err := initContext4Test()
+	if err != nil {
+		t.Fatalf("fail to initContext4Test")
+	}
+
 	defer clear()
 
 	id1 := genHash("test1")
 	group1 := &types.Group{
-		Id:     id1,
+		ID:     id1,
 		Header: &types.GroupHeader{},
 	}
 
-	err := GroupChainImpl.AddGroup(group1)
+	err = GroupChainImpl.AddGroup(group1)
 	if err != nil {
-		t.Fatalf("fail to add group1")
+		t.Fatalf("fail to add group1: %s", err)
 	}
 
 	if 1 != GroupChainImpl.Height() {
@@ -42,7 +46,7 @@ func TestGroupChain_Add(t *testing.T) {
 
 	id2 := genHash("test2")
 	group2 := &types.Group{
-		Id: id2,
+		ID: id2,
 		Header: &types.GroupHeader{
 			PreGroup: id1,
 		},
@@ -55,7 +59,7 @@ func TestGroupChain_Add(t *testing.T) {
 
 	id3 := genHash("test3")
 	group3 := &types.Group{
-		Id: id3,
+		ID: id3,
 		Header: &types.GroupHeader{
 			PreGroup: id2,
 		},
@@ -73,12 +77,12 @@ func TestGroupChain_Add(t *testing.T) {
 		t.Fatalf("fail to add group4")
 	}
 
-	group := GroupChainImpl.GetGroupById(id2)
+	group := GroupChainImpl.getGroupByID(id2)
 	if nil == group {
 		t.Fatalf("fail to GetGroupById2")
 	}
 
-	group = GroupChainImpl.GetGroupById(id3)
+	group = GroupChainImpl.getGroupByID(id3)
 	if nil == group {
 		t.Fatalf("fail to GetGroupById3")
 	}
@@ -90,9 +94,9 @@ func TestGroupChain_Add(t *testing.T) {
 	limit := 100
 	for iter.Next() {
 		gid := iter.Value()
-		g := chain.getGroupById(gid)
+		g := chain.getGroupByID(gid)
 		if g != nil {
-			t.Log(g.GroupHeight, iter.Key(), g.Id)
+			t.Log(g.GroupHeight, iter.Key(), g.ID)
 			limit--
 		}
 	}

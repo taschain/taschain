@@ -16,31 +16,39 @@
 package groupsig
 
 const (
-	Curve254     = 0 //256位曲线
-	Curve382_1   = 1 //384位曲线1
-	Curve382_2   = 2 //384位曲线2
-	DefaultCurve = 1 //默认使用的曲线
-	//默认曲线相关参数开始：如默认曲线的位数调整，则这些参数也需要修改
-	IDLENGTH     = 32  //ID字节长度(256位，同私钥长度)
-	PUBKEYLENGTH = 128 //公钥字节长度（1024位）
-	SECKEYLENGTH = 32  //私钥字节长度（256位）
-	SIGNLENGTH   = 33  //签名字节长度（256位+1字节奇偶位）
-	//默认曲线相关参数结束。
-	HASHLENGTH = 32 //哈希字节长度(golang.SHA3, 256位。和common包相同)
-)
+	// Curve254 is a 256 - bit curve
+	Curve254 = 0
 
-//// Init --
-//func Init(curve int) {
-//	//fmt.Printf("\nbegin groupsig init, curve=%v.\n", curve)
-//	//err := bncurve.Init(curve) //以特定的椭圆曲线初始化BLS C库
-//	//if err != nil {
-//	//	panic("groupsig.Init")
-//	//}
-//	//curveOrder.SetString(bncurve.GetCurveOrder(), 10)
-//	//fieldOrder.SetString(bncurve.GetFieldOrder(), 10)
-//
-//	bitLength = curveOrder.BitLen()
-//	fmt.Printf("groupsig init success, curve_order=%v, field_order=%v, bitlen=%v.\n",
-//		curveOrder.String(), fieldOrder.String(), bitLength)
-//	return
-//}
+	// Curve382_1 is 384-bit curve 1
+	Curve382_1 = 1
+
+	// Curve382_2 is 384-bit curve 2
+	Curve382_2 = 2
+
+	// DefaultCurve is default curve used
+	DefaultCurve = 1
+
+	/*
+	   Default curve related parameters start, If the number of digits in the default curve is adjusted,
+	   these parameters also need to be modified.
+	*/
+
+	// IDLENGTH is ID byte length (256 bits, same as private key length)
+	IDLENGTH = 32
+
+	// PUBKEYLENGTH is public key byte length (1024 bits)
+	PUBKEYLENGTH = 128
+
+	// SECKEYLENGTH is private key byte length (256 bits)
+	SECKEYLENGTH = 32
+
+	// SIGNLENGTH is signature byte length (256 bits + 1 byte parity)
+	SIGNLENGTH = 33
+
+	/*
+	   Default curve related parameters end
+	*/
+
+	// HASHLENGTH is hash byte length (golang.sha3, 256 bits. Same as the common package)
+	HASHLENGTH = 32 //
+)
