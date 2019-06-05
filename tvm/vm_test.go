@@ -24,47 +24,47 @@ func TestVmTest(t *testing.T) {
 	//statedb, _ := core.NewAccountDB(common.Hash{}, core.NewDatabase(db))
 
 	contract := &Contract{ContractName: "test"}
-	vm := NewTvm(nil, contract, "")
+	vm := NewTVM(nil, contract, "")
 	vm.SetGas(9999999999999999)
 	vm.ContractName = "test"
 	script := `
 a = 1.2
 `
-	if result := vm.ExecutedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
+	if result := vm.executeScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 eval("a = 10")
 `
-	if result := vm.ExecutedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
+	if result := vm.executeScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 exec("a = 10")
 `
-	if result := vm.ExecutedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
+	if result := vm.executeScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 	script = `
 with open("a.txt", "w") as f:
 	f.write("a")
 `
-	if result := vm.ExecutedScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
+	if result := vm.executeScriptKindEval(script); result.ResultType != 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		t.Error("wanted false, got true")
 	}
 }
 
 func BenchmarkAdd(b *testing.B) {
-	vm := NewTvm(nil, nil, "")
+	vm := NewTVM(nil, nil, "")
 	vm.SetGas(9999999999999999)
 	script := `
 a = 1
 `
-	vm.ExecutedScriptVmSucceed(script)
+	vm.ExecuteScriptVMSucceed(script)
 	script = `
 a += 1
 `
 	for i := 0; i < b.N; i++ { //use b.N for looping
-		vm.ExecutedScriptVmSucceed(script)
+		vm.ExecuteScriptVMSucceed(script)
 	}
 }

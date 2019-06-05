@@ -206,9 +206,9 @@ func (t *TvmCli) ExportAbi(contractName string, contractCode string) {
 		//Code: contractCode,
 		//ContractAddress: &contractAddress,
 	}
-	vm := tvm.NewTvm(nil, &contract, "../py")
+	vm := tvm.NewTVM(nil, &contract, "../py")
 	defer func() {
-		vm.DelTvm()
+		vm.DelTVM()
 	}()
 	str := `
 class Register(object):
@@ -240,9 +240,9 @@ import builtins
 builtins.register = Register()
 `
 
-	errorCode, errorMsg := vm.ExecutedScriptVMSucceed(str)
+	errorCode, errorMsg := vm.ExecuteScriptVMSucceed(str)
 	if errorCode == types.Success {
-		result := vm.ExecutedScriptKindFile(contractCode)
+		result := vm.ExecuteScriptKindFile(contractCode)
 		fmt.Println(result.Abi)
 	} else {
 		fmt.Println(errorMsg)

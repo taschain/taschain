@@ -24,8 +24,10 @@ import (
 	"github.com/taschain/taschain/storage/vm"
 )
 
+// HasLoadPyLibPath HasLoadPyLibPath is the flag that whether load python lib
 var HasLoadPyLibPath = false
 
+// ControllerTransactionInterface ControllerTransactionInterface is the interface that match Controller
 type ControllerTransactionInterface interface {
 	GetGasLimit() uint64
 	GetValue() uint64
@@ -35,19 +37,21 @@ type ControllerTransactionInterface interface {
 	GetHash() common.Hash
 }
 
+// Controller VM Controller
 type Controller struct {
 	BlockHeader *types.BlockHeader
 	Transaction ControllerTransactionInterface
 	AccountDB   vm.AccountDB
 	Reader      vm.ChainReader
-	VM          *Tvm
+	VM          *TVM
 	LibPath     string
-	VMStack     []*Tvm
+	VMStack     []*TVM
 	GasLeft     uint64
 	mm          MinerManager
 	gcm         GroupChainManager
 }
 
+// MinerManager MinerManager is the interface of the miner manager
 type MinerManager interface {
 	GetMinerByID(id []byte, ttype byte, accountdb vm.AccountDB) *types.Miner
 	GetLatestCancelStakeHeight(from []byte, miner *types.Miner, accountdb vm.AccountDB) uint64
@@ -58,10 +62,12 @@ type MinerManager interface {
 	AddStakeDetail(from []byte, miner *types.Miner, amount uint64, accountdb vm.AccountDB) bool
 }
 
+// GroupChainManager GroupChainManager is the interface of the GroupChain manager
 type GroupChainManager interface {
 	WhetherMemberInActiveGroup(id []byte, currentHeight uint64) bool
 }
 
+// NewController New a TVM controller
 func NewController(accountDB vm.AccountDB,
 	chainReader vm.ChainReader,
 	header *types.BlockHeader,
@@ -78,17 +84,18 @@ func NewController(accountDB vm.AccountDB,
 	controller.Reader = chainReader
 	controller.VM = nil
 	controller.LibPath = libPath
-	controller.VMStack = make([]*Tvm, 0)
+	controller.VMStack = make([]*TVM, 0)
 	controller.GasLeft = transaction.GetGasLimit() - gasUsed
 	controller.mm = manager
 	controller.gcm = chainManager
 	return controller
 }
 
+// Deploy Deploy a contract instance
 func (con *Controller) Deploy(contract *Contract) (int, string) {
-	con.VM = NewTvm(con.Transaction.GetSource(), contract, con.LibPath)
+	con.VM = NewTVM(con.Transaction.GetSource(), contract, con.LibPath)
 	defer func() {
-		con.VM.DelTvm()
+		con.VM.DelTVM()
 	}()
 	con.VM.SetGas(int(con.GasLeft))
 	msg := Msg{Data: []byte{}, Value: con.Transaction.GetValue(), Sender: con.Transaction.GetSource().Hex()}
@@ -97,7 +104,7 @@ func (con *Controller) Deploy(contract *Contract) (int, string) {
 	if errorCodeDeploy != 0 {
 		return errorCodeDeploy, errorDeployMsg
 	}
-	errorCodeStore, errorStoreMsg := con.VM.StoreData()
+	errorCodeStore, errorStoreMsg := con.VM.storeData()
 	if errorCodeStore != 0 {
 		return errorCodeStore, errorStoreMsg
 	}
@@ -105,7 +112,7 @@ func (con *Controller) Deploy(contract *Contract) (int, string) {
 	return 0, ""
 }
 
-func CanTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
+func canTransfer(db vm.AccountDB, addr common.Address, amount *big.Int) bool {
 	return db.GetBalance(addr).Cmp(amount) >= 0
 }
 
@@ -114,17 +121,17 @@ func transfer(db vm.AccountDB, sender, recipient common.Address, amount *big.Int
 	db.AddBalance(recipient, amount)
 }
 
-func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, abiJSON string) (bool, []*types.Log, *types.TransactionError) {
-	con.VM = NewTvm(sender, contract, con.LibPath)
+// ExecuteABI Execute the contract with abi
+func (con *Controller) ExecuteABI(sender *common.Address, contract *Contract, abiJSON string) (bool, []*types.Log, *types.TransactionError) {
+	con.VM = NewTVM(sender, contract, con.LibPath)
 	con.VM.SetGas(int(con.GasLeft))
 	defer func() {
-		con.VM.DelTvm()
+		con.VM.DelTVM()
 		con.GasLeft = uint64(con.VM.Gas())
 	}()
-	//先转账
 	if con.Transaction.GetValue() > 0 {
 		amount := new(big.Int).SetUint64(con.Transaction.GetValue())
-		if CanTransfer(con.AccountDB, *sender, amount) {
+		if canTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.GetTarget(), amount)
 		} else {
 			return false, nil, types.TxErrorBalanceNotEnough
@@ -145,28 +152,28 @@ func (con *Controller) ExecuteAbi(sender *common.Address, contract *Contract, ab
 		return false, nil, types.NewTransactionError(errorCode, errorMsg)
 	}
 	con.VM.SetLibLine(libLen)
-	errorCode, errorMsg = con.VM.ExecutedAbiVMSucceed(abi) //execute
+	errorCode, errorMsg = con.VM.executABIVMSucceed(abi) //execute
 	if errorCode != 0 {
 		return false, nil, types.NewTransactionError(errorCode, errorMsg)
 	}
-	errorCode, errorMsg = con.VM.StoreData() //store
+	errorCode, errorMsg = con.VM.storeData() //store
 	if errorCode != 0 {
 		return false, nil, types.NewTransactionError(errorCode, errorMsg)
 	}
 	return true, con.VM.Logs, nil
 }
 
+// ExecuteAbiEval Execute the contract with abi and returns result
 func (con *Controller) ExecuteAbiEval(sender *common.Address, contract *Contract, abiJSON string) *ExecuteResult {
-	con.VM = NewTvm(sender, contract, con.LibPath)
+	con.VM = NewTVM(sender, contract, con.LibPath)
 	con.VM.SetGas(int(con.GasLeft))
 	defer func() {
-		con.VM.DelTvm()
+		con.VM.DelTVM()
 		con.GasLeft = uint64(con.VM.Gas())
 	}()
-	//先转账
 	if con.Transaction.GetValue() > 0 {
 		amount := big.NewInt(int64(con.Transaction.GetValue()))
-		if CanTransfer(con.AccountDB, *sender, amount) {
+		if canTransfer(con.AccountDB, *sender, amount) {
 			transfer(con.AccountDB, *sender, *con.Transaction.GetTarget(), amount)
 		} else {
 			return nil
@@ -187,17 +194,18 @@ func (con *Controller) ExecuteAbiEval(sender *common.Address, contract *Contract
 		return nil
 	}
 	con.VM.SetLibLine(libLen)
-	result := con.VM.ExecuteABIKindEval(abi) //execute
+	result := con.VM.executeABIKindEval(abi) //execute
 	if result.ResultType == 4 /*C.RETURN_TYPE_EXCEPTION*/ {
 		return result
 	}
-	errorCode, _ = con.VM.StoreData() //store
+	errorCode, _ = con.VM.storeData() //store
 	if errorCode != 0 {
 		return nil
 	}
 	return result
 }
 
+// GetGasLeft get gas left
 func (con *Controller) GetGasLeft() uint64 {
 	return con.GasLeft
 }
