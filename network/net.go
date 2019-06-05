@@ -53,8 +53,8 @@ var (
 	errClosed           = errors.New("socket closed")
 )
 
-const DefaultNatPort = 80
-const DefaultNatIP = "119.23.205.254"
+const DefaultNatPort = 3200
+const DefaultNatIP = "120.78.127.246"
 
 // Timeouts
 const (

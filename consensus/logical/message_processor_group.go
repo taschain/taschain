@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -9,6 +24,8 @@ import (
 	"time"
 )
 
+// OnMessageCreateGroupPing handles Ping request from parent nodes
+// It only happens when current node is chosen to join a new group
 func (p *Processor) OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage) {
 	blog := newBizLog("OMCGPing")
 	var err error
@@ -48,6 +65,8 @@ func (p *Processor) OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage) 
 	}
 }
 
+// OnMessageCreateGroupPong handles Pong response from new group candidates
+// It only happens among the parent group nodes
 func (p *Processor) OnMessageCreateGroupPong(msg *model.CreateGroupPongMessage) {
 	blog := newBizLog("OMCGPong")
 	var err error
@@ -80,6 +99,11 @@ func (p *Processor) OnMessageCreateGroupPong(msg *model.CreateGroupPongMessage) 
 	}
 }
 
+// OnMessageCreateGroupRaw triggered when receives raw group-create message from other nodes of the parent group
+// It check and sign the group-create message for the requester
+//
+// Before the formation of the new group, the parent group needs to reach a consensus on the information of the new group
+// which transited by ConsensusCreateGroupRawMessage.
 func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) {
 	blog := newBizLog("OMCGR")
 
@@ -132,6 +156,8 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	}
 }
 
+// OnMessageCreateGroupSign receives sign message from other members after ConsensusCreateGroupRawMessage was sent
+// during the new-group-info consensus process
 func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) {
 	blog := newBizLog("OMCGS")
 
@@ -186,8 +212,8 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 	}
 }
 
-// OnMessageGroupInit is group initialization related message
-// Group-initiated related messages are checked with the miner ID and public key (and group-independent)
+// OnMessageGroupInit receives new-group-info messages from parent nodes and starts the group formation process
+// That indicates the current node is chosen to be a member of the new group
 func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	blog := newBizLog("OMGI")
 	gHash := msg.GInfo.GroupHash()
@@ -241,11 +267,13 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 		panic("Processor::OMGI failed, ConfirmGroupFromRaw return nil.")
 	}
 
-	// Establish a group network in advance
+	// Establish a group network at local
 	p.NetServer.BuildGroupNet(gHash.Hex(), msg.GInfo.Mems)
 
 	gs := groupContext.GetGroupStatus()
 	blog.debug("joining group(%v) status=%v.", gHash.ShortS(), gs)
+
+	// Use CAS operation to make sure the logical below executed once
 	if groupContext.StatusTransfrom(GisInit, GisSendSharePiece) {
 		desc = "send sharepiece"
 
@@ -259,6 +287,7 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 		spm.SI.SignMember = p.GetMinerID()
 		spm.MemCnt = int32(msg.GInfo.MemberSize())
 
+		// Send each node a different piece
 		for id, piece := range shares {
 			if id != "0x0" && piece.IsValid() {
 				spm.Dest.SetHexString(id)
@@ -281,6 +310,10 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 	return
 }
 
+// handleSharePieceMessage handles a piece information from other nodes
+// It has two sources:
+// One is that shared with each other during the group formation process.
+// The other is the response obtained after actively requesting from the other party.
 func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, share *model.SharePiece, si *model.SignData, response bool) (recover bool, err error) {
 	blog.log("gHash=%v, sender=%v, response=%v", gHash.ShortS(), si.GetID().ShortS(), response)
 	defer func() {
@@ -334,16 +367,16 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 	tlog := newHashTraceLog(mtype, gHash, si.GetID())
 	tlog.log("收到piece数 %v, 收齐分片%v, 缺少%v等", gc.node.groupInitPool.GetSize(), result == 1, waitPieceIds)
 
-	// Already signed private key, group public key, group id
+	// All piece collected
 	if result == 1 {
 		recover = true
 		groupLogger.Infof("OMSP收齐分片: gHash=%v, elapsed=%v.", gHash.ShortS(), time.Since(gc.createTime).String())
 		jg := gc.GetGroupInfo()
 		p.joinGroup(jg)
-		// At this time, there is no signature public key of all group members.
+
 		if jg.GroupPK.IsValid() && jg.SignKey.IsValid() {
 			ski := model.NewSecKeyInfo(p.mi.GetMinerID(), jg.SignKey)
-			// 1. Send your own signature public key first
+			// 1. Broadcast the group-related public key to other members
 			if gc.StatusTransfrom(GisSendSharePiece, GisSendSignPk) {
 				msg := &model.ConsensusSignPubKeyMessage{
 					GroupID: jg.GroupID,
@@ -362,9 +395,7 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 					return
 				}
 			}
-			// 2. Resend the initialization complete message
-			// The response to the sharepiece request does not need to send a GroupInitDone message
-			// because the group has already been initialized.
+			// 2. Broadcast the complete group information that has been initialized
 			if !response && gc.StatusTransfrom(GisSendSignPk, GisSendInited) {
 				msg := &model.ConsensusGroupInitedMessage{
 					GHash:        gHash,
