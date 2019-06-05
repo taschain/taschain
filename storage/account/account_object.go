@@ -18,9 +18,10 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"github.com/taschain/taschain/taslog"
 	"math/big"
 	"sync"
+
+	"github.com/taschain/taschain/taslog"
 
 	"io"
 
@@ -37,11 +38,11 @@ type Code []byte
 func (c Code) String() string {
 	return string(c)
 }
+
 var debugLog taslog.Logger
 
-
-func getLogger()taslog.Logger{
-	if debugLog == nil{
+func getLogger() taslog.Logger {
+	if debugLog == nil {
 		instance := common.GlobalConf.GetString("instance", "index", "")
 		debugLog = taslog.GetLoggerByIndex(taslog.CoreLogConfig, instance)
 	}
@@ -168,18 +169,18 @@ func (ao *accountObject) touch() {
 }
 
 func (ao *accountObject) getTrie(db AccountDatabase) Trie {
-	if ao.address == common.HeavyDBAddress{
+	if ao.address == common.HeavyDBAddress {
 		getLogger().Infof("access HeavyDBAddress begin")
 	}
 	if ao.trie == nil {
-		if ao.address == common.HeavyDBAddress{
-			getLogger().Infof("access HeavyDBAddress begin find trie is nil,root is %x",ao.data.Root)
+		if ao.address == common.HeavyDBAddress {
+			getLogger().Infof("access HeavyDBAddress begin find trie is nil,root is %x", ao.data.Root)
 		}
 		var err error
 		ao.trie, err = db.OpenStorageTrie(ao.addrHash, ao.data.Root)
 		if err != nil {
-			if ao.address == common.HeavyDBAddress{
-				getLogger().Errorf("access HeavyDBAddress begin find trie is nil and next get has err %v, errorMsg = %s",err,err.Error())
+			if ao.address == common.HeavyDBAddress {
+				getLogger().Errorf("access HeavyDBAddress begin find trie is nil and next get has err %v, errorMsg = %s", err, err.Error())
 			}
 			ao.trie, _ = db.OpenStorageTrie(ao.addrHash, common.Hash{})
 			ao.setError(fmt.Errorf("can't create storage trie: %v", err))
@@ -259,8 +260,8 @@ func (ao *accountObject) updateRoot(db AccountDatabase) {
 	ao.updateTrie(db)
 	ao.data.Root = ao.trie.Hash()
 
-	if ao.address == common.HeavyDBAddress{
-		getLogger().Infof("updateRoot HeavyDBAddress .root is %x",ao.data.Root)
+	if ao.address == common.HeavyDBAddress {
+		getLogger().Infof("updateRoot HeavyDBAddress .root is %x", ao.data.Root)
 	}
 }
 
@@ -273,11 +274,11 @@ func (ao *accountObject) CommitTrie(db AccountDatabase) error {
 	}
 	root, err := ao.trie.Commit(nil)
 
-	if ao.address == common.HeavyDBAddress{
-		if err != nil{
-			getLogger().Errorf("commit HeavyDBAddress .root is %x,error is %s",root,err.Error())
-		}else{
-			getLogger().Infof("commit HeavyDBAddress .root is %x",root)
+	if ao.address == common.HeavyDBAddress {
+		if err != nil {
+			getLogger().Errorf("commit HeavyDBAddress .root is %x,error is %s", root, err.Error())
+		} else {
+			getLogger().Infof("commit HeavyDBAddress .root is %x", root)
 		}
 	}
 	if err == nil {
