@@ -18,7 +18,7 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"github.com/taschain/taschain/core"
+	"github.com/taschain/taschain/taslog"
 	"math/big"
 	"sync"
 
@@ -36,6 +36,16 @@ type Code []byte
 
 func (c Code) String() string {
 	return string(c)
+}
+var debugLog taslog.Logger
+
+
+func getLogger()taslog.Logger{
+	if debugLog == nil{
+		instance := common.GlobalConf.GetString("instance", "index", "")
+		debugLog = taslog.GetLoggerByIndex(taslog.CoreLogConfig, instance)
+	}
+	return debugLog
 }
 
 type Storage map[string][]byte
@@ -159,17 +169,17 @@ func (ao *accountObject) touch() {
 
 func (ao *accountObject) getTrie(db AccountDatabase) Trie {
 	if ao.address == common.HeavyDBAddress{
-		core.Logger.Infof("access HeavyDBAddress begin")
+		getLogger().Infof("access HeavyDBAddress begin")
 	}
 	if ao.trie == nil {
 		if ao.address == common.HeavyDBAddress{
-			core.Logger.Infof("access HeavyDBAddress begin find trie is nil,root is %x",ao.data.Root)
+			getLogger().Infof("access HeavyDBAddress begin find trie is nil,root is %x",ao.data.Root)
 		}
 		var err error
 		ao.trie, err = db.OpenStorageTrie(ao.addrHash, ao.data.Root)
 		if err != nil {
 			if ao.address == common.HeavyDBAddress{
-				core.Logger.Errorf("access HeavyDBAddress begin find trie is nil and next get has err %v, errorMsg = %s",err,err.Error())
+				getLogger().Errorf("access HeavyDBAddress begin find trie is nil and next get has err %v, errorMsg = %s",err,err.Error())
 			}
 			ao.trie, _ = db.OpenStorageTrie(ao.addrHash, common.Hash{})
 			ao.setError(fmt.Errorf("can't create storage trie: %v", err))
@@ -250,7 +260,7 @@ func (ao *accountObject) updateRoot(db AccountDatabase) {
 	ao.data.Root = ao.trie.Hash()
 
 	if ao.address == common.HeavyDBAddress{
-		core.Logger.Infof("updateRoot HeavyDBAddress .root is %x",ao.data.Root)
+		getLogger().Infof("updateRoot HeavyDBAddress .root is %x",ao.data.Root)
 	}
 }
 
@@ -265,9 +275,9 @@ func (ao *accountObject) CommitTrie(db AccountDatabase) error {
 
 	if ao.address == common.HeavyDBAddress{
 		if err != nil{
-			core.Logger.Errorf("commit HeavyDBAddress .root is %x,error is %s",root,err.Error())
+			getLogger().Errorf("commit HeavyDBAddress .root is %x,error is %s",root,err.Error())
 		}else{
-			core.Logger.Infof("commit HeavyDBAddress .root is %x",root)
+			getLogger().Infof("commit HeavyDBAddress .root is %x",root)
 		}
 	}
 	if err == nil {
