@@ -13,6 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package mediator provides some functions for use in other modules
 package mediator
 
 import (

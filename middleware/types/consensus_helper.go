@@ -19,6 +19,7 @@ import (
 	"math/big"
 )
 
+// GenesisInfo define genesis group info
 type GenesisInfo struct {
 	Group  Group
 	VrfPKs [][]byte

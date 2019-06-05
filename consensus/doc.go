@@ -13,19 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-// Package middleware provides important functionality such as event bus, time zone independent service,
-// ticker schedule and so on.
-//
-// Besides the above, it defines some key data structures of the chain
-package middleware
 
-import (
-	"github.com/taschain/taschain/middleware/notify"
-	"github.com/taschain/taschain/middleware/time"
-)
 
-func InitMiddleware() error {
-	notify.BUS = notify.NewBus()
-	time.InitTimeSync()
-	return nil
-}
+// Package consensus implements the chiron consensus algorithm, including the bls framework and the vrf functions
+package consensus

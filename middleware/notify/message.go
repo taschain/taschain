@@ -41,6 +41,8 @@ func (m *GroupMessage) GetData() interface{} {
 	return m.Group
 }
 
+// DefaultMessage is a default implementation of the Message interface.
+// It can meet most of demands abort chain event
 type DefaultMessage struct {
 	body            []byte
 	source          string

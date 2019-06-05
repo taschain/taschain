@@ -13,6 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package net implements the network message handling and transmission functions
 package net
 
 import (
