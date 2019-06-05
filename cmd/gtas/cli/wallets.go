@@ -17,7 +17,6 @@ package cli
 
 import (
 	"encoding/json"
-	"log"
 	"sync"
 
 	"github.com/taschain/taschain/common"
@@ -33,7 +32,7 @@ var mutex sync.Mutex
 func (ws *wallets) store() {
 	js, err := json.Marshal(ws)
 	if err != nil {
-		log.Println("store wallets error")
+		common.DefaultLogger.Errorf("store wallets error")
 	}
 	common.GlobalConf.SetString(Section, "wallets", string(js))
 }
@@ -78,7 +77,7 @@ func newWallets() wallets {
 	}
 	err := json.Unmarshal([]byte(s), &ws)
 	if err != nil {
-		log.Println(err)
+		common.DefaultLogger.Errorf(err.Error())
 	}
 	return ws
 }
