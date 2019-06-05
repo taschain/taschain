@@ -31,12 +31,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/20 下午5:02
-**  Description:
- */
-
 const (
 	txNofifyInterval   = 5
 	txNotifyRoutine    = "ts_notify"
@@ -140,7 +134,7 @@ func (indexer *txSimpleIndexer) persistOldest() (int, error) {
 }
 
 type txSyncer struct {
-	pool          *TxPool
+	pool          *txPool
 	chain         *FullBlockChain
 	rctNotifiy    *lru.Cache
 	indexer       *txSimpleIndexer
@@ -201,7 +195,7 @@ func (ptk *peerTxsKeys) forEach(f func(k uint64) bool) {
 	}
 }
 
-func initTxSyncer(chain *FullBlockChain, pool *TxPool) {
+func initTxSyncer(chain *FullBlockChain, pool *txPool) {
 	s := &txSyncer{
 		rctNotifiy:    common.MustNewLRUCache(1000),
 		indexer:       buildTxSimpleIndexer(),
@@ -254,13 +248,16 @@ func (ts *txSyncer) clearJob() {
 	}
 	ts.pool.bonPool.forEach(func(tx *types.Transaction) bool {
 		bhash := common.BytesToHash(tx.Data)
-		//链上已经该块的分红交易，或该块不在链上，需要删除相应的分红交易
+		// The bonus transaction of the block already exists on the chain, or the block is not
+		// on the chain, and the corresponding bonus transaction needs to be deleted.
 		reason := ""
 		remove := false
 		if ts.pool.bonPool.hasBonus(tx.Data) {
 			remove = true
 			reason = "tx exist"
-		} else if !ts.chain.hasBlock(bhash) { //块不在链上，有可能是此高度已经过了，也有可能是未来的高度，此处无法区分出来
+		} else if !ts.chain.hasBlock(bhash) {
+			// The block is not on the chain. It may be that this height has passed, or it maybe
+			// the height of the future. It cannot be distinguished here.
 			remove = true
 			reason = "block not exist"
 		}
@@ -374,13 +371,13 @@ func (ts *txSyncer) onTxNotify(msg notify.Message) {
 }
 
 func (ts *txSyncer) reqTxsRoutine() bool {
-	if BlockSyncer == nil || BlockSyncer.isSyncing() {
+	if blockSync == nil || blockSync.isSyncing() {
 		ts.logger.Debugf("block syncing, won't req txs")
 		return false
 	}
 	ts.logger.Debugf("req txs routine, candidate size %v", ts.candidateKeys.Len())
 	reqMap := make(map[uint64]byte)
-	//去重
+	// Remove the same
 	for _, v := range ts.candidateKeys.Keys() {
 		ptk := ts.getOrAddCandidateKeys(v.(string))
 		if ptk == nil {
@@ -397,7 +394,7 @@ func (ts *txSyncer) reqTxsRoutine() bool {
 		})
 		ptk.removeKeys(rms)
 	}
-	//请求
+	// Request transaction
 	for _, v := range ts.candidateKeys.Keys() {
 		ptk := ts.getOrAddCandidateKeys(v.(string))
 		if ptk == nil {

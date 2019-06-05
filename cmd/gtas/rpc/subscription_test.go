@@ -196,7 +196,7 @@ func waitForMessages(t *testing.T, in *json.Decoder, successes chan<- jsonSucces
 			if _, found := msg["result"]; found {
 				successes <- jsonSuccessResponse{
 					Version: msg["jsonrpc"].(string),
-					Id:      msg["id"],
+					ID:      msg["id"],
 					Result:  msg["result"],
 				}
 				continue
@@ -205,7 +205,7 @@ func waitForMessages(t *testing.T, in *json.Decoder, successes chan<- jsonSucces
 				params := msg["params"].(map[string]interface{})
 				failures <- jsonErrResponse{
 					Version: msg["jsonrpc"].(string),
-					Id:      msg["id"],
+					ID:      msg["id"],
 					Error:   jsonError{int(params["subscription"].(float64)), params["message"].(string), params["data"]},
 				}
 				continue
@@ -307,7 +307,7 @@ func TestSubscriptionMultipleNamespaces(t *testing.T) {
 		case err := <-errors:
 			t.Fatal(err)
 		case suc := <-successes: // subscription created
-			subids[namespaces[int(suc.Id.(float64))]] = suc.Result.(string)
+			subids[namespaces[int(suc.ID.(float64))]] = suc.Result.(string)
 		case failure := <-failures:
 			t.Errorf("received error: %v", failure.Error)
 		case notification := <-notifications:

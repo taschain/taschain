@@ -25,12 +25,6 @@ import (
 	"io"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/20 上午11:32
-**  Description:
- */
-
 const codecVersion = 1
 
 func marshalTx(tx *types.Transaction) ([]byte, error) {
@@ -48,12 +42,11 @@ func unmarshalTx(data []byte) (*types.Transaction, error) {
 
 func encodeBlockTransactions(b *types.Block) ([]byte, error) {
 	dataBuf := bytes.NewBuffer([]byte{})
-	//先写版本号
+	// Write the version number
 	dataBuf.Write(utility.UInt16ToByte(uint16(codecVersion)))
-	//先写交易数量
+	// Write the count of transactions
 	dataBuf.Write(utility.UInt16ToByte(uint16(len(b.Transactions))))
-	//再写每个交易长度
-	//最后写交易数据
+	// Write each transaction length and transaction data
 	if len(b.Transactions) > 0 {
 		txBuf := bytes.NewBuffer([]byte{})
 		for _, tx := range b.Transactions {
@@ -61,11 +54,12 @@ func encodeBlockTransactions(b *types.Block) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-
+			// Write each transaction length
 			dataBuf.Write(utility.UInt16ToByte(uint16(len(txBytes))))
 			txBuf.Write(txBytes)
 
 		}
+		// Finally write transaction data
 		dataBuf.Write(txBuf.Bytes())
 	}
 

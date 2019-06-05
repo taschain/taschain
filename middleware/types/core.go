@@ -112,15 +112,13 @@ type Transaction struct {
 	GasPrice uint64      `msgpack:"gp"`
 	Hash     common.Hash `msgpack:"h"`
 
-	ExtraData     []byte `msgpack:"ed"`
-	ExtraDataType int8   `msgpack:"et,omitempty"`
-	//PubKey *common.PublicKey
-	//Sign *common.Sign
-	Sign   []byte          `msgpack:"si"`
-	Source *common.Address `msgpack:"src"` //don't streamlize
+	ExtraData     []byte          `msgpack:"ed"`
+	ExtraDataType int8            `msgpack:"et,omitempty"`
+	Sign          []byte          `msgpack:"si"`
+	Source        *common.Address `msgpack:"src"` //don't streamlize
 }
 
-//source,sign在hash计算范围内
+// GenHash generate hash. source,sign is within the hash calculation range
 func (tx *Transaction) GenHash() common.Hash {
 	if nil == tx {
 		return common.Hash{}
@@ -169,20 +167,8 @@ func (tx Transaction) GetSource() *common.Address { return tx.Source }
 func (tx Transaction) GetTarget() *common.Address { return tx.Target }
 func (tx Transaction) GetHash() common.Hash       { return tx.Hash }
 
-//type Transactions []*Transaction
-//
-//func (c Transactions) Len() int {
-//	return len(c)
-//}
-//func (c Transactions) Swap(i, j int) {
-//	c[i], c[j] = c[j], c[i]
-//}
-//func (c Transactions) Less(i, j int) bool {
-//	return c[i].Nonce < c[j].Nonce
-//}
-
-// 根据gasprice决定优先级的transaction数组
-// gasprice 低的，放在前
+// PriorityTransactions is a transaction array that determines the priority based on gasprice.
+// Gasprice is placed low
 type PriorityTransactions []*Transaction
 
 func (pt PriorityTransactions) Len() int {
@@ -241,27 +227,24 @@ type Miner struct {
 	Status       byte
 }
 
-//区块头结构
+// BlockHeader is block head structure
 type BlockHeader struct {
-	Hash       common.Hash    // 本块的hash，to do : 是对哪些数据的哈希
-	Height     uint64         // 本块的高度
-	PreHash    common.Hash    //上一块哈希
-	Elapsed    int32          //距离上一块铸块时间的时长
-	ProveValue []byte         //vrf prove
-	TotalQN    uint64         //整条链的QN
-	CurTime    time.TimeStamp //当前铸块时间
-	Castor     []byte         //出块人ID
-	GroupID    []byte         //组ID，groupsig.ID的二进制表示
-	Signature  []byte         // 组签名
-	Nonce      int32          //盐
-	//Transactions []common.Hash // 交易集哈希列表
-	TxTree      common.Hash // 交易默克尔树根hash
+	Hash        common.Hash    // The hash of this block
+	Height      uint64         // The height of this block
+	PreHash     common.Hash    // The hash of previous block
+	Elapsed     int32          // The length of time from the last block
+	ProveValue  []byte         // Vrf prove
+	TotalQN     uint64         // QN of the entire chain
+	CurTime     time.TimeStamp // Current block time
+	Castor      []byte         // Castor ID
+	GroupID     []byte         // Group ID，binary representation of groupsig.ID
+	Signature   []byte         // Group signature
+	Nonce       int32          // Salt
+	TxTree      common.Hash    // Transaction Merkel root hash
 	ReceiptTree common.Hash
 	StateTree   common.Hash
 	ExtraData   []byte
 	Random      []byte
-	//ProveRoot    common.Hash
-	//EvictedTxs   []common.Hash
 }
 
 func (bh *BlockHeader) GenHash() common.Hash {
@@ -285,18 +268,12 @@ func (bh *BlockHeader) GenHash() common.Hash {
 
 	buf.Write(utility.Int32ToByte(bh.Nonce))
 
-	//if bh.Transactions != nil {
-	//	for _, tx := range bh.Transactions {
-	//		buf.Write(tx.Bytes())
-	//	}
-	//}
 	buf.Write(bh.TxTree.Bytes())
 	buf.Write(bh.ReceiptTree.Bytes())
 	buf.Write(bh.StateTree.Bytes())
 	if bh.ExtraData != nil {
 		buf.Write(bh.ExtraData)
 	}
-	//buf.Write(bh.ProveRoot.Bytes())
 
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
@@ -331,18 +308,18 @@ type Member struct {
 }
 
 type GroupHeader struct {
-	Hash          common.Hash //组头hash
-	Parent        []byte      //父亲组 的组ID
-	PreGroup      []byte      //前一块的ID
-	Authority     uint64      //权限相关数据（父亲组赋予）
-	Name          string      //父亲组取的名字
+	Hash          common.Hash // Group header hash
+	Parent        []byte      // Parent group ID, which create the current group
+	PreGroup      []byte      // Previous group ID on group chain
+	Authority     uint64      // The authority given by the parent group
+	Name          string      // The name given by the parent group
 	BeginTime     time.TimeStamp
-	MemberRoot    common.Hash //成员列表hash
-	CreateHeight  uint64      //建组高度
-	ReadyHeight   uint64      //准备就绪最迟高度
-	WorkHeight    uint64      //组开始参与铸块的高度
-	DismissHeight uint64      //组解散的高度
-	Extends       string      //带外数据
+	MemberRoot    common.Hash // Group members list hash
+	CreateHeight  uint64      // Height of the group created
+	ReadyHeight   uint64      // Latest height of ready
+	WorkHeight    uint64      // Height of work
+	DismissHeight uint64      // Height of dismiss
+	Extends       string      // Extend data
 }
 
 func (gh *GroupHeader) GenHash() common.Hash {
@@ -352,8 +329,6 @@ func (gh *GroupHeader) GenHash() common.Hash {
 	buf.Write(common.Uint64ToByte(gh.Authority))
 	buf.WriteString(gh.Name)
 
-	//bt, _ := gh.BeginTime.MarshalBinary()
-	//buf.Write(bt)
 	buf.Write(gh.MemberRoot.Bytes())
 	buf.Write(common.Uint64ToByte(gh.CreateHeight))
 	buf.Write(common.Uint64ToByte(gh.ReadyHeight))
@@ -372,12 +347,11 @@ func (gh *GroupHeader) WorkAt(h uint64) bool {
 }
 
 type Group struct {
-	Header *GroupHeader
-	//不参与签名
+	Header      *GroupHeader
 	ID          []byte
 	PubKey      []byte
 	Signature   []byte
-	Members     [][]byte //成员id列表
+	Members     [][]byte // Member id list
 	GroupHeight uint64
 }
 

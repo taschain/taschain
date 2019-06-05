@@ -21,12 +21,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/12/20 下午2:38
-**  Description:
- */
-
 var (
 	ErrPassword    = fmt.Errorf("password error")
 	ErrUnlocked    = fmt.Errorf("please unlock the account first")
@@ -34,7 +28,6 @@ var (
 )
 
 type txRawData struct {
-	//from string
 	Target    string `json:"target"`
 	Value     uint64 `json:"value"`
 	Gas       uint64 `json:"gas"`
@@ -80,10 +73,9 @@ func txRawToTransaction(tx *txRawData) *types.Transaction {
 	}
 
 	return &types.Transaction{
-		Data:  []byte(tx.Data),
-		Value: tx.Value,
-		Nonce: tx.Nonce,
-		//Source: &source,
+		Data:      []byte(tx.Data),
+		Value:     tx.Value,
+		Nonce:     tx.Nonce,
 		Target:    target,
 		Type:      int8(tx.TxType),
 		GasLimit:  tx.Gas,
@@ -110,14 +102,15 @@ type accountOp interface {
 }
 
 type chainOp interface {
+	// Connect connect node by ip and port
 	Connect(ip string, port int) error
-
+	// Endpoint returns current connected ip and port
 	Endpoint() string
-
+	// SendRaw send transaction to connected node
 	SendRaw(tx *txRawData) *Result
-
+	// Balance query Balance by address
 	Balance(addr string) *Result
-
+	// MinerInfo query miner info by address
 	MinerInfo(addr string) *Result
 
 	BlockHeight() *Result

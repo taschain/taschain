@@ -21,9 +21,7 @@ import (
 
 var BUS *Bus
 
-/*
-	内部消息订阅服务
-*/
+// Bus is internal message subscription service
 type Bus struct {
 	topics map[string]*Topic
 	lock   sync.RWMutex

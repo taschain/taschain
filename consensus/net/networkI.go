@@ -21,18 +21,13 @@ import (
 	"github.com/taschain/taschain/consensus/model"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/7/27 下午3:53
-**  Description:
- */
-
+// MessageProcessor interface defines the process functions of all consensus messages
 type MessageProcessor interface {
+	// Whether the processor is ready for handling messages
 	Ready() bool
 
+	// Returns the miner id of the processor
 	GetMinerID() groupsig.ID
-
-	ExistInGroup(gHash common.Hash) bool
 
 	OnMessageGroupInit(msg *model.ConsensusGroupRawMessage)
 
@@ -47,10 +42,6 @@ type MessageProcessor interface {
 	OnMessageCast(msg *model.ConsensusCastMessage)
 
 	OnMessageVerify(msg *model.ConsensusVerifyMessage)
-
-	OnMessageNewTransactions(txs []common.Hash)
-
-	OnMessageBlock(msg *model.ConsensusBlockMessage)
 
 	OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage)
 

@@ -35,11 +35,6 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/30 下午4:34
-**  Description:
- */
 var BonusLogger taslog.Logger
 
 func successResult(data interface{}) (*Result, error) {
@@ -61,7 +56,7 @@ func failResult(err string) (*Result, error) {
 type GtasAPI struct {
 }
 
-// T 用户交易接口
+// Tx is user transaction interface
 func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 	var txRaw = new(txRawData)
 	if err := json.Unmarshal([]byte(txRawjson), txRaw); err != nil {
@@ -79,7 +74,7 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 	return successResult(trans.Hash.Hex())
 }
 
-// Balance 查询余额接口
+// Balance is query balance interface
 func (api *GtasAPI) Balance(account string) (*Result, error) {
 	balance, err := walletManager.getBalance(account)
 	if err != nil {
@@ -91,7 +86,7 @@ func (api *GtasAPI) Balance(account string) (*Result, error) {
 	}, nil
 }
 
-// NewWallet 新建账户接口
+// NewWallet is create a new account interface
 func (api *GtasAPI) NewWallet() (*Result, error) {
 	privKey, addr := walletManager.newWallet()
 	data := make(map[string]string)
@@ -100,37 +95,30 @@ func (api *GtasAPI) NewWallet() (*Result, error) {
 	return successResult(data)
 }
 
-// GetWallets 获取当前节点的wallets
+// GetWallets get the wallets of the current node
 func (api *GtasAPI) GetWallets() (*Result, error) {
 	return successResult(walletManager)
 }
 
-// DeleteWallet 删除本地节点指定序号的地址
+// DeleteWallet delete the address of the specified serial number of the local node
 func (api *GtasAPI) DeleteWallet(key string) (*Result, error) {
 	walletManager.deleteWallet(key)
 	return successResult(walletManager)
 }
 
-// BlockHeight 块高查询
+// BlockHeight query block height
 func (api *GtasAPI) BlockHeight() (*Result, error) {
 	height := core.BlockChainImpl.QueryTopBlock().Height
 	return successResult(height)
 }
 
-// GroupHeight 组块高查询
+// GroupHeight query group height
 func (api *GtasAPI) GroupHeight() (*Result, error) {
 	height := core.GroupChainImpl.Height()
 	return successResult(height)
 }
 
-// Vote
-func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
-	//config := v.ToGlobal()
-	//walletManager.newVote(from, config)
-	return successResult(nil)
-}
-
-// ConnectedNodes 查询已链接的node的信息
+// ConnectedNodes query the information of the linked node
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 
 	nodes := network.GetNetInstance().ConnInfo()
@@ -141,7 +129,7 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 	return successResult(conns)
 }
 
-// TransPool 查询缓冲区的交易信息。
+// TransPool query buffer transaction information
 func (api *GtasAPI) TransPool() (*Result, error) {
 	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
 	transList := make([]Transactions, 0, len(transactions))
@@ -157,6 +145,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	return successResult(transList)
 }
 
+// get transaction by hash
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction := core.BlockChainImpl.GetTransactionByHash(false, true, common.HexToHash(hash))
 	if transaction == nil {
@@ -262,11 +251,11 @@ func (api *GtasAPI) WorkGroupNum(height uint64) (*Result, error) {
 func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.ID != nil && len(g.ID) != 0 {
-		gmap["group_id"] = groupsig.DeserializeId(g.ID).GetHexString()
+		gmap["group_id"] = groupsig.DeserializeID(g.ID).GetHexString()
 		gmap["g_hash"] = g.Header.Hash.Hex()
 	}
-	gmap["parent"] = groupsig.DeserializeId(g.Header.Parent).GetHexString()
-	gmap["pre"] = groupsig.DeserializeId(g.Header.PreGroup).GetHexString()
+	gmap["parent"] = groupsig.DeserializeID(g.Header.Parent).GetHexString()
+	gmap["pre"] = groupsig.DeserializeID(g.Header.PreGroup).GetHexString()
 	gmap["begin_height"] = g.Header.WorkHeight
 	gmap["dismiss_height"] = g.Header.DismissHeight
 	gmap["create_height"] = g.Header.CreateHeight
@@ -274,7 +263,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap["mem_size"] = len(g.Members)
 	mems := make([]string, 0)
 	for _, mem := range g.Members {
-		memberStr := groupsig.DeserializeId(mem).GetHexString()
+		memberStr := groupsig.DeserializeID(mem).GetHexString()
 		mems = append(mems, memberStr[0:6]+"-"+memberStr[len(memberStr)-6:])
 	}
 	gmap["members"] = mems
@@ -314,14 +303,14 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	return successResult(ret)
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint64, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
 
 	info := core.MinerManagerImpl.GetMinerByID(id, byte(mtype), nil)
 	if info != nil {
-		return failResult("已经申请过该类型矿工")
+		return failResult("you has applied for this type of miner")
 	}
 
 	//address := common.BytesToAddress(minerInfo.ID.Serialize())
@@ -366,7 +355,7 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	return &Result{Message: address.Hex(), Data: string(js)}, nil
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
@@ -387,7 +376,7 @@ func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
 	return successResult(nil)
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
@@ -408,7 +397,7 @@ func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
 	return &Result{Message: "success"}, nil
 }
 
-//铸块统计
+// CastStat cast block statistics
 func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	proposerStat := make(map[string]int32)
 	groupStat := make(map[string]int32)
@@ -441,11 +430,11 @@ func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	gmap := make(map[string]int32)
 
 	for key, v := range proposerStat {
-		id := groupsig.DeserializeId([]byte(key))
+		id := groupsig.DeserializeID([]byte(key))
 		pmap[id.GetHexString()] = v
 	}
 	for key, v := range groupStat {
-		id := groupsig.DeserializeId([]byte(key))
+		id := groupsig.DeserializeID([]byte(key))
 		gmap[id.GetHexString()] = v
 	}
 	ret := make(map[string]map[string]int32)
@@ -569,14 +558,14 @@ func (api *GtasAPI) PageGetGroups(page, limit int) (*Result, error) {
 
 		mems := make([]string, 0)
 		for _, mem := range g.Members {
-			mems = append(mems, groupsig.DeserializeId(mem).ShortS())
+			mems = append(mems, groupsig.DeserializeID(mem).ShortS())
 		}
 
 		group := &Group{
 			Height:        uint64(b + 1),
-			ID:            groupsig.DeserializeId(g.ID),
-			PreID:         groupsig.DeserializeId(g.Header.PreGroup),
-			ParentID:      groupsig.DeserializeId(g.Header.Parent),
+			ID:            groupsig.DeserializeID(g.ID),
+			PreID:         groupsig.DeserializeID(g.Header.PreGroup),
+			ParentID:      groupsig.DeserializeID(g.Header.Parent),
 			BeginHeight:   g.Header.WorkHeight,
 			DismissHeight: g.Header.DismissHeight,
 			Members:       mems,
@@ -704,12 +693,6 @@ func (api *GtasAPI) BlockReceipts(h string) (*Result, error) {
 	}
 
 	evictedReceipts := make([]*types.Receipt, 0)
-	//for _, tx := range bh.EvictedTxs {
-	//	wrapper := chain.GetTransactionPool().GetReceipt(tx)
-	//	if wrapper != nil {
-	//		evictedReceipts = append(evictedReceipts, wrapper)
-	//	}
-	//}
 	receipts := make([]*types.Receipt, len(b.Transactions))
 	for i, tx := range b.Transactions {
 		wrapper := chain.GetTransactionPool().GetReceipt(tx.Hash)

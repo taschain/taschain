@@ -23,23 +23,16 @@ import (
 	"sync"
 )
 
-// Wallets 钱包
+// Wallets contains wallets
 type wallets []wallet
 
 var mutex sync.Mutex
 
-//var limiter *rate.Limiter
-
-func init() {
-	//limiter = rate.NewLimiter(200, 200)
-}
-
-//存储钱包账户
+// Store storage wallet account
 func (ws *wallets) store() {
 	js, err := json.Marshal(ws)
 	if err != nil {
 		log.Println("store wallets error")
-		// TODO 输出log
 	}
 	common.GlobalConf.SetString(Section, "wallets", string(js))
 }
@@ -56,7 +49,7 @@ func (ws *wallets) deleteWallet(key string) {
 	ws.store()
 }
 
-// newWallet 新建钱包并存储到config文件中
+// newWallet create a new wallet and store it in the config file
 func (ws *wallets) newWallet() (privKeyStr, walletAddress string) {
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -64,9 +57,6 @@ func (ws *wallets) newWallet() (privKeyStr, walletAddress string) {
 	pub := priv.GetPubKey()
 	address := pub.GetAddress()
 	privKeyStr, walletAddress = pub.Hex(), address.Hex()
-	// 加入本地钱包
-	//*ws = append(*ws, wallet{privKeyStr, walletAddress})
-	//ws.store()
 	return
 }
 
@@ -79,25 +69,6 @@ func (ws *wallets) getBalance(account string) (float64, error) {
 	return common.RA2TAS(balance.Uint64()), nil
 }
 
-//func (ws *wallets) newVote(source string, config *global.VoteConfig) error {
-//	if source == "" {
-//		source = (*ws)[0].Address
-//	}
-//	abi, err := config.AbiEncode()
-//	if err != nil {
-//		return err
-//	}
-//	nonce := core.BlockChainImpl.GetNonce(common.HexToAddress(source))
-//	txpool := core.BlockChainImpl.GetTransactionPool()
-//	transaction := genTx(0, source, "", nonce+1, 0, abi, nil, 1)
-//	transaction.Hash = transaction.GenHash()
-//	_, err = txpool.Add(transaction)
-//	if err != nil {
-//		return err
-//	}
-//	return nil
-//}
-
 func newWallets() wallets {
 	var ws wallets
 	s := common.GlobalConf.GetString(Section, "wallets", "")
@@ -106,7 +77,6 @@ func newWallets() wallets {
 	}
 	err := json.Unmarshal([]byte(s), &ws)
 	if err != nil {
-		// TODO 输出log
 		log.Println(err)
 	}
 	return ws

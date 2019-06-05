@@ -27,12 +27,6 @@ import (
 	"os"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/19 上午10:51
-**  Description:
- */
-
 type applyFunc func()
 
 type msgShower struct {

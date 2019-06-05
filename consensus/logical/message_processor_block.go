@@ -32,12 +32,17 @@ func (p *Processor) thresholdPieceVerify(vctx *VerifyContext, slot *SlotContext)
 	p.reserveBlock(vctx, slot)
 }
 
+// verifyCastMessage verifies the message from proposal node
+// Especially, as it takes the previous blockHeader as input, future proposal messages is not processable by the method,
+// which may be triggered at the near future
+// It returns true if and only if the message is legal
 func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *types.BlockHeader) (ok bool, err error) {
 	bh := &msg.BH
 	si := &msg.SI
-	castor := groupsig.DeserializeId(bh.Castor)
-	groupID := groupsig.DeserializeId(bh.GroupID)
+	castor := groupsig.DeserializeID(bh.Castor)
+	groupID := groupsig.DeserializeID(bh.GroupID)
 
+	// trigger the cached messages from other members that come ahead of the proposal message
 	defer func() {
 		if ok {
 			go func() {
@@ -52,16 +57,18 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 		}
 	}()
 
+	// if the block already added on chain, then ignore this message
 	if p.blockOnChain(bh.Hash) {
 		err = fmt.Errorf("block onchain already")
 		return
 	}
 
-	expireTime := ExpireTime(bh, preBH)
+	// check expire time, fail fast if expired
+	expireTime := expireTime(bh, preBH)
 	if p.ts.NowAfter(expireTime) {
 		err = fmt.Errorf("cast verify expire, gid=%v, preTime %v, expire %v", groupID.ShortS(), preBH.CurTime, expireTime)
 		return
-	} else if bh.Height > 1 {
+	} else if bh.Height > 1 { // if the message comes early before the time it should begin, then deny it
 		beginTime := expireTime.Add(-int64(model.Param.MaxGroupCastTime + 1))
 		if !p.ts.NowAfter(beginTime) {
 			err = fmt.Errorf("cast begin time illegal, expectBegin at %v, expire at %v", beginTime, expireTime)
@@ -80,6 +87,8 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 		return
 	}
 
+	// get the verify context for the height
+	// it won't create the context if not exist and just for fail fast
 	vctx := p.blockContexts.getVctxByHeight(bh.Height)
 	if vctx != nil {
 		if vctx.blockSigned(bh.Hash) {
@@ -100,30 +109,33 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	}
 	pk := castorDO.PK
 
+	// check the signature of the proposal
 	if !msg.VerifySign(pk) {
 		err = fmt.Errorf("verify sign fail")
 		return
 	}
 
-	//提案是否合法
+	// check if the blockHeader is legal
 	ok, _, err = p.isCastLegal(bh, preBH)
 	if !ok {
 		return
 	}
 
-	//校验提案者是否有全量账本
+	// full book verification
 	existHash := p.proveChecker.genProveHash(bh.Height, preBH.Random, p.GetMinerID())
 	if msg.ProveHash != existHash {
 		err = fmt.Errorf("check p rove hash fail, receive hash=%v, exist hash=%v", msg.ProveHash.ShortS(), existHash.ShortS())
 		return
 	}
 
+	// get the verify context for the height, it will create the context if not exists
 	vctx = p.blockContexts.getOrNewVerifyContext(group, bh, preBH)
 	if vctx == nil {
 		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
 		return
 	}
 
+	// prepare the slot for the blockHeader, create if not exists
 	slot, err := vctx.PrepareSlot(bh)
 	if err != nil {
 		return
@@ -136,6 +148,8 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	skey := p.getSignKey(groupID)
 	var cvm model.ConsensusVerifyMessage
 	cvm.BlockHash = bh.Hash
+
+	// sign the message and send to other members in the group
 	if cvm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), &cvm) {
 		cvm.GenRandomSign(skey, vctx.prevBH.Random)
 		p.NetServer.SendVerifiedCast(&cvm, groupID)
@@ -149,8 +163,9 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	return
 }
 
-//收到组内成员的出块消息，出块人（KING）用组分片密钥进行了签名
-//有可能没有收到OnMessageCurrent就提前接收了该消息（网络时序问题）
+// OnMessageCast handles the message from the proposer
+// Note that, if the pre-block of the block present int the message isn't on the blockchain, it will caches the message
+// and trigger it after the pre-block added on chain
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	slog := taslog.NewSlowLog("OnMessageCast", 0.5)
 	bh := &ccm.BH
@@ -164,11 +179,11 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		Hash:     bh.Hash.Hex(),
 		PreHash:  bh.PreHash.Hex(),
 		Proposer: ccm.SI.GetID().GetHexString(),
-		Verifier: groupsig.DeserializeId(bh.GroupID).GetHexString(),
+		Verifier: groupsig.DeserializeID(bh.GroupID).GetHexString(),
 		Ext:      fmt.Sprintf("external:qn:%v,totalQN:%v", 0, bh.TotalQN),
 	}
 	slog.AddStage("getGroup")
-	group := p.GetGroup(groupsig.DeserializeId(bh.GroupID))
+	group := p.GetGroup(groupsig.DeserializeID(bh.GroupID))
 	slog.EndStage()
 
 	slog.AddStage("addLog")
@@ -182,8 +197,8 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 
 	si := &ccm.SI
 	traceLog := newHashTraceLog(mtype, bh.Hash, si.GetID())
-	castor := groupsig.DeserializeId(bh.Castor)
-	groupID := groupsig.DeserializeId(bh.GroupID)
+	castor := groupsig.DeserializeID(bh.Castor)
+	groupID := groupsig.DeserializeID(bh.GroupID)
 
 	traceLog.logStart("%v:height=%v, castor=%v", mtype, bh.Height, castor.ShortS())
 	blog.debug("proc(%v) begin hash=%v, height=%v, sender=%v, castor=%v, groupID=%v", p.getPrefix(), bh.Hash.ShortS(), bh.Height, si.GetID().ShortS(), castor.ShortS(), groupID.ShortS())
@@ -203,12 +218,14 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		err = fmt.Errorf("msg genHash %v diff from si.DataHash %v", ccm.GenHash().ShortS(), ccm.SI.DataHash.ShortS())
 		return
 	}
-	//castor要忽略自己的消息
+	// Castor need to ignore his message
 	if castor.IsEqual(p.GetMinerID()) && si.GetID().IsEqual(p.GetMinerID()) {
 		err = fmt.Errorf("ignore self message")
 		return
 	}
-	if !p.IsMinerGroup(groupID) { //检测当前节点是否在该铸块组
+
+	// Check if the current node is in the group
+	if !p.IsMinerGroup(groupID) {
 		err = fmt.Errorf("don't belong to group, gid=%v, hash=%v, id=%v", groupID.ShortS(), bh.Hash.ShortS(), p.GetMinerID().ShortS())
 		return
 	}
@@ -236,6 +253,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	slog.EndStage()
 
 	slog.AddStage("baseCheck")
+	// Cache the message due to the absence of the pre-block
 	if preBH == nil {
 		p.addFutureVerifyMsg(ccm)
 		err = fmt.Errorf("父块未到达")
@@ -260,7 +278,7 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 		err = fmt.Errorf("slot is nil")
 		return
 	}
-	//castor要忽略自己的消息
+	// Castor need to ignore his message
 	if slot.castor.IsEqual(p.GetMinerID()) && cvm.SI.GetID().IsEqual(p.GetMinerID()) {
 		err = fmt.Errorf("ignore self message")
 		return
@@ -272,7 +290,8 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 		return
 	}
 
-	if !p.IsMinerGroup(groupID) { //检测当前节点是否在该铸块组
+	// Check if the current node is in the ingot group
+	if !p.IsMinerGroup(groupID) {
 		err = fmt.Errorf("don't belong to group, gid=%v, hash=%v, id=%v", groupID.ShortS(), bh.Hash.ShortS(), p.GetMinerID().ShortS())
 		return
 	}
@@ -328,7 +347,8 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 	return
 }
 
-//收到组内成员的出块验证通过消息（组内成员消息）
+// OnMessageVerify handles the verification messages from other members in the group for a specified block proposal
+// Note that, it will cache the messages if the corresponding proposal message doesn't come yet and trigger them as long as the condition met
 func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	blockHash := cvm.BlockHash
 	traceLog := newHashTraceLog("OMV", blockHash, cvm.SI.GetID())
@@ -348,12 +368,15 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 		traceLog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, result)
 	}()
 
+	// Cache the message in case of absence of the proposal message
 	vctx := p.blockContexts.getVctxByHash(blockHash)
 	if vctx == nil {
 		err = fmt.Errorf("verify context is nil, cache msg")
 		p.blockContexts.addVerifyMsg(cvm)
 		return
 	}
+
+	// Do the verification work
 	ret, err = p.doVerify(cvm, vctx)
 
 	slot = vctx.GetSlotByHash(blockHash)
@@ -361,18 +384,8 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	return
 }
 
-//收到铸块上链消息(组外矿工节点处理)
-func (p *Processor) OnMessageBlock(cbm *model.ConsensusBlockMessage) {
-	return
-}
-
-//新的交易到达通知（用于处理大臣验证消息时缺失的交易）
-func (p *Processor) OnMessageNewTransactions(ths []common.Hash) {
-	return
-}
-
 func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader, slog *taslog.SlowLog) (send bool, err error) {
-	gid := groupsig.DeserializeId(bh.GroupID)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	group := p.GetGroup(gid)
 	reward := &msg.Reward
 	if group == nil {
@@ -391,7 +404,9 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		err = fmt.Errorf("slot is nil")
 		return
 	}
-	if slot.IsRewardSent() { //已发送过分红交易，不再为此签名
+
+	// A dividend transaction has been sent, no longer signed for this
+	if slot.IsRewardSent() {
 		err = fmt.Errorf("alreayd sent reward trans")
 		return
 	}
@@ -429,15 +444,16 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		}
 		slog.EndStage()
 
-		//复用原来的generator，避免重复签名验证
+		// Reuse the original generator to avoid duplicate signature verification
 		gSignGener := slot.gSignGenerator
 
 		slog.AddStage("checkTargetSign")
-		//witnesses := slot.gSignGenerator.GetWitnesses()
 		for idx, idIndex := range msg.Reward.TargetIds {
 			id := group.GetMemberID(int(idIndex))
 			sign := msg.SignedPieces[idx]
-			if sig, ok := gSignGener.GetWitness(id); !ok { //本地无该id签名的，需要校验签名
+
+			// If there is no local id signature, you need to verify the signature.
+			if sig, ok := gSignGener.GetWitness(id); !ok {
 				pk, exist := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
 				if !exist {
 					continue
@@ -448,9 +464,9 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 					return
 				}
 				slog.EndStage()
-				//加入generator中
+				// Join the generator
 				gSignGener.AddWitnessForce(id, sign)
-			} else { //本地已有该id的签名的，只要判断是否跟本地签名一样即可
+			} else { // If the signature of the id already exists locally, just judge whether it is the same as the local signature.
 				if !sign.IsEqual(sig) {
 					err = fmt.Errorf("member sign different id=%v", id.ShortS())
 					return
@@ -475,7 +491,7 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 
 	slog.AddStage("EndSend")
 	send = true
-	//自己签名
+	// Sign yourself
 	signMsg := &model.CastRewardTransSignMessage{
 		ReqHash:   reward.TxHash,
 		BlockHash: reward.BlockHash,
@@ -492,6 +508,9 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 	return
 }
 
+// OnMessageCastRewardSignReq handles bonus transaction signature requests
+// It signs the message if and only if the block of the transaction already added on chain,
+// otherwise the message will be cached util the condition met
 func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
 	mtype := "OMCRSR"
 	blog := newBizLog(mtype)
@@ -512,7 +531,8 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 		slog.Log("sender=%v, hash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
 	}()
 
-	//此时块不一定在链上
+	// At this point the block is not necessarily on the chain
+	// in case that, the message will be cached
 	slog.AddStage("ChecBlock")
 	bh := p.getBlockHeaderByHash(reward.BlockHash)
 	if bh == nil {
@@ -528,7 +548,8 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	return
 }
 
-// 收到分红奖励消息
+// OnMessageCastRewardSign receives signed messages for the bonus transaction from group members
+// If threshold signature received and the group signature recovered successfully, the node will submit the bonus transaction to the pool
 func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessage) {
 	mtype := "OMCRS"
 	blog := newBizLog(mtype)
@@ -548,13 +569,15 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		blog.log("blockHash=%v, send=%v, result=%v", msg.BlockHash.ShortS(), send, err)
 	}()
 
+	// If the block related to the bonus transaction is not on the chain, then drop the messages
+	// This could happened after one fork process
 	bh := p.getBlockHeaderByHash(msg.BlockHash)
 	if bh == nil {
 		err = fmt.Errorf("block not exist, hash=%v", msg.BlockHash.ShortS())
 		return
 	}
 
-	gid := groupsig.DeserializeId(bh.GroupID)
+	gid := groupsig.DeserializeID(bh.GroupID)
 	group := p.GetGroup(gid)
 	if group == nil {
 		panic("group is nil")
@@ -581,8 +604,11 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 		return
 	}
 
+	// Try to add the signature to the group sign generator of the slot related to the block
 	accept, recover := slot.AcceptRewardPiece(&msg.SI)
 	blog.log("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
+
+	// Add the bonus transaction to pool if the signature is accepted and the group signature is recovered
 	if accept && recover && slot.StatusTransform(slRewardSignReq, slRewardSent) {
 		_, err2 := p.MainChain.GetTransactionPool().AddTransaction(slot.rewardTrans)
 		send = true
@@ -593,6 +619,8 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	}
 }
 
+// OnMessageReqProposalBlock handles block body request from the verify group members
+// It only happens in the proposal role and when the group signature generated by the verify-group
 func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourceID string) {
 	blog := newBizLog("OMRPB")
 	blog.log("hash %v", msg.Hash.ShortS())
@@ -604,7 +632,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	}
 
 	if pb.maxResponseCount == 0 {
-		gid := groupsig.DeserializeId(pb.block.Header.GroupID)
+		gid := groupsig.DeserializeID(pb.block.Header.GroupID)
 		group, err := p.globalGroups.GetGroupByID(gid)
 		if err != nil {
 			blog.log("block proposal response, GetGroupByID err= %v,  hash=%v", err, msg.Hash.ShortS())
@@ -614,6 +642,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 		pb.maxResponseCount = uint(math.Ceil(float64(group.GetMemberCount()) / 3))
 	}
 
+	// Only response to limited members of the group in case of network traffic
 	if pb.responseCount >= pb.maxResponseCount {
 
 		blog.log("block proposal response count >= maxResponseCount(%v), not response, hash=%v", pb.maxResponseCount, msg.Hash.ShortS())
@@ -632,6 +661,9 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	p.NetServer.ResponseProposalBlock(m, sourceID)
 }
 
+// OnMessageResponseProposalBlock handles block body response from proposal node
+// It only happens in the verify roles and after block body request to the proposal node
+// It will add the block on chain and then broadcast
 func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock) {
 	blog := newBizLog("OMRSPB")
 	blog.log("hash %v", msg.Hash.ShortS())

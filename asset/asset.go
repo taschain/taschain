@@ -256,8 +256,11 @@ var _bindata = map[string]func() (*asset, error){
 //         a.png
 //         b.png
 // then AssetDir("data") would return []string{"foo.txt", "img"}
+//
 // AssetDir("data/img") would return []string{"a.png", "b.png"}
+//
 // AssetDir("foo.txt") and AssetDir("notexist") would return an error
+//
 // AssetDir("") will return []string{"data"}.
 func AssetDir(name string) ([]string, error) {
 	node := _bintree

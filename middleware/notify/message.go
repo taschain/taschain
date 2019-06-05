@@ -30,7 +30,6 @@ func (m *BlockOnChainSuccMessage) GetData() interface{} {
 	return m.Block
 }
 
-//--------------------------------------------------------------------------------------------------------------------
 type GroupMessage struct {
 	Group *types.Group
 }

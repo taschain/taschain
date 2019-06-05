@@ -36,8 +36,6 @@ const (
 
 var (
 	ErrLDBInit = errors.New("LDB instance not inited")
-	//instance     *LDBDatabase
-	//instanceLock = sync.RWMutex{}
 )
 
 type PrefixedDatabase struct {
@@ -72,15 +70,7 @@ func getInstance(file string) (*LDBDatabase, error) {
 	return instanceInner, err
 }
 
-//func (db *PrefixedDatabase) Clear() error {
-//	inner := db.db
-//	if nil == inner {
-//		return ErrLDBInit
-//	}
-//
-//	return inner.Clear()
-//}
-
+// Close close db connection
 func (db *PrefixedDatabase) Close() {
 	db.db.Close()
 }
@@ -124,7 +114,6 @@ func (db *PrefixedDatabase) NewIteratorWithPrefix(prefix []byte) iterator.Iterat
 
 func (db *PrefixedDatabase) NewBatch() Batch {
 	return &prefixBatch{db: db.db.db, b: new(leveldb.Batch), prefix: db.prefix}
-	//return db.db.NewBatch()
 }
 
 func (db *PrefixedDatabase) AddKv(batch Batch, k, v []byte) error {
@@ -232,7 +221,7 @@ func (b *prefixBatch) Reset() {
 	b.size = 0
 }
 
-// 加入前缀的key
+// generateKey generate a prefixed key
 func generateKey(raw []byte, prefix string) []byte {
 	bytesBuffer := bytes.NewBuffer([]byte(prefix))
 	if raw != nil {
@@ -254,6 +243,7 @@ type LDBDatabase struct {
 	inited bool
 }
 
+// NewLDBDatabase create level db instance by file
 func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 
 	if cache < 16 {
@@ -278,7 +268,7 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	return ldb, nil
 }
 
-// 生成leveldb实例
+// newLevelDBInstance generate a leveldb instance
 func newLevelDBInstance(file string, cache int, handles int) (*leveldb.DB, error) {
 	db, err := leveldb.OpenFile(file, &opt.Options{
 		OpenFilesCacheCapacity: handles,
@@ -302,7 +292,6 @@ func (ldb *LDBDatabase) Clear() error {
 	ldb.inited = false
 	ldb.Close()
 
-	// todo: 直接删除文件，是不是过于粗暴？
 	os.RemoveAll(ldb.Path())
 
 	db, err := newLevelDBInstance(ldb.Path(), ldb.cacheConfig, ldb.handlesConfig)
@@ -376,20 +365,14 @@ func (ldb *LDBDatabase) Close() {
 	defer ldb.quitLock.Unlock()
 
 	if ldb.quitChan != nil {
-		errc := make(chan error)
-		ldb.quitChan <- errc
-		if err := <-errc; err != nil {
-			//ldb.log.Error("Metrics collection failed", "err", err)
+		error := make(chan error)
+		ldb.quitChan <- error
+		if err := <-error; err != nil {
+			common.DefaultLogger.Errorf("Metrics collection failed", "err", err)
 		}
 	}
 
 	ldb.db.Close()
-	//err := ldb.ldb.Close()
-	//if err == nil {
-	//	ldb.log.Info("Database closed")
-	//} else {
-	//	ldb.log.Error("Failed to close database", "err", err)
-	//}
 }
 
 func (ldb *LDBDatabase) NewBatch() Batch {
@@ -525,6 +508,7 @@ func (b *memBatch) Delete(key []byte) error {
 	return nil
 }
 
+// Write flushes any accumulated data to disk.
 func (b *memBatch) Write() error {
 	b.db.lock.Lock()
 	defer b.db.lock.Unlock()
@@ -539,6 +523,7 @@ func (b *memBatch) Write() error {
 	return nil
 }
 
+// ValueSize retrieves the amount of data queued up for writing.
 func (b *memBatch) ValueSize() int {
 	return b.size
 }
@@ -560,6 +545,7 @@ func NewLRUMemDatabase(size int) (*LRUMemDatabase, error) {
 	}, nil
 }
 
+// Put inserts the given value into the key-value data store.
 func (db *LRUMemDatabase) Put(key []byte, value []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -567,6 +553,7 @@ func (db *LRUMemDatabase) Put(key []byte, value []byte) error {
 	return nil
 }
 
+// Has retrieves if a key is present in the key-value data store.
 func (db *LRUMemDatabase) Has(key []byte) (bool, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
@@ -575,6 +562,7 @@ func (db *LRUMemDatabase) Has(key []byte) (bool, error) {
 	return ok, nil
 }
 
+// Get retrieves the given key if it's present in the key-value data store.
 func (db *LRUMemDatabase) Get(key []byte) ([]byte, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
@@ -586,6 +574,7 @@ func (db *LRUMemDatabase) Get(key []byte) ([]byte, error) {
 	return nil, nil
 }
 
+// Delete removes the key from the key-value data store.
 func (db *LRUMemDatabase) Delete(key []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
@@ -595,6 +584,8 @@ func (db *LRUMemDatabase) Delete(key []byte) error {
 
 func (db *LRUMemDatabase) Close() {}
 
+// NewBatch creates a write-only database that buffers changes to its host db
+// until a final write is called.
 func (db *LRUMemDatabase) NewBatch() Batch {
 	return &LruMemBatch{db: db}
 }
@@ -613,18 +604,21 @@ type LruMemBatch struct {
 	size   int
 }
 
+// Put inserts the given value into the key-value data store.
 func (b *LruMemBatch) Put(key, value []byte) error {
 	b.writes = append(b.writes, kv{common.CopyBytes(key), common.CopyBytes(value), false})
 	b.size += len(value)
 	return nil
 }
 
+// Delete removes the key from the key-value data store.
 func (b *LruMemBatch) Delete(key []byte) error {
 	b.writes = append(b.writes, kv{common.CopyBytes(key), nil, true})
 	b.size++
 	return nil
 }
 
+// Write flushes any accumulated data to disk.
 func (b *LruMemBatch) Write() error {
 	b.db.lock.Lock()
 	defer b.db.lock.Unlock()
@@ -639,10 +633,12 @@ func (b *LruMemBatch) Write() error {
 	return nil
 }
 
+// ValueSize retrieves the amount of data queued up for writing.
 func (b *LruMemBatch) ValueSize() int {
 	return b.size
 }
 
+// Reset resets the batch for reuse.
 func (b *LruMemBatch) Reset() {
 	b.writes = b.writes[:0]
 	b.size = 0

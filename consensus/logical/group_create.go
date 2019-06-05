@@ -25,20 +25,8 @@ import (
 	"strings"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/2/18 下午2:18
-**  Description:
- */
-
+// selectParentGroup determine the parent group randomly and the result is deterministic because of the base BlockHeader
 func (gm *GroupManager) selectParentGroup(baseBH *types.BlockHeader, preGroupID []byte) (*StaticGroupInfo, error) {
-	//rand := baseBH.Random
-	//rand = append(rand, preGroupID...)
-	//gid, err := gm.processor.globalGroups.SelectNextGroupFromChain(base.Data2CommonHash(rand), baseBH.Height)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return gm.processor.GetGroup(gid), nil
 	return gm.processor.globalGroups.getGenesisGroup(), nil
 }
 
@@ -62,6 +50,8 @@ func (gm *GroupManager) generateCreateGroupContext(baseHeight uint64) (*createGr
 	return newCreateGroupBaseContext(sgi, baseBH, lastGroup, candidates), nil
 }
 
+// checkCreateGroupRoutine check if the height meets the conditions for creating a group
+// if so then start the group-create process
 func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 	blog := newBizLog("checkCreateGroupRoutine")
 	create := false
@@ -75,18 +65,20 @@ func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 		blog.log("baseBH height=%v, create=%v, ret=%v", baseHeight, create, ret)
 	}()
 
-	// 指定高度已经在组链上出现过
+	// The specified height has appeared on the group chain
 	if gm.checker.heightCreated(baseHeight) {
 		err = fmt.Errorf("topHeight already created")
 		return
 	}
 
+	// generate the basic context
 	baseCtx, err2 := gm.generateCreateGroupContext(baseHeight)
 	if err2 != nil {
 		err = err2
 		return
 	}
 
+	// if current node doesn't belong to the selected parent group, it won't start the routine
 	if !gm.processor.IsMinerGroup(baseCtx.parentInfo.GroupID) {
 		err = fmt.Errorf("next select group id %v, not belong to the group", baseCtx.parentInfo.GroupID.GetHexString())
 		return
@@ -102,6 +94,8 @@ func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 
 }
 
+// pingNodes send ping messages to the new members，
+// in order to avoid too much ping messages, the current node does this only when he is one of kings.
 func (gm *GroupManager) pingNodes() {
 	ctx := gm.creatingGroupCtx
 	if ctx == nil || !ctx.isKing() {
@@ -136,9 +130,6 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	}()
 
 	if ctx.readyTimeout(topHeight) {
-		//blog.log("ctx readytimeout, baseHeight=%v", ctx.baseBH.Height)
-		//desc = "ready timeout."
-		//gm.removeContext()
 		return false
 	}
 
@@ -183,7 +174,7 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	}
 	newHashTraceLog("checkReqCreateGroupSign", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", ctx.parentInfo.GroupID.ShortS(), strings.Join(memIDStrs, ","))
 
-	//发送日志
+	// Send log
 	le := &monitor.LogEntry{
 		LogType:  monitor.LogTypeCreateGroup,
 		Height:   gm.groupChain.Height(),
@@ -199,15 +190,18 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	return true
 }
 
-//todo 是否需要等待收到阈值个OMGIED消息后才行？
+// checkGroupInfo check whether the group info is legal
 func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]groupsig.ID, bool, error) {
 	gh := gInfo.GI.GHeader
 	if gh.Hash != gh.GenHash() {
 		return nil, false, fmt.Errorf("gh hash error, hash=%v, genHash=%v", gh.Hash.ShortS(), gh.GenHash().ShortS())
 	}
+	// check if the member count is legal
 	if !model.Param.IsGroupMemberCountLegal(len(gInfo.Mems)) {
 		return nil, false, fmt.Errorf("group member size error %v(%v-%v)", len(gInfo.Mems), model.Param.GroupMemberMin, model.Param.GroupMemberMax)
 	}
+
+	// check if the create height is legal
 	if !checkCreate(gh.CreateHeight) {
 		return nil, false, fmt.Errorf("cannot create at the height %v", gh.CreateHeight)
 	}
@@ -215,34 +209,38 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	if baseBH == nil {
 		return nil, false, common.ErrCreateBlockNil
 	}
-	//前一组，父亲组是否存在
+	// The previous group, whether the parent group exists
 	preGroup := gm.groupChain.GetGroupByID(gh.PreGroup)
 	if preGroup == nil {
-		return nil, false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeId(gh.PreGroup).ShortS())
+		return nil, false, fmt.Errorf("preGroup is nil, gid=%v", groupsig.DeserializeID(gh.PreGroup).ShortS())
 	}
 	parentGroup := gm.groupChain.GetGroupByID(gh.Parent)
 	if parentGroup == nil {
-		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeId(gh.Parent).ShortS())
+		return nil, false, fmt.Errorf("parentGroup is nil, gid=%v", groupsig.DeserializeID(gh.Parent).ShortS())
 	}
+
+	// check if it is the specified parent group
 	sgi, err := gm.selectParentGroup(baseBH, gh.PreGroup)
 	if err != nil {
 		return nil, false, fmt.Errorf("select parent group err %v", err)
 	}
-	pid := groupsig.DeserializeId(parentGroup.ID)
+	pid := groupsig.DeserializeID(parentGroup.ID)
 	if !sgi.GroupID.IsEqual(pid) {
 		return nil, false, fmt.Errorf("select parent group not equal, expect %v, recieve %v", sgi.GroupID.ShortS(), pid.ShortS())
 	}
-	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeId(gh.Parent))
+	gpk := gm.processor.getGroupPubKey(groupsig.DeserializeID(gh.Parent))
 
+	// check the signature of the parent group
 	if !groupsig.VerifySig(gpk, gh.Hash.Bytes(), gInfo.GI.Signature) {
 		return nil, false, fmt.Errorf("verify parent sign fail")
 	}
 
+	// check if the candidates are legal
 	enough, candidates := gm.checker.selectCandidates(baseBH)
 	if !enough {
 		return nil, false, fmt.Errorf("not enough candidates")
 	}
-	//所选成员是否在指定候选人中
+	// Whether the selected member is in the designated candidate
 	for _, mem := range gInfo.Mems {
 		find := false
 		for _, cand := range candidates {
@@ -259,6 +257,7 @@ func (gm *GroupManager) checkGroupInfo(gInfo *model.ConsensusGroupInitInfo) ([]g
 	return candidates, true, nil
 }
 
+// recoverGroupInitInfo recover group info from mask
 func (gm *GroupManager) recoverGroupInitInfo(baseHeight uint64, mask []byte) (*model.ConsensusGroupInitInfo, error) {
 	ctx, err := gm.generateCreateGroupContext(baseHeight)
 	if err != nil {

@@ -27,12 +27,6 @@ import (
 	"sync/atomic"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/12 上午11:46
-**  Description:
- */
-
 const (
 	prove    int32 = 0
 	proposed       = 1
@@ -116,7 +110,6 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
 	pr := br.Quo(br, max256)
 
-	//brTStake := new(big.Rat).SetFloat64(float64(totalStake))
 	vs := vrfThreshold(stake, totalStake)
 
 	//s1, _ := pr.Float64()
@@ -124,7 +117,7 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	//blog := newBizLog("vrfSatisfy")
 
 	ok = pr.Cmp(vs) < 0
-	//计算qn
+	// Calculate qn
 	if vs.Cmp(rat1) > 0 {
 		vs.Set(rat1)
 	}
@@ -139,7 +132,6 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	//blog.log("minerstake %v, totalstake %v, proveValue %v, stake %v, step %v, qn %v", stake, totalStake, s1, s2, st, qn)
 
 	return
-	//return true
 }
 
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {

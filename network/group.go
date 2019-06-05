@@ -26,7 +26,7 @@ import (
 
 const GroupBaseConnectNodeCount = 2
 
-// Group 组对象
+// Group represents a group object
 type Group struct {
 	id               string
 	members          []NodeID
@@ -191,11 +191,11 @@ func (g *Group) send(packet *bytes.Buffer, code uint32) {
 			}
 		}
 	}
-	netCore.bufferPool.FreeBuffer(packet)
+	netCore.bufferPool.freeBuffer(packet)
 	return
 }
 
-//GroupManager 组管理
+// GroupManager represents group management
 type GroupManager struct {
 	groups map[string]*Group
 	mutex  sync.RWMutex
@@ -209,7 +209,7 @@ func newGroupManager() *GroupManager {
 	return gm
 }
 
-//buildGroup 创建组，如果组已经存在，则重建组网络
+//buildGroup create a group, or rebuild the group network if the group already exists
 func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
@@ -227,7 +227,7 @@ func (gm *GroupManager) buildGroup(ID string, members []NodeID) *Group {
 	return g
 }
 
-//RemoveGroup 移除组
+//RemoveGroup remove the group
 func (gm *GroupManager) removeGroup(id string) {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
@@ -238,7 +238,6 @@ func (gm *GroupManager) removeGroup(id string) {
 }
 
 func (gm *GroupManager) doRefresh() {
-	//fmt.Printf("groupManager doRefresh ")
 	gm.mutex.RLock()
 	defer gm.mutex.RUnlock()
 
@@ -247,9 +246,8 @@ func (gm *GroupManager) doRefresh() {
 	}
 }
 
-//SendGroup 向所有已经连接的组内节点发送自定义数据包
-func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer, code uint32) {
-	Logger.Infof("send group, id:%v code:%v", id, code)
+func (gm *GroupManager) groupBroadcast(id string, packet *bytes.Buffer, code uint32) {
+	Logger.Infof("group broadcast, id:%v code:%v", id, code)
 	gm.mutex.RLock()
 	g := gm.groups[id]
 	if g == nil {
@@ -257,7 +255,7 @@ func (gm *GroupManager) sendGroup(id string, packet *bytes.Buffer, code uint32) 
 		gm.mutex.RUnlock()
 		return
 	}
-	buf := netCore.bufferPool.GetBuffer(packet.Len())
+	buf := netCore.bufferPool.getBuffer(packet.Len())
 	buf.Write(packet.Bytes())
 	gm.mutex.RUnlock()
 

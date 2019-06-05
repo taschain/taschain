@@ -15,7 +15,7 @@
 
 package tvm
 
-var controller *Controller // vm的controller
+var controller *Controller // vm controller
 
 // MaxDepth max depth of running stack
 const MaxDepth int = 8

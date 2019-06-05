@@ -30,12 +30,6 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/12/20 下午2:32
-**  Description:
- */
-
 type RemoteChainOpImpl struct {
 	host string
 	port int
@@ -44,6 +38,7 @@ type RemoteChainOpImpl struct {
 	show bool
 }
 
+// InitRemoteChainOp connect node by ip and port
 func InitRemoteChainOp(ip string, port int, show bool, op accountOp) *RemoteChainOpImpl {
 	ca := &RemoteChainOpImpl{
 		aop:  op,
@@ -53,6 +48,7 @@ func InitRemoteChainOp(ip string, port int, show bool, op accountOp) *RemoteChai
 	return ca
 }
 
+// Connect connect node by ip and port
 func (ca *RemoteChainOpImpl) Connect(ip string, port int) error {
 	if ip == "" {
 		return nil
@@ -111,10 +107,12 @@ func (ca *RemoteChainOpImpl) nonce(addr string) (uint64, error) {
 	return uint64(ret.Data.(float64)), nil
 }
 
+// Endpoint returns current connected ip and port
 func (ca *RemoteChainOpImpl) Endpoint() string {
 	return fmt.Sprintf("%v:%v", ca.host, ca.port)
 }
 
+// SendRaw send transaction to connected node
 func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
@@ -134,31 +132,31 @@ func (ca *RemoteChainOpImpl) SendRaw(tx *txRawData) *Result {
 	nonce, err := ca.nonce(aci.Address)
 	if err != nil {
 		return opError(err)
-	} else {
-		tranx := txRawToTransaction(tx)
-		tranx.Nonce = nonce + 1
-		tx.Nonce = nonce + 1
-		tranx.Hash = tranx.GenHash()
-		sign := privateKey.Sign(tranx.Hash.Bytes())
-		tranx.Sign = sign.Bytes()
-		tx.Sign = sign.Hex()
-		//fmt.Println("info:", aci.Address, aci.Pk, tx.Sign, tranx.Hash.String())
-		//fmt.Printf("%+v\n", tranx)
 	}
+	tranx := txRawToTransaction(tx)
+	tranx.Nonce = nonce + 1
+	tx.Nonce = nonce + 1
+	tranx.Hash = tranx.GenHash()
+	sign := privateKey.Sign(tranx.Hash.Bytes())
+	tranx.Sign = sign.Bytes()
+	tx.Sign = sign.Hex()
+
 	jsonByte, err := json.Marshal(tx)
 	if err != nil {
 		return opError(err)
 	}
 
 	ca.aop.(*AccountManager).resetExpireTime(aci.Address)
-	//此处要签名
+	// Signature is required here
 	return ca.request("tx", string(jsonByte))
 }
 
+// Balance query Balance by address
 func (ca *RemoteChainOpImpl) Balance(addr string) *Result {
 	return ca.request("balance", addr)
 }
 
+// MinerInfo query miner info by address
 func (ca *RemoteChainOpImpl) MinerInfo(addr string) *Result {
 	return ca.request("minerInfo", addr)
 }
@@ -183,6 +181,7 @@ func (ca *RemoteChainOpImpl) BlockByHeight(h uint64) *Result {
 	return ca.request("getBlockByHeight", h)
 }
 
+// ApplyMiner apply miner(mtype is MinerTypeLight or MinerStatusNormal)
 func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
@@ -191,6 +190,9 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 	aci := r.Data.(*Account)
 	if aci.Miner == nil {
 		return opError(fmt.Errorf("the current account is not a miner account"))
+	}
+	if stake == 0 {
+		return opError(errors.New("stake value must > 0"))
 	}
 	source := common.HexToAddress(aci.Address)
 	var bpk groupsig.Pubkey
@@ -226,6 +228,7 @@ func (ca *RemoteChainOpImpl) ApplyMiner(mtype int, stake uint64, gas, gasprice u
 	return ca.SendRaw(tx)
 }
 
+// AbortMiner send stop mining transaction
 func (ca *RemoteChainOpImpl) AbortMiner(mtype int, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
@@ -246,6 +249,7 @@ func (ca *RemoteChainOpImpl) AbortMiner(mtype int, gas, gasprice uint64) *Result
 	return ca.SendRaw(tx)
 }
 
+// RefundMiner send refund transaction. After the group is dissolved, the money will be refunded
 func (ca *RemoteChainOpImpl) RefundMiner(mtype int, addrStr string, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
@@ -270,6 +274,7 @@ func (ca *RemoteChainOpImpl) RefundMiner(mtype int, addrStr string, gas, gaspric
 	return ca.SendRaw(tx)
 }
 
+// MinerStake send stake transaction
 func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, stakeValue, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {
@@ -296,6 +301,7 @@ func (ca *RemoteChainOpImpl) MinerStake(mtype int, addrStr string, stakeValue, g
 	return ca.SendRaw(tx)
 }
 
+// MinerStake send cancel stake transaction
 func (ca *RemoteChainOpImpl) MinerCancelStake(mtype int, addrStr string, cancelValue, gas, gasprice uint64) *Result {
 	r := ca.aop.AccountInfo()
 	if !r.IsSuccess() {

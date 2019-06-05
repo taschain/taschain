@@ -24,6 +24,7 @@ import (
 	"github.com/taschain/taschain/storage/vm"
 )
 
+// BonusManager manage the bonus transactions
 type BonusManager struct {
 	lock sync.RWMutex
 }
@@ -46,18 +47,17 @@ func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.
 	return transaction
 }
 
+// GenerateBonus generate the bonus transaction for the group who just validate a block
 func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, groupID []byte, totalValue uint64) (*types.Bonus, *types.Transaction) {
 	group := GroupChainImpl.getGroupByID(groupID)
 	buffer := &bytes.Buffer{}
 	buffer.Write(groupID)
-	//Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupID).GetHexString())
 	if len(targetIds) == 0 {
 		panic("GenerateBonus targetIds size 0")
 	}
 	for i := 0; i < len(targetIds); i++ {
 		index := targetIds[i]
 		buffer.Write(group.Members[index])
-		//Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].ID).GetHexString())
 	}
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()
@@ -72,6 +72,7 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	return &types.Bonus{TxHash: transaction.Hash, TargetIds: targetIds, BlockHash: blockHash, GroupID: groupID, TotalValue: totalValue}, transaction
 }
 
+// ParseBonusTransaction parse a bonus transaction and  returns the group id, group menbers, block hash and transcation value
 func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([]byte, [][]byte, common.Hash, uint64) {
 	reader := bytes.NewReader(transaction.ExtraData)
 	groupID := make([]byte, common.GroupIDLength)
@@ -83,7 +84,6 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([
 	for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 		if n != common.AddressLength {
 			Logger.Debugf("ParseBonusTransaction Addr Size:%d Invalid", n)
-			//panic("ParseBonusTransaction Read Address Fail")
 			break
 		}
 		ids = append(ids, addr)

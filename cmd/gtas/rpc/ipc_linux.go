@@ -13,36 +13,31 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package base
+package rpc
 
 import (
-	"github.com/taschain/taschain/common"
-	"hash"
-
-	"golang.org/x/crypto/sha3"
+	"context"
+	"net"
+	"os"
+	"path/filepath"
 )
 
-// HashBytes generate a SHA3_256 bit hash of a multidimensional byte array
-func HashBytes(b ...[]byte) hash.Hash {
-	d := sha3.New256()
-	for _, bi := range b {
-		d.Write(bi)
+// ipcListen will create a Unix socket on the given endpoint.
+func ipcListen(endpoint string) (net.Listener, error) {
+	// Ensure the IPC path exists and remove any previous leftover
+	if err := os.MkdirAll(filepath.Dir(endpoint), 0751); err != nil {
+		return nil, err
 	}
-	return d
+	os.Remove(endpoint)
+	l, err := net.Listen("unix", endpoint)
+	if err != nil {
+		return nil, err
+	}
+	os.Chmod(endpoint, 0600)
+	return l, nil
 }
 
-// Data2CommonHash Generate 256-bit common.Hash of data
-func Data2CommonHash(data []byte) common.Hash {
-	var h common.Hash
-	sha3Hash := sha3.Sum256(data)
-	if len(sha3Hash) == common.HashLength {
-		copy(h[:], sha3Hash[:])
-	} else {
-		panic("Data2Hash failed, size error.")
-	}
-	return h
-}
-
-func String2CommonHash(s string) common.Hash {
-	return Data2CommonHash([]byte(s))
+// newIPCConnection will connect to a Unix socket on the given endpoint.
+func newIPCConnection(ctx context.Context, endpoint string) (net.Conn, error) {
+	return dialContext(ctx, "unix", endpoint)
 }

@@ -25,18 +25,13 @@ import (
 	"sync"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/11 上午11:19
-**  Description:
- */
-
+// GroupCreateChecker is responsible for legality verification
 type GroupCreateChecker struct {
 	processor      *Processor
 	access         *MinerPoolReader
-	createdHeights [50]uint64 // 标识该建组高度是否已经创建过组了
+	createdHeights [50]uint64 // Identifies whether the group height has already been created
 	curr           int
-	lock           sync.RWMutex // CreateHeightGroups的互斥锁，防止重复写入
+	lock           sync.RWMutex // CreateHeightGroups mutex to prevent repeated writes
 }
 
 func newGroupCreateChecker(proc *Processor) *GroupCreateChecker {
@@ -68,7 +63,7 @@ func (gchecker *GroupCreateChecker) addHeightCreated(h uint64) {
 	gchecker.curr = (gchecker.curr + 1) % len(gchecker.createdHeights)
 }
 
-//只要选择一半人就行了。每个人的权重按顺序递减
+// selectKing just choose half of the people. Each person's weight is decremented in order
 func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *StaticGroupInfo) (kings []groupsig.ID, isKing bool) {
 	num := int(math.Ceil(float64(group.GetMemberCount() / 2)))
 	if num < 1 {
@@ -107,6 +102,7 @@ func (gchecker *GroupCreateChecker) availableGroupsAt(h uint64) []*types.Group {
 	return gs
 }
 
+// selectCandidates randomly select a sufficient number of miners from the miners' pool as new group candidates
 func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (enough bool, cands []groupsig.ID) {
 	min := model.Param.CreateGroupMinCandidates()
 	blog := newBizLog("selectCandidates")

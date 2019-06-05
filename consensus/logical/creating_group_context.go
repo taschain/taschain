@@ -25,40 +25,36 @@ import (
 	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/6/25 下午12:14
-**  Description:
- */
-
+// status enum of the CreatingGroupContext
 const (
-	waitingPong = 1
-	waitingSign = 2
-	sendInit    = 3
+	waitingPong = 1 // waitingPong indicates the context is waiting for pong response from nodes
+	waitingSign = 2 // waitingSign indicates the context is waiting for the group signature for the group-creating proposal
+	sendInit    = 3 // sendInit indicates the context has send group init message to the members who make up the new group
 )
 
 type createGroupBaseContext struct {
-	parentInfo *StaticGroupInfo
-	baseBH     *types.BlockHeader
-	baseGroup  *types.Group
-	candidates []groupsig.ID
+	parentInfo *StaticGroupInfo   // the parent group info
+	baseBH     *types.BlockHeader // the blockHeader the group-create routine based on
+	baseGroup  *types.Group       // the last group of the groupchain
+	candidates []groupsig.ID      // the legal candidates
 }
 
+// CreatingGroupContext stores the context info when parent group starting group-create routine
 type CreatingGroupContext struct {
 	createGroupBaseContext
 
-	gSignGenerator *model.GroupSignGenerator
+	gSignGenerator *model.GroupSignGenerator // group signature generator
 
-	kings           []groupsig.ID
-	pingID          string
-	createTime      time.Time
-	createTopHeight uint64
+	kings           []groupsig.ID // kings selected randomly from the parent group who responsible for node pings and new group proposal
+	pingID          string        // identify one ping process
+	createTime      time.Time     // create time for the context, used to make local timeout judgments
+	createTopHeight uint64        // the blockchain height when starting the group-create routine
 
-	gInfo   *model.ConsensusGroupInitInfo
-	pongMap map[string]byte
-	memMask []byte
-	status  int8
-	bKing   bool
+	gInfo   *model.ConsensusGroupInitInfo // new group info generated during the routine and will be sent to the new-group members for consensus
+	pongMap map[string]byte               // pong response received from candidates
+	memMask []byte                        // each non-zero bit indicates that the candidate at the subscript replied to the ping message and will become a full member of the new-group
+	status  int8                          // the context status
+	bKing   bool                          // whether the current node is one of the kings
 	lock    sync.RWMutex
 }
 
@@ -75,8 +71,6 @@ func newCreateGroupContext(baseCtx *createGroupBaseContext, kings []groupsig.ID,
 	pingIDBytes := baseCtx.baseBH.Hash.Bytes()
 	pingIDBytes = append(pingIDBytes, baseCtx.baseGroup.ID...)
 	cg := &CreatingGroupContext{
-		//gInfo: gInfo,
-		//createGroup:    creator,
 		createGroupBaseContext: *baseCtx,
 		kings:                  kings,
 		status:                 waitingPong,

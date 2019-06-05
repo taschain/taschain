@@ -33,20 +33,6 @@ var (
 	stdFile = "./stack.log"
 )
 
-func SetupStackTrap(args ...string) {
-	//if len(args) > 0 {
-	//	stdFile = args[0]
-	//}
-	//
-	//c := make(chan os.Signal, 1)
-	//signal.Notify(c, syscall.SIGUSR1)
-	//go func() {
-	//	for range c {
-	//		dumpStacks()
-	//	}
-	//}()
-}
-
 func dumpStacks() {
 	buf := make([]byte, 1638400)
 	buf = buf[:runtime.Stack(buf, true)]
