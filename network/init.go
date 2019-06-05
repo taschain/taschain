@@ -13,6 +13,11 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+
+
+// Package network module implements p2p network, It uses a Kademlia-like protocol to maintain and discover Nodes.
+// network transfer protocol use  KCP, a open source RUDP implementation,it provide NAT Traversal ability,let nodes
+// under NAT can be connecting with other.
 package network
 
 import (
@@ -49,7 +54,7 @@ var net *Server
 
 var Logger taslog.Logger
 
-//initialize network instance,register message handler,join p2p network
+// Init initialize network instance,register message handler,join p2p network
 func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig NetworkConfig) (err error) {
 	index := common.GlobalConf.GetString("instance", "index", "")
 	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, index)

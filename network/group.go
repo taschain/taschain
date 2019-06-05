@@ -26,14 +26,14 @@ import (
 
 const GroupBaseConnectNodeCount = 2
 
-// Group represents a group object
+// Group network is Ring topology network with several accelerate links,to implement group broadcast
 type Group struct {
 	id               string
 	members          []NodeID
-	needConnectNodes []NodeID
+	needConnectNodes []NodeID	// the nodes group network need connect
 	mutex            sync.Mutex
-	resolvingNodes   map[NodeID]time.Time
-	curIndex         int
+	resolvingNodes   map[NodeID]time.Time //nodes is finding in kad
+	curIndex         int		//current node index of this group
 }
 
 func (g *Group) Len() int {
@@ -69,6 +69,9 @@ func (g *Group) rebuildGroup(members []NodeID) {
 	go g.doRefresh()
 }
 
+// genConnectNodes Generate the nodes group work need to connect
+// at first sort group members,get current node index in this group,then add next two nodes to connect list
+// then calculate accelerate link nodes,add to connect list
 func (g *Group) genConnectNodes() {
 
 	sort.Sort(g)
@@ -129,6 +132,7 @@ func (g *Group) getNextIndex(index int) int {
 	return index
 }
 
+// doRefresh Check all nodes need to connect is connecting，if not then connect that node
 func (g *Group) doRefresh() {
 
 	g.mutex.Lock()

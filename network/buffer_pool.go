@@ -21,11 +21,12 @@ import (
 	"sync"
 )
 
+// BufferPoolItem  maintain the buffers of this size
 type BufferPoolItem struct {
 	buffers *list.List
-	size    int
-	max     int
-	inuse   int
+	size    int		//buffer size
+	max     int		//max count of cache buffer
+	inuse   int		//buffer count in use
 }
 
 func newBufferPoolItem(size int, max int) *BufferPoolItem {
@@ -60,6 +61,8 @@ func (poolItem *BufferPoolItem) freeBuffer(buf *bytes.Buffer) {
 	poolItem.inuse--
 }
 
+// BufferPool Cache the buffers used to send and recv data,
+// reduce alloc and free times of memory to improve performance
 type BufferPool struct {
 	items [5]*BufferPoolItem // The key is the network ID
 	mutex sync.RWMutex
@@ -85,7 +88,8 @@ func (pool *BufferPool) init() {
 	pool.items[4] = newBufferPoolItem(1024*1024*1.5, 32)
 }
 
-func (pool *BufferPool) GetPoolItem(size int) *BufferPoolItem {
+// getPoolItem find pool item of this size,if can't found return nil
+func (pool *BufferPool) getPoolItem(size int) *BufferPoolItem {
 
 	for i := 0; i < len(pool.items); i++ {
 		if pool.items[i].size >= size {
@@ -102,10 +106,11 @@ func (pool *BufferPool) Print() {
 	}
 }
 
+// getBuffer get a buffer of this size from pool, if buffers is run out make a new one
 func (pool *BufferPool) getBuffer(size int) *bytes.Buffer {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
-	poolItem := pool.GetPoolItem(size)
+	poolItem := pool.getPoolItem(size)
 	if poolItem != nil {
 		buf := poolItem.getBuffer()
 		return buf
@@ -114,11 +119,12 @@ func (pool *BufferPool) getBuffer(size int) *bytes.Buffer {
 	return new(bytes.Buffer)
 }
 
+//freeBuffer return buffer to pool,if pool if full then free this buffer,if not add to cache
 func (pool *BufferPool) freeBuffer(buf *bytes.Buffer) {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 
-	poolItem := pool.GetPoolItem(buf.Cap())
+	poolItem := pool.getPoolItem(buf.Cap())
 	if poolItem != nil {
 		poolItem.freeBuffer(buf)
 	}
