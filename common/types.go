@@ -21,11 +21,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/taschain/taschain/common/secp256k1"
-	"github.com/taschain/taschain/taslog"
 	"math/big"
 	"math/rand"
 	"reflect"
+
+	"github.com/taschain/taschain/common/secp256k1"
+	"github.com/taschain/taschain/taslog"
 )
 
 const PREFIX = "0x"
@@ -77,7 +78,7 @@ func BytesToAddress(b []byte) Address {
 func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
 
 // HexToAddress returns the address of the input string assignment
-func HexToAddress(s string) Address   { return BytesToAddress(FromHex(s)) }
+func HexToAddress(s string) Address { return BytesToAddress(FromHex(s)) }
 
 // SetBytes returns the address of the input byte array assignment
 func (a *Address) SetBytes(b []byte) {
@@ -113,16 +114,16 @@ func (a *Address) UnmarshalJSON(input []byte) error {
 }
 
 // Hex returns the hex string representation of a
-func (a Address) Hex() string          { return ToHex(a[:]) }
+func (a Address) Hex() string { return ToHex(a[:]) }
 
 // Bytes returns the byte array representation of a
-func (a Address) Bytes() []byte        { return a[:] }
+func (a Address) Bytes() []byte { return a[:] }
 
 // BigInteger returns the big integer representation of a
 func (a Address) BigInteger() *big.Int { return new(big.Int).SetBytes(a[:]) }
 
 // Hash converts a to hash
-func (a Address) Hash() Hash           { return BytesToHash(a[:]) }
+func (a Address) Hash() Hash { return BytesToHash(a[:]) }
 
 // IsValid checks the validity of a
 func (a Address) IsValid() bool {

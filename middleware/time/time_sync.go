@@ -17,9 +17,10 @@ package time
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
 	"math/rand"
 	"time"
+
+	"github.com/taschain/taschain/common"
 
 	"github.com/beevik/ntp"
 	"github.com/taschain/taschain/middleware/ticker"

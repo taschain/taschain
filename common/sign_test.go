@@ -129,7 +129,6 @@ func TestSignBytes(test *testing.T) {
 	sha3_hash := sha3.Sum256(buf)
 	sign := pri_k.Sign(sha3_hash[:])
 
-
 	h := sign.Hex()
 	fmt.Println(h)
 

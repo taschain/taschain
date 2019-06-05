@@ -55,7 +55,7 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	buffer := &bytes.Buffer{}
 	buffer.Write(groupID)
 	if len(targetIds) == 0 {
-		return nil, nil,errors.New("GenerateBonus targetIds size 0")
+		return nil, nil, errors.New("GenerateBonus targetIds size 0")
 	}
 	for i := 0; i < len(targetIds); i++ {
 		index := targetIds[i]
@@ -65,7 +65,7 @@ func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, 
 	transaction.Data = blockHash.Bytes()
 	transaction.ExtraData = buffer.Bytes()
 	if len(buffer.Bytes())%common.AddressLength != 0 {
-		return nil, nil,errors.New("GenerateBonus ExtraData Size Invalid")
+		return nil, nil, errors.New("GenerateBonus ExtraData Size Invalid")
 	}
 	transaction.Value = totalValue / uint64(len(targetIds))
 	transaction.Type = types.TransactionTypeBonus
@@ -80,7 +80,7 @@ func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([
 	groupID := make([]byte, common.GroupIDLength)
 	addr := make([]byte, common.AddressLength)
 	if n, _ := reader.Read(groupID); n != common.GroupIDLength {
-		return nil,nil,common.Hash{},0,errors.New("ParseBonusTransaction Read GroupID Fail")
+		return nil, nil, common.Hash{}, 0, errors.New("ParseBonusTransaction Read GroupID Fail")
 	}
 	ids := make([][]byte, 0)
 	for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
