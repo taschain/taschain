@@ -17,15 +17,16 @@ package logical
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"strings"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	time2 "github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
-	"io/ioutil"
-	"strings"
-	"time"
 )
 
 // GenesisDefaultGroupInfo represent for the basic info of the genesis group

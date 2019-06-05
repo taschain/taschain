@@ -16,11 +16,12 @@
 package cli
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/middleware/types"
-	"math/big"
-	"time"
 )
 
 // Result is rpc request successfully returns the variable parameter

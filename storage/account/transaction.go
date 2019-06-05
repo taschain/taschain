@@ -16,8 +16,9 @@
 package account
 
 import (
-	"github.com/taschain/taschain/common"
 	"math/big"
+
+	"github.com/taschain/taschain/common"
 )
 
 type transitionEntry interface {

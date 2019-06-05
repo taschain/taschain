@@ -18,12 +18,13 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"math"
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/account"
 	"github.com/taschain/taschain/storage/vm"
-	"math"
-	"math/big"
 )
 
 // Height of chain

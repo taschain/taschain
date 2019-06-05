@@ -268,14 +268,17 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/taschain/taschain/common"
 	"strings"
 	"unsafe"
+
+	"github.com/taschain/taschain/common"
+
 	//"middleware/types"
 	"bytes"
+	"strconv"
+
 	types "github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/vm"
-	"strconv"
 )
 
 type CallTask struct {

@@ -16,15 +16,16 @@
 package core
 
 import (
+	"math/big"
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	time2 "github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/vmihailenco/msgpack"
-	"math/big"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 func genTx(source string, target string) *types.Transaction {

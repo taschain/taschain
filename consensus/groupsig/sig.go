@@ -18,12 +18,13 @@ package groupsig
 import (
 	"bytes"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/base"
-	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 	"log"
 	"math/big"
 	"sort"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/base"
+	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 )
 
 type Signature struct {

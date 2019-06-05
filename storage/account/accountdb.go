@@ -21,11 +21,12 @@ import (
 	"sort"
 	"sync"
 
+	"unsafe"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/storage/serialize"
 	"github.com/taschain/taschain/storage/trie"
 	"golang.org/x/crypto/sha3"
-	"unsafe"
 )
 
 type revision struct {

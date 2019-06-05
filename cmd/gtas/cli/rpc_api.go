@@ -19,6 +19,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
+	"math"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/mediator"
@@ -28,11 +34,6 @@ import (
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/taslog"
 	"github.com/vmihailenco/msgpack"
-	"log"
-	"math"
-	"math/big"
-	"strconv"
-	"time"
 )
 
 var BonusLogger taslog.Logger

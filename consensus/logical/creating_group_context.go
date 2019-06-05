@@ -17,12 +17,13 @@ package logical
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
-	"sync"
-	"time"
 )
 
 // status enum of the CreatingGroupContext

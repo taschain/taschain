@@ -17,12 +17,13 @@ package logical
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/consensus/net"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/monitor"
-	"strings"
 )
 
 // triggerCastCheck trigger once to check if you are next ingot group

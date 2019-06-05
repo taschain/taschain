@@ -21,9 +21,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/storage/rlp"
-	"github.com/taschain/taschain/storage/tasdb"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -31,6 +28,10 @@ import (
 	"reflect"
 	"testing"
 	"testing/quick"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/storage/rlp"
+	"github.com/taschain/taschain/storage/tasdb"
 )
 
 // Used for testing

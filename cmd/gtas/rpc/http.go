@@ -29,9 +29,10 @@ import (
 	"sync"
 	"time"
 
+	"strings"
+
 	"github.com/rs/cors"
 	"github.com/taschain/taschain/asset"
-	"strings"
 )
 
 const (

@@ -18,13 +18,14 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/core"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/ticker"
 	"github.com/taschain/taschain/middleware/types"
-	"io"
-	"os"
 )
 
 type applyFunc func()

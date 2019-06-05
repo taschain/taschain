@@ -19,6 +19,9 @@ import (
 	"github.com/taschain/taschain/consensus/groupsig"
 
 	"fmt"
+	"strings"
+	"sync/atomic"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/consensus/net"
@@ -27,8 +30,6 @@ import (
 	"github.com/taschain/taschain/middleware/ticker"
 	"github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
-	"strings"
-	"sync/atomic"
 )
 
 var ProcTestMode bool

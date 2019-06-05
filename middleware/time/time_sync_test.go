@@ -18,9 +18,10 @@ package time
 import "testing"
 import (
 	"fmt"
+	"time"
+
 	"github.com/beevik/ntp"
 	"github.com/taschain/taschain/common"
-	"time"
 )
 
 /*

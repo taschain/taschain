@@ -17,10 +17,11 @@ package ticker
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/taslog"
 	"sync"
 	"testing"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/taslog"
 )
 
 func TestGlobalTicker_RegisterRoutine(t *testing.T) {

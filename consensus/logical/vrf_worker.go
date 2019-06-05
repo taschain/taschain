@@ -18,13 +18,14 @@ package logical
 import (
 	"errors"
 	"fmt"
+	"math"
+	"math/big"
+	"sync/atomic"
+
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
-	"math"
-	"math/big"
-	"sync/atomic"
 )
 
 const (

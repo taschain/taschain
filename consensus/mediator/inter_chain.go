@@ -17,14 +17,15 @@ package mediator
 
 import (
 	"fmt"
+	"math"
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/logical"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
-	"math"
-	"math/big"
 )
 
 // ConsensusHelperImpl is consensus module provides external data

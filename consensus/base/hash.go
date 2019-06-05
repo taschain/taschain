@@ -16,8 +16,9 @@
 package base
 
 import (
-	"github.com/taschain/taschain/common"
 	"hash"
+
+	"github.com/taschain/taschain/common"
 
 	"golang.org/x/crypto/sha3"
 )

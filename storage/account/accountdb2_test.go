@@ -16,10 +16,11 @@
 package account
 
 import (
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/storage/tasdb"
 	"math/big"
 	"testing"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/storage/tasdb"
 )
 
 func TestAccountDB_AddBalance(t *testing.T) {

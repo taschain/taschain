@@ -17,12 +17,15 @@ package groupsig
 
 import (
 	"fmt"
+
 	"github.com/taschain/taschain/common"
+
 	//"fmt"
 	"bytes"
+	"log"
+
 	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 	"golang.org/x/crypto/sha3"
-	"log"
 )
 
 // Pubkey is the user's public key, based BN Curve

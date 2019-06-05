@@ -17,14 +17,15 @@ package net
 
 import (
 	"fmt"
-	"github.com/hashicorp/golang-lru"
+	"sync"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/ticker"
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/taslog"
-	"sync"
-	"time"
 )
 
 type stateHandleFunc func(msg interface{})

@@ -17,12 +17,13 @@ package logical
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/monitor"
-	"strings"
 )
 
 // selectParentGroup determine the parent group randomly and the result is deterministic because of the base BlockHeader

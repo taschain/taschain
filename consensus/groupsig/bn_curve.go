@@ -17,9 +17,10 @@ package groupsig
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig/bncurve"
-	"math/big"
 )
 
 const PREFIX = "0x"

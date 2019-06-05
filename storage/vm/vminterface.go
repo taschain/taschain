@@ -16,10 +16,11 @@
 package vm
 
 import (
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/trie"
-	"math/big"
 )
 
 type AccountDB interface {

@@ -19,8 +19,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/storage/tasdb"
 	"math"
 	"math/big"
 	"math/rand"
@@ -28,6 +26,9 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/storage/tasdb"
 )
 
 func TestUpdateLeaks(t *testing.T) {

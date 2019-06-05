@@ -17,11 +17,12 @@ package network
 
 import (
 	"errors"
-	"github.com/taschain/taschain/common"
 	"math/rand"
 	nnet "net"
 	"strconv"
 	"time"
+
+	"github.com/taschain/taschain/common"
 )
 
 const (

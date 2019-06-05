@@ -18,16 +18,23 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/core"
 	"github.com/taschain/taschain/network"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"os"
 
 	"github.com/taschain/taschain/consensus/mediator"
 	chandler "github.com/taschain/taschain/consensus/net"
 
 	"encoding/json"
+	"net/http"
+	_ "net/http/pprof"
+	"runtime"
+	"runtime/debug"
+	"strconv"
+
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware"
@@ -35,11 +42,6 @@ import (
 	"github.com/taschain/taschain/monitor"
 	"github.com/taschain/taschain/taslog"
 	"github.com/vmihailenco/msgpack"
-	"net/http"
-	_ "net/http/pprof"
-	"runtime"
-	"runtime/debug"
-	"strconv"
 )
 
 const (

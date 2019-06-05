@@ -18,10 +18,11 @@ package common
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"io"
+
 	"github.com/taschain/taschain/common/ecies"
 	"github.com/taschain/taschain/common/secp256k1"
 	"golang.org/x/crypto/sha3"
-	"io"
 )
 
 //Data struct of the public key

@@ -18,10 +18,11 @@ package trie
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/storage/tasdb"
 	"io"
 	"sync"
 	"time"
+
+	"github.com/taschain/taschain/storage/tasdb"
 
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/storage/rlp"

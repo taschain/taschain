@@ -19,12 +19,13 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/model"
-	"github.com/taschain/taschain/storage/tasdb"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/model"
+	"github.com/taschain/taschain/storage/tasdb"
 )
 
 const accountUnLockTime = time.Second * 120

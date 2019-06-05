@@ -17,10 +17,11 @@ package net
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/network"
 	"log"
 	"runtime/debug"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/network"
 )
 
 type ConsensusHandler struct {

@@ -29,9 +29,10 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/sha512"
 	"errors"
-	"github.com/taschain/taschain/common/ed25519/edwards25519"
 	"io"
 	"strconv"
+
+	"github.com/taschain/taschain/common/ed25519/edwards25519"
 )
 
 const (

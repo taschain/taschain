@@ -19,8 +19,9 @@ import (
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/taslog"
 
-	"github.com/taschain/taschain/middleware/statistics"
 	nnet "net"
+
+	"github.com/taschain/taschain/middleware/statistics"
 )
 
 const (

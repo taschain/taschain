@@ -16,10 +16,11 @@
 package net
 
 import (
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/taslog"
 	"log"
 	"testing"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/taslog"
 )
 
 type testMachineGenerator struct {

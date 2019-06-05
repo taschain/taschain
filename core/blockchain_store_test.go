@@ -17,8 +17,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
 	"testing"
+
+	"github.com/taschain/taschain/common"
 )
 
 func TestFullBlockChain_HasBlock(t *testing.T) {

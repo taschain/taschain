@@ -17,13 +17,14 @@ package logical
 
 import (
 	"fmt"
+	"math/big"
+	"sync"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/core"
 	"github.com/taschain/taschain/middleware/types"
-	"math/big"
-	"sync"
 )
 
 // StaticGroupInfo is static group structure (joined to GlobalGroups after

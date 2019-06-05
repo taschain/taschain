@@ -16,8 +16,9 @@
 package core
 
 import (
-	"github.com/taschain/taschain/middleware/types"
 	"testing"
+
+	"github.com/taschain/taschain/middleware/types"
 )
 
 func TestCalTree(t *testing.T) {

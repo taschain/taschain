@@ -17,12 +17,13 @@ package monitor
 
 import (
 	"fmt"
-	"github.com/codeskyblue/go-sh"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/codeskyblue/go-sh"
 )
 
 var spaceRe, _ = regexp.Compile("\\s+")
