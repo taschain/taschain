@@ -87,7 +87,7 @@ type castBlockContexts struct {
 func newCastBlockContexts(chain core.BlockChain) *castBlockContexts {
 	return &castBlockContexts{
 		proposed:        common.MustNewLRUCache(20),
-		heightVctxs:     common.MustNewLRUCacheWithEvitCB(20, heightVctxEvitCallback),
+		heightVctxs:     common.MustNewLRUCacheWithEvictCB(20, heightVctxEvitCallback),
 		hashVctxs:       common.MustNewLRUCache(200),
 		reservedVctx:    common.MustNewLRUCache(100),
 		verifyMsgCaches: common.MustNewLRUCache(200),

@@ -13,6 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package common provides common data structures and common utility functions.
 package common
 
 import (
@@ -20,30 +21,29 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/taschain/taschain/common/secp256k1"
+	"github.com/taschain/taschain/taslog"
 	"math/big"
 	"math/rand"
 	"reflect"
-
-	"github.com/taschain/taschain/common/secp256k1"
-	"github.com/taschain/taschain/taslog"
-	"github.com/taschain/taschain/utility"
 )
 
 const PREFIX = "0x"
 
+// getDefaultCurve returns the default elliptic curve
 func getDefaultCurve() elliptic.Curve {
 	return secp256k1.S256()
 }
 
 const (
-	//默认曲线相关参数开始：
-	PubKeyLength = 65 //公钥字节长度，1 bytes curve, 64 bytes x,y。
-	SecKeyLength = 97 //私钥字节长度，65 bytes pub, 32 bytes D。
-	SignLength   = 65 //签名字节长度，32 bytes r & 32 bytes s & 1 byte recid.
-	//默认曲线相关参数结束。
-	AddressLength = 32 //地址字节长度(TAS, golang.SHA3，256位)
-	HashLength    = 32 //哈希字节长度(golang.SHA3, 256位)。to do : 考虑废弃，直接使用golang的hash.Hash，直接为SHA3_256位，类型一样。
-	GroupIDLength = 32
+	//Elliptic curve parameters：
+	PubKeyLength = 65 //Length of public key，1 bytes curve, 64 bytes x,y。
+	SecKeyLength = 97 //length of private key，65 bytes pub, 32 bytes D。
+	SignLength   = 65 //length of signature，32 bytes r & 32 bytes s & 1 byte recid.
+
+	AddressLength = 32 //Length of Address( golang.SHA3，256-bit)
+	HashLength    = 32 //Length of Hash (golang.SHA3, 256-bit)。
+	GroupIDLength = 32 //Length of GroupID
 )
 
 var DefaultLogger taslog.Logger
@@ -58,23 +58,28 @@ var (
 	MinerStakeDetailDBAddress = BigToAddress(big.NewInt(4))
 )
 
+// Address data struct
 type Address [AddressLength]byte
 
+// MarshalJSON encodes the address as byte array with json format
 func (a Address) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + a.Hex() + "\""), nil
 }
 
-//构造函数族
+// BytesToAddress returns the Address imported from the input byte array
 func BytesToAddress(b []byte) Address {
 	var a Address
 	a.SetBytes(b)
 	return a
 }
 
+// BigToAddress returns the address of the input big integer assignment
 func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
+
+// HexToAddress returns the address of the input string assignment
 func HexToAddress(s string) Address   { return BytesToAddress(FromHex(s)) }
 
-//赋值函数，如b超出a的容量则截取后半部分
+// SetBytes returns the address of the input byte array assignment
 func (a *Address) SetBytes(b []byte) {
 	if len(b) > len(a) {
 		b = b[len(b)-AddressLength:]
@@ -82,82 +87,55 @@ func (a *Address) SetBytes(b []byte) {
 	copy(a[:], b[:])
 }
 
+// SetString returns the address of the input hex string assignment
 func (a *Address) SetString(s string) {
 	a.SetBytes(FromHex(s))
 }
 
+// Set sets other to a
 func (a *Address) Set(other Address) {
 	copy(a[:], other[:])
 }
 
 // MarshalText returns the hex representation of a.
-//把地址编码成十六进制字符串
 func (a Address) MarshalText() ([]byte, error) {
-	return utility.Bytes(a[:]).MarshalText()
+	return Bytes(a[:]).MarshalText()
 }
 
-// UnmarshalText parses a hash in hex syntax.
-//把十六进制字符串解码成地址
+// UnmarshalText parses an address in hex syntax.
 func (a *Address) UnmarshalText(input []byte) error {
-	return utility.UnmarshalFixedText("Address", input, a[:])
+	return UnmarshalFixedText("Address", input, a[:])
 }
 
-// UnmarshalJSON parses a hash in hex syntax.
-//把十六进制JSONG格式字符串解码成地址
+// UnmarshalJSON parses an address in hex syntax with json format.
 func (a *Address) UnmarshalJSON(input []byte) error {
-	return utility.UnmarshalFixedJSON(addressT, input, a[:])
+	return UnmarshalFixedJSON(addressT, input, a[:])
 }
 
-//判断一个字符串是否能转成TAS地址格式
-//支持三种类型的字符串，"0xFA10..."，"0XFA10..."和"FA10..."
-func IsHexAddress(s string) bool {
-	if len(s) == 2+2*AddressLength && IsHex(s) {
-		return true
-	}
-	if len(s) == 2*AddressLength && IsHex("0x"+s) {
-		return true
-	}
-	return false
-}
-
-//类型转换输出函数
+// Hex returns the hex string representation of a
 func (a Address) Hex() string          { return ToHex(a[:]) }
+
+// Bytes returns the byte array representation of a
 func (a Address) Bytes() []byte        { return a[:] }
+
+// BigInteger returns the big integer representation of a
 func (a Address) BigInteger() *big.Int { return new(big.Int).SetBytes(a[:]) }
+
+// Hash converts a to hash
 func (a Address) Hash() Hash           { return BytesToHash(a[:]) }
 
+// IsValid checks the validity of a
 func (a Address) IsValid() bool {
 	return len(a.Bytes()) > 0
 }
 
-/*
-// Format implements fmt.Formatter, forcing the byte slice to be formatted as is,
-// without going through the stringer interface used for logging.
-func (a Address) Format(s fmt.State, c rune) {
-	fmt.Fprintf(s, "%"+string(c), a[:])
-}
-
-// UnprefixedHash allows marshaling an Address without 0x prefix.
-type UnprefixedAddress Address //无前缀地址
-
-// UnmarshalText decodes the address from hex. The 0x prefix is optional.
-//把十六进制字节数组解码成无前缀地址
-func (a *UnprefixedAddress) UnmarshalText(input []byte) error {
-	return utility.UnmarshalFixedUnprefixedText("UnprefixedAddress", input, a[:])
-}
-
-// MarshalText encodes the address as hex.
-//把无前缀地址编码成十六进制字节数组
-func (a UnprefixedAddress) MarshalText() ([]byte, error) {
-	return []byte(hex.EncodeToString(a[:])), nil
-}
-*/
 ///////////////////////////////////////////////////////////////////////////////
-//256位哈希
+// Hash data struct (256-bits)
 type Hash [HashLength]byte
 
 var EmptyHash = Hash{}
 
+// BytesToHash
 func BytesToHash(b []byte) Hash {
 	var h Hash
 	h.SetBytes(b)
@@ -194,41 +172,41 @@ func (h Hash) Format(s fmt.State, c rune) {
 
 // UnmarshalText parses a hash in hex syntax.
 func (h *Hash) UnmarshalText(input []byte) error {
-	return utility.UnmarshalFixedText("Hash", input, h[:])
+	return UnmarshalFixedText("Hash", input, h[:])
 }
 
-// UnmarshalJSON parses a hash in hex syntax.
+// UnmarshalJSON parses a hash in hex syntax with json format.
 func (h *Hash) UnmarshalJSON(input []byte) error {
-	return utility.UnmarshalFixedJSON(hashT, input, h[:])
+	return UnmarshalFixedJSON(hashT, input, h[:])
 }
 
 // MarshalText returns the hex representation of h.
 func (h Hash) MarshalText() ([]byte, error) {
-	return utility.Bytes(h[:]).MarshalText()
+	return Bytes(h[:]).MarshalText()
 }
 
-// Sets the hash to the value of b. If b is larger than len(h), 'b' will be cropped (from the left).
+// SetBytes sets the hash to the value of b. If b is larger than len(h), 'b' will be cropped (from the left).
 func (h *Hash) SetBytes(b []byte) {
 	if len(b) > len(h) {
-		b = b[len(b)-HashLength:] //截取右边部分
+		b = b[len(b)-HashLength:]
 	}
 
 	copy(h[HashLength-len(b):], b)
 }
 
-// Set string `s` to h. If s is larger than len(h) s will be cropped (from left) to fit.
+// SetString sets string `s` to h. If s is larger than len(h) s will be cropped (from left) to fit.
 func (h *Hash) SetString(s string) { h.SetBytes(FromHex(s)) }
 
-// Sets h from other
+// Set sets h from other
 func (h *Hash) Set(other Hash) {
 	copy(h[:], other[:])
 }
 
-// Generate implements testing/quick.Generator.
+// Generate generates implements testing/quick.Generator.
 func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
-	m := rand.Intn(len(h))            //m为0-len(h)之间的伪随机数
-	for i := len(h) - 1; i > m; i-- { //从高位到m之间进行遍历
-		h[i] = byte(rand.Uint32()) //rand.Uint32为32位非负伪随机数
+	m := rand.Intn(len(h))
+	for i := len(h) - 1; i > m; i-- {
+		h[i] = byte(rand.Uint32())
 	}
 	return reflect.ValueOf(h)
 }
@@ -238,7 +216,7 @@ type UnprefixedHash Hash
 
 // UnmarshalText decodes the hash from hex. The 0x prefix is optional.
 func (h *UnprefixedHash) UnmarshalText(input []byte) error {
-	return utility.UnmarshalFixedUnprefixedText("UnprefixedHash", input, h[:])
+	return UnmarshalFixedUnprefixedText("UnprefixedHash", input, h[:])
 }
 
 // MarshalText encodes the hash as hex.
@@ -279,3 +257,11 @@ const (
 	MaxUint32 = 1<<32 - 1
 	MaxUint64 = 1<<64 - 1
 )
+
+var InstanceIndex int
+
+type AccountData struct {
+	sk   []byte //secure key
+	pk   []byte //public key
+	addr []byte //address
+}

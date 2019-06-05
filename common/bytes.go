@@ -56,11 +56,6 @@ func CopyBytes(b []byte) (copiedBytes []byte) {
 	return
 }
 
-func HasHexPrefix(str string) bool {
-	l := len(str)
-	return l >= 2 && str[0:2] == "0x"
-}
-
 // IsHex checks the input string is a hex string
 func IsHex(str string) bool {
 	l := len(str)
@@ -79,53 +74,14 @@ func Hex2Bytes(str string) []byte {
 	return h
 }
 
-func Hex2BytesFixed(str string, flen int) []byte {
-	h, _ := hex.DecodeString(str)
-	if len(h) == flen {
-		return h
-	}
-	if len(h) > flen {
-		return h[len(h)-flen:]
-	}
-	hh := make([]byte, flen)
-	copy(hh[flen-len(h):flen], h[:])
-	return hh
-}
-
-func RightPadBytes(slice []byte, l int) []byte {
-	if l <= len(slice) {
-		return slice
-	}
-
-	padded := make([]byte, l)
-	copy(padded, slice)
-
-	return padded
-}
-
-func LeftPadBytes(slice []byte, l int) []byte {
-	if l <= len(slice) {
-		return slice
-	}
-
-	padded := make([]byte, l)
-	copy(padded[l-len(slice):], slice)
-
-	return padded
-}
-
+// Uint64ToByte converts 64-bits unsigned integer to byte array
 func Uint64ToByte(i uint64) []byte {
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, i)
 	return buf.Bytes()
 }
 
-func UInt32ToByte(i int32) []byte {
-	buf := bytes.NewBuffer([]byte{})
-	binary.Write(buf, binary.BigEndian, i)
-	return buf.Bytes()
-}
-
+// ByteToUint64 converts the byte array to a 64-bits unsigned integer
 func ByteToUint64(bs []byte) uint64 {
 	return binary.BigEndian.Uint64(bs)
 }
