@@ -17,7 +17,8 @@ package common
 
 import (
 	"fmt"
-	"github.com/hashicorp/golang-lru"
+
+	lru "github.com/hashicorp/golang-lru"
 )
 
 /*

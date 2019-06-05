@@ -19,12 +19,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/account"
 	"github.com/taschain/taschain/taslog"
-	"time"
 )
 
 type batchAddBlockCallback func(b *types.Block, ret types.AddBlockResult) bool

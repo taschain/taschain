@@ -17,12 +17,13 @@ package logical
 
 import (
 	"fmt"
+	time2 "time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/monitor"
-	time2 "time"
 )
 
 func (p *Processor) getCastCheckRoutineName() string {

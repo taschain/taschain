@@ -17,11 +17,12 @@ package time
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/beevik/ntp"
 	"github.com/taschain/taschain/middleware/ticker"
 	"github.com/taschain/taschain/utility"
-	"math/rand"
-	"time"
 )
 
 type TimeStamp int64

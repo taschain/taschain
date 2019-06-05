@@ -17,8 +17,9 @@ package core
 
 import (
 	"bytes"
-	"github.com/taschain/taschain/common"
 	"sync"
+
+	"github.com/taschain/taschain/common"
 
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/vm"

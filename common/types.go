@@ -20,12 +20,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/taschain/taschain/common/secp256k1"
-	"github.com/taschain/taschain/taslog"
-	"github.com/taschain/taschain/utility"
 	"math/big"
 	"math/rand"
 	"reflect"
+
+	"github.com/taschain/taschain/common/secp256k1"
+	"github.com/taschain/taschain/taslog"
+	"github.com/taschain/taschain/utility"
 )
 
 const PREFIX = "0x"

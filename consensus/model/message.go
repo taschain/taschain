@@ -18,13 +18,14 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/taslog"
-	"strconv"
-	"time"
 )
 
 var SlowLog taslog.Logger

@@ -115,7 +115,8 @@ import (
 	"unsafe"
 
 	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/middleware/types"
+	types "github.com/taschain/taschain/middleware/types"
+	"github.com/taschain/taschain/storage/vm"
 )
 
 type CallTask struct {

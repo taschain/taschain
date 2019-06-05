@@ -18,11 +18,12 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"io"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/utility"
 	"github.com/vmihailenco/msgpack"
-	"io"
 )
 
 const codecVersion = 1

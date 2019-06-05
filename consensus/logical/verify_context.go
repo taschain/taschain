@@ -17,14 +17,15 @@ package logical
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
 	"gopkg.in/fatih/set.v0"
-	"sync"
-	"sync/atomic"
 )
 
 const (

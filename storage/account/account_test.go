@@ -17,11 +17,12 @@ package account
 
 import (
 	"bytes"
+	"math/big"
+	"testing"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/storage/sha3"
 	"github.com/taschain/taschain/storage/tasdb"
-	"math/big"
-	"testing"
 )
 
 type StateSuite struct {

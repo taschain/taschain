@@ -16,9 +16,10 @@
 package logical
 
 import (
-	"github.com/taschain/taschain/consensus/groupsig"
 	"sync"
 	"time"
+
+	"github.com/taschain/taschain/consensus/groupsig"
 )
 
 type signPKReqRecord struct {

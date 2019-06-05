@@ -16,12 +16,13 @@
 package logical
 
 import (
+	"testing"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
-	"testing"
 )
 
 func genMinerDO() *model.SelfMinerDO {

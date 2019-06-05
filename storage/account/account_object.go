@@ -21,11 +21,12 @@ import (
 	"math/big"
 	"sync"
 
+	"io"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/storage/serialize"
 	"github.com/taschain/taschain/storage/trie"
 	"golang.org/x/crypto/sha3"
-	"io"
 )
 
 var emptyCodeHash = sha3.Sum256(nil)

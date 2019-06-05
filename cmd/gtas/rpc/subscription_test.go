@@ -19,12 +19,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/taslog"
 	"net"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/taslog"
 )
 
 type NotificationTestService struct {

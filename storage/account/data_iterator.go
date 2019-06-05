@@ -16,8 +16,9 @@
 package account
 
 import (
-	"github.com/taschain/taschain/storage/trie"
 	"strings"
+
+	"github.com/taschain/taschain/storage/trie"
 )
 
 type DataIterator struct {

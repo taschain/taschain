@@ -16,14 +16,15 @@
 package logical
 
 import (
-	"github.com/hashicorp/golang-lru"
+	"sync"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/core"
 	time2 "github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
-	"sync"
-	"time"
 )
 
 type castedBlock struct {

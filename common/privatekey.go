@@ -19,11 +19,12 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
-	"github.com/taschain/taschain/common/ecies"
-	"github.com/taschain/taschain/common/secp256k1"
 	"io"
 	"math/big"
 	"strings"
+
+	"github.com/taschain/taschain/common/ecies"
+	"github.com/taschain/taschain/common/secp256k1"
 )
 
 type PrivateKey struct {

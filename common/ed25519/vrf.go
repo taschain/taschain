@@ -20,8 +20,9 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
-	"github.com/taschain/taschain/common/ed25519/edwards25519"
 	"math/big"
+
+	"github.com/taschain/taschain/common/ed25519/edwards25519"
 )
 
 const (

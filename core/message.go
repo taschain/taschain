@@ -17,7 +17,7 @@ package core
 
 import (
 	"github.com/gogo/protobuf/proto"
-	"github.com/taschain/taschain/middleware/pb"
+	tas_middleware_pb "github.com/taschain/taschain/middleware/pb"
 	"github.com/taschain/taschain/middleware/types"
 )
 

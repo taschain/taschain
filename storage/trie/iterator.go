@@ -370,7 +370,3 @@ func compareNodes(a, b NodeIterator) int {
 	}
 	return 0
 }
-
-
-
-

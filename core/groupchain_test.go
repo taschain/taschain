@@ -17,8 +17,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/middleware/types"
 	"testing"
+
+	"github.com/taschain/taschain/middleware/types"
 )
 
 func TestGroupChain_Add(t *testing.T) {

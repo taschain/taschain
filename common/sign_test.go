@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"bytes"
+
 	"golang.org/x/crypto/sha3"
 )
 

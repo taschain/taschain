@@ -17,11 +17,12 @@ package model
 
 import (
 	"bytes"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/middleware/types"
-	"time"
 )
 
 // GroupMinerID is miner ID information

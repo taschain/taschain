@@ -19,7 +19,8 @@ import (
 	"sync"
 
 	"fmt"
-	"github.com/hashicorp/golang-lru"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/storage/tasdb"
 	"github.com/taschain/taschain/storage/trie"

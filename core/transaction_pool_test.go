@@ -17,8 +17,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
 	"testing"
+
+	"github.com/taschain/taschain/common"
 )
 
 func TestCreatePool(t *testing.T) {

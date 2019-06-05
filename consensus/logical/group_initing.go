@@ -16,13 +16,14 @@
 package logical
 
 import (
-	"github.com/hashicorp/golang-lru"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/groupsig"
-	"github.com/taschain/taschain/consensus/model"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/groupsig"
+	"github.com/taschain/taschain/consensus/model"
 )
 
 const (

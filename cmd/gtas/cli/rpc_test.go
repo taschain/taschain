@@ -18,14 +18,15 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/core"
-	"github.com/taschain/taschain/taslog"
 	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/core"
+	"github.com/taschain/taschain/taslog"
 )
 
 func TestRPC(t *testing.T) {

@@ -17,8 +17,10 @@ package core
 
 import (
 	"errors"
-	"github.com/taschain/taschain/utility"
 	"sync"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/taschain/taschain/utility"
 
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
@@ -27,7 +29,6 @@ import (
 	"github.com/taschain/taschain/storage/trie"
 	"github.com/taschain/taschain/storage/vm"
 
-	"github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/middleware/ticker"
 	"github.com/vmihailenco/msgpack"
 )

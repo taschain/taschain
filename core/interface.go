@@ -20,8 +20,9 @@ import (
 	"github.com/taschain/taschain/storage/account"
 	"github.com/taschain/taschain/storage/vm"
 
-	"github.com/taschain/taschain/middleware/types"
 	"math/big"
+
+	"github.com/taschain/taschain/middleware/types"
 )
 
 // BlockChain is a interface, encapsulates some methods for manipulating the blockchain

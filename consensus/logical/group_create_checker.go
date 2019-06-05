@@ -17,12 +17,13 @@ package logical
 
 import (
 	"bytes"
+	"math"
+	"sync"
+
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
-	"math"
-	"sync"
 )
 
 // GroupCreateChecker is responsible for legality verification

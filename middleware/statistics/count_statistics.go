@@ -18,10 +18,11 @@ package statistics
 import (
 	"bytes"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/taslog"
 	"sync"
 	"time"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/taslog"
 )
 
 type countItem struct {

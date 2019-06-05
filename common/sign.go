@@ -17,8 +17,9 @@ package common
 
 import (
 	"encoding/hex"
-	"github.com/taschain/taschain/common/secp256k1"
 	"math/big"
+
+	"github.com/taschain/taschain/common/secp256k1"
 )
 
 //Data struct of signature
