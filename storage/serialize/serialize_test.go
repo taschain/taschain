@@ -17,9 +17,10 @@ package serialize
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
 	"math/big"
 	"testing"
+
+	"github.com/taschain/taschain/common"
 )
 
 type Account struct {

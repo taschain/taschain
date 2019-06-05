@@ -17,6 +17,7 @@ package cli
 
 import (
 	"fmt"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/mediator"

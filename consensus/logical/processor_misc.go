@@ -17,6 +17,7 @@ package logical
 
 import (
 	"fmt"
+
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"

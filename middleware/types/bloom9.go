@@ -17,9 +17,10 @@ package types
 
 import (
 	"fmt"
-	"golang.org/x/crypto/sha3"
 	"math/big"
 	"reflect"
+
+	"golang.org/x/crypto/sha3"
 )
 
 type bytesBacked interface {

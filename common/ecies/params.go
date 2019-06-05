@@ -26,8 +26,9 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"fmt"
-	"github.com/taschain/taschain/common/secp256k1"
 	"hash"
+
+	"github.com/taschain/taschain/common/secp256k1"
 )
 
 // The default curve for this package is the NIST P256 curve, which

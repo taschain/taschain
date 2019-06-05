@@ -17,7 +17,10 @@ package tasdb
 
 import (
 	"bytes"
-	"github.com/hashicorp/golang-lru"
+	"os"
+	"sync"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/filter"
@@ -25,8 +28,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/taschain/taschain/common"
-	"os"
-	"sync"
 )
 
 const (

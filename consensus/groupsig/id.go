@@ -17,10 +17,11 @@ package groupsig
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"golang.org/x/crypto/sha3"
 	"log"
 	"math/big"
+
+	"github.com/taschain/taschain/common"
+	"golang.org/x/crypto/sha3"
 )
 
 // ID is id for secret sharing, represented by big.Int

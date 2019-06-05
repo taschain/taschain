@@ -16,12 +16,14 @@
 package cli
 
 import (
-	"github.com/taschain/taschain/cmd/gtas/rpc"
 	"net"
 
+	"github.com/taschain/taschain/cmd/gtas/rpc"
+
 	"fmt"
-	"github.com/taschain/taschain/common"
 	"strings"
+
+	"github.com/taschain/taschain/common"
 )
 
 // startHTTP initializes and starts the HTTP RPC endpoint.

@@ -17,8 +17,9 @@ package model
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/consensus/groupsig"
 	"sync"
+
+	"github.com/taschain/taschain/consensus/groupsig"
 )
 
 type GroupSignGenerator struct {

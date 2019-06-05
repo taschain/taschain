@@ -21,9 +21,10 @@ package tvm
 import "C"
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
 	"math/big"
 	"unsafe"
+
+	"github.com/taschain/taschain/common"
 
 	"github.com/taschain/taschain/middleware/types"
 )

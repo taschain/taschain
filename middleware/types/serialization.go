@@ -18,7 +18,7 @@ package types
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/middleware/pb"
+	tas_middleware_pb "github.com/taschain/taschain/middleware/pb"
 	time2 "github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/taslog"
 )

@@ -17,13 +17,6 @@ package core
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/groupsig"
-	"github.com/taschain/taschain/consensus/model"
-	"github.com/taschain/taschain/middleware"
-	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/network"
-	"github.com/taschain/taschain/taslog"
 	"io/ioutil"
 	"math"
 	"math/big"
@@ -32,6 +25,14 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/groupsig"
+	"github.com/taschain/taschain/consensus/model"
+	"github.com/taschain/taschain/middleware"
+	"github.com/taschain/taschain/middleware/types"
+	"github.com/taschain/taschain/network"
+	"github.com/taschain/taschain/taslog"
 )
 
 var source = "100"

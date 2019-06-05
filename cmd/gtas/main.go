@@ -16,8 +16,9 @@
 package main
 
 import (
-	"github.com/taschain/taschain/cmd/gtas/cli"
 	"runtime"
+
+	"github.com/taschain/taschain/cmd/gtas/cli"
 )
 
 func main() {

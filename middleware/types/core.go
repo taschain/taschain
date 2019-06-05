@@ -18,10 +18,11 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/utility"
-	"math/big"
 )
 
 type AddBlockOnChainSituation string

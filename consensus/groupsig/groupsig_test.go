@@ -18,14 +18,16 @@ package groupsig
 import (
 	"fmt"
 	"math/big"
+
 	//"math/rand"
 	"bytes"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/base"
 	"strconv"
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/base"
 )
 
 type Expect struct {

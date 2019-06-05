@@ -17,11 +17,12 @@ package groupsig
 
 import (
 	"fmt"
+	"log"
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig/bncurve"
-	"log"
-	"math/big"
 )
 
 // Curve and Field order

@@ -18,15 +18,16 @@ package logical
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"testing"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware"
-	"io/ioutil"
-	"log"
-	"os"
-	"testing"
 )
 
 const confPathPrefix = `genesis_test_file`

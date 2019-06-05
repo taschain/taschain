@@ -16,11 +16,12 @@
 package logical
 
 import (
+	"sync"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
-	"sync"
 )
 
 // GroupInitPool is data receiving pool

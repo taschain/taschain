@@ -16,15 +16,16 @@
 package net
 
 import (
+	"time"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/core"
-	"github.com/taschain/taschain/middleware/pb"
+	tas_middleware_pb "github.com/taschain/taschain/middleware/pb"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/network"
-	"time"
 )
 
 type NetworkServerImpl struct {

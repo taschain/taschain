@@ -16,9 +16,10 @@
 package core
 
 import (
-	"github.com/hashicorp/golang-lru"
-	"github.com/taschain/taschain/common"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/taschain/taschain/common"
 )
 
 const (

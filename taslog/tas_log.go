@@ -17,9 +17,10 @@ package taslog
 
 import (
 	"fmt"
-	"github.com/cihub/seelog"
 	"strings"
 	"sync"
+
+	"github.com/cihub/seelog"
 
 	"golang.org/x/crypto/sha3"
 )

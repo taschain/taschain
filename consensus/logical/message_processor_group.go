@@ -17,11 +17,12 @@ package logical
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/consensus/net"
-	"time"
 )
 
 func (p *Processor) OnMessageCreateGroupPing(msg *model.CreateGroupPingMessage) {

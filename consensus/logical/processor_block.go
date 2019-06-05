@@ -18,12 +18,13 @@ package logical
 import (
 	"bytes"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
-	"sync"
-	"time"
 )
 
 type FutureMessageHolder struct {

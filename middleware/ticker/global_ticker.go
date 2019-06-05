@@ -16,11 +16,12 @@
 package ticker
 
 import (
-	"github.com/taschain/taschain/common"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/taschain/taschain/common"
 )
 
 type RoutineFunc func() bool

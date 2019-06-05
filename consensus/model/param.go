@@ -16,8 +16,9 @@
 package model
 
 import (
-	"github.com/taschain/taschain/common"
 	"math"
+
+	"github.com/taschain/taschain/common"
 )
 
 const (

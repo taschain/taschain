@@ -17,6 +17,9 @@ package cli
 
 import (
 	"fmt"
+	"math/big"
+	"sort"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
@@ -24,8 +27,6 @@ import (
 	"github.com/taschain/taschain/consensus/mediator"
 	"github.com/taschain/taschain/core"
 	"github.com/taschain/taschain/middleware/types"
-	"math/big"
-	"sort"
 )
 
 type SysWorkSummary struct {

@@ -17,9 +17,10 @@ package types
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/storage/serialize"
-	"testing"
 )
 
 func TestTransaction(t *testing.T) {

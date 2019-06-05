@@ -17,16 +17,17 @@ package core
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/notify"
-	"github.com/taschain/taschain/middleware/pb"
+	tas_middleware_pb "github.com/taschain/taschain/middleware/pb"
 	"github.com/taschain/taschain/middleware/ticker"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/taslog"
 	"github.com/taschain/taschain/utility"
-	"sync"
 )
 
 const (

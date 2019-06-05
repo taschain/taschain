@@ -16,8 +16,9 @@
 package groupsig
 
 import (
-	"github.com/taschain/taschain/common"
 	"testing"
+
+	"github.com/taschain/taschain/common"
 )
 
 /*

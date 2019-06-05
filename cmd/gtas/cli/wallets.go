@@ -17,10 +17,11 @@ package cli
 
 import (
 	"encoding/json"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/core"
 	"log"
 	"sync"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/core"
 )
 
 // Wallets contains wallets

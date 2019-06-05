@@ -18,15 +18,16 @@ package logical
 import (
 	"crypto/rand"
 	"encoding/json"
-	"github.com/hashicorp/golang-lru"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/groupsig"
-	"github.com/taschain/taschain/consensus/model"
-	"github.com/taschain/taschain/storage/tasdb"
 	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/groupsig"
+	"github.com/taschain/taschain/consensus/model"
+	"github.com/taschain/taschain/storage/tasdb"
 )
 
 const (

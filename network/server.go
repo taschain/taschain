@@ -18,13 +18,14 @@ package network
 import (
 	"github.com/golang/protobuf/proto"
 
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/middleware/notify"
-	"github.com/taschain/taschain/middleware/pb"
-	"github.com/taschain/taschain/middleware/statistics"
 	mrand "math/rand"
 	"strconv"
 	"time"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/middleware/notify"
+	tas_middleware_pb "github.com/taschain/taschain/middleware/pb"
+	"github.com/taschain/taschain/middleware/statistics"
 
 	"golang.org/x/crypto/sha3"
 )

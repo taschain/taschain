@@ -16,11 +16,12 @@
 package account
 
 import (
+	"strconv"
+	"testing"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/storage/tasdb"
 	"github.com/taschain/taschain/storage/trie"
-	"strconv"
-	"testing"
 )
 
 func getString(trie *trie.Trie, k string) []byte {

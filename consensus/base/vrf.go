@@ -16,10 +16,11 @@
 package base
 
 import (
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/common/ed25519"
 	"io"
 	"math/big"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/common/ed25519"
 )
 
 const (

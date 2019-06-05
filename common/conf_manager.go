@@ -16,10 +16,11 @@
 package common
 
 import (
-	"github.com/glacjay/goini"
 	"os"
 	"strings"
 	"sync"
+
+	ini "github.com/glacjay/goini"
 )
 
 /*

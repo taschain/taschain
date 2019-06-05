@@ -18,7 +18,11 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/hashicorp/golang-lru"
+	"os"
+	"sync"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/ticker"
 	time2 "github.com/taschain/taschain/middleware/time"
@@ -26,9 +30,6 @@ import (
 	"github.com/taschain/taschain/storage/account"
 	"github.com/taschain/taschain/storage/tasdb"
 	"github.com/taschain/taschain/taslog"
-	"os"
-	"sync"
-	"time"
 )
 
 const (

@@ -18,7 +18,10 @@ package core
 import (
 	"bytes"
 	"fmt"
-	"github.com/hashicorp/golang-lru"
+	"sync"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/ticker"
@@ -27,8 +30,6 @@ import (
 	"github.com/taschain/taschain/storage/tasdb"
 	"github.com/taschain/taschain/taslog"
 	"github.com/taschain/taschain/utility"
-	"sync"
-	"time"
 )
 
 const (

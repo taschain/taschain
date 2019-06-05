@@ -18,6 +18,7 @@ package logical
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/notify"

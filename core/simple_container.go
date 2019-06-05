@@ -17,10 +17,11 @@ package core
 
 import (
 	"container/heap"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/middleware/types"
 	"sort"
 	"sync"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/middleware/types"
 )
 
 type simpleContainer struct {

@@ -17,13 +17,14 @@ package monitor
 
 import (
 	"fmt"
-	"github.com/gohouse/gorose"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/groupsig"
 	"log"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gohouse/gorose"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/groupsig"
 )
 
 type MonitorService struct {
