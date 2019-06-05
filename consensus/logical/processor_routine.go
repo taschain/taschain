@@ -17,6 +17,7 @@ package logical
 
 import (
 	"fmt"
+	"sync"
 	time2 "time"
 
 	"github.com/taschain/taschain/common"
@@ -38,8 +39,13 @@ func (p *Processor) getReleaseRoutineName() string {
 	return "release_routine_" + p.getPrefix()
 }
 
+var castLock      sync.Mutex // cast block mutex lock
+
 // checkSelfCastRoutine check if the current group cast block
 func (p *Processor) checkSelfCastRoutine() bool {
+	castLock.Lock()
+	defer castLock.Unlock()
+
 	if !p.Ready() {
 		return false
 	}
