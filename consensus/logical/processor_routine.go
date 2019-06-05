@@ -263,7 +263,7 @@ func (p *Processor) updateGlobalGroups() bool {
 	top := p.MainChain.Height()
 	iter := p.GroupChain.NewIterator()
 	for g := iter.Current(); g != nil && !isGroupDissmisedAt(g.Header, top); g = iter.MovePre() {
-		gid := groupsig.DeserializeId(g.ID)
+		gid := groupsig.DeserializeID(g.ID)
 		if g, _ := p.globalGroups.getGroupFromCache(gid); g != nil {
 			continue
 		}

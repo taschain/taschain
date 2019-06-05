@@ -20,7 +20,6 @@ package tvm
 */
 import "C"
 import (
-	"fmt"
 	"math/big"
 	"unsafe"
 
