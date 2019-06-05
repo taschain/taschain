@@ -18,6 +18,7 @@ package account
 import (
 	"bytes"
 	"fmt"
+	"github.com/taschain/taschain/core"
 	"math/big"
 	"sync"
 
@@ -157,10 +158,19 @@ func (ao *accountObject) touch() {
 }
 
 func (ao *accountObject) getTrie(db AccountDatabase) Trie {
+	if ao.address == common.HeavyDBAddress{
+		core.Logger.Infof("access HeavyDBAddress begin")
+	}
 	if ao.trie == nil {
+		if ao.address == common.HeavyDBAddress{
+			core.Logger.Infof("access HeavyDBAddress begin find trie is nil,root is %x",ao.data.Root)
+		}
 		var err error
 		ao.trie, err = db.OpenStorageTrie(ao.addrHash, ao.data.Root)
 		if err != nil {
+			if ao.address == common.HeavyDBAddress{
+				core.Logger.Errorf("access HeavyDBAddress begin find trie is nil and next get has err %v, errorMsg = %s",err,err.Error())
+			}
 			ao.trie, _ = db.OpenStorageTrie(ao.addrHash, common.Hash{})
 			ao.setError(fmt.Errorf("can't create storage trie: %v", err))
 		}
@@ -238,6 +248,10 @@ func (ao *accountObject) updateTrie(db AccountDatabase) Trie {
 func (ao *accountObject) updateRoot(db AccountDatabase) {
 	ao.updateTrie(db)
 	ao.data.Root = ao.trie.Hash()
+
+	if ao.address == common.HeavyDBAddress{
+		core.Logger.Infof("updateRoot HeavyDBAddress .root is %x",ao.data.Root)
+	}
 }
 
 // CommitTrie the storage trie of the object to db.
@@ -248,6 +262,14 @@ func (ao *accountObject) CommitTrie(db AccountDatabase) error {
 		return ao.dbErr
 	}
 	root, err := ao.trie.Commit(nil)
+
+	if ao.address == common.HeavyDBAddress{
+		if err != nil{
+			core.Logger.Errorf("commit HeavyDBAddress .root is %x,error is %s",root,err.Error())
+		}else{
+			core.Logger.Infof("commit HeavyDBAddress .root is %x",root)
+		}
+	}
 	if err == nil {
 		ao.data.Root = root
 		//ao.db.db.PushTrie(root, ao.trie)
