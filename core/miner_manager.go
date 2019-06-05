@@ -503,7 +503,7 @@ func (mi *MinerIterator) Current() (*types.Miner, error) {
 	var miner types.Miner
 	err := msgpack.Unmarshal(mi.iterator.Value, &miner)
 	if err != nil {
-		Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iterator.Key, err, mi.iterator.Value)
+		Logger.Warnf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iterator.Key, err, mi.iterator.Value)
 	}
 
 	if len(miner.ID) == 0 {

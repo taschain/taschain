@@ -83,8 +83,9 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 		buffer.WriteString(", block height: ")
 		buffer.WriteString(fmt.Sprintf("%d error:", block.Header.Height))
 		buffer.WriteString(fmt.Sprint(err))
-		panic(buffer.String())
-
+		//panic(buffer.String())
+		Logger.Error(buffer.String())
+		return nil
 	}
 
 	txs := chain.transactionPool.PackForCast()
@@ -342,7 +343,8 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 		slog.EndStage()
 
 		if chain.getLatestBlock().Hash != bh.PreHash {
-			panic("reset top error")
+			Logger.Error("reset top error")
+			return
 		}
 
 		slog.AddStage("commitBlock2")

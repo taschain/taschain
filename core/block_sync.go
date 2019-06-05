@@ -63,9 +63,6 @@ type topBlockInfo struct {
 	Height uint64
 }
 
-var maxInt194, _ = new(big.Int).SetString("2ffffffffffffffffffffffffffffffffffffffffffffffff", 16)
-var float194 = new(big.Float).SetInt(maxInt194)
-
 func newTopBlockInfo(topBH *types.BlockHeader) *topBlockInfo {
 	return &topBlockInfo{
 		BlockWeight: *types.NewBlockWeight(topBH),
@@ -96,18 +93,6 @@ func InitBlockSyncer(chain *FullBlockChain) {
 
 	blockSync = bs
 
-}
-
-func (bs *blockSyncer) onGroupAddSuccess(msg notify.Message) {
-	g := msg.GetData().(*types.Group)
-	beginHeight := g.Header.WorkHeight
-	topHeight := bs.chain.Height()
-
-	// The current block height has exceeded the effective height, and the group may be a bit problematic.
-	if beginHeight < topHeight {
-		s := fmt.Sprintf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", common.Bytes2Hex(g.ID), g.GroupHeight, beginHeight, topHeight)
-		panic(s)
-	}
 }
 
 func (bs *blockSyncer) isSyncing() bool {
@@ -312,7 +297,8 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 
 	source := m.Source()
 	if bs == nil {
-		panic("blockSyncer is nil!")
+		//do nothing
+		return
 	}
 	var complete = false
 	defer func() {
@@ -323,7 +309,7 @@ func (bs *blockSyncer) blockResponseMsgHandler(msg notify.Message) {
 
 	blockResponse, e := bs.unMarshalBlockMsgResponse(m.Body())
 	if e != nil {
-		bs.logger.Debugf("Discard block response msg because unMarshalBlockMsgResponse error:%d", e.Error())
+		bs.logger.Warnf("Discard block response msg because unMarshalBlockMsgResponse error:%d", e.Error())
 		return
 	}
 

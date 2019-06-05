@@ -148,29 +148,29 @@ func initBlockChain(helper types.ConsensusHelper) error {
 
 	chain.blocks, err = ds.NewPrefixDatabase(chain.config.block)
 	if err != nil {
-		Logger.Debugf("Init block chain error! Error:%s", err.Error())
+		Logger.Errorf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
 
 	chain.blockHeight, err = ds.NewPrefixDatabase(chain.config.blockHeight)
 	if err != nil {
-		Logger.Debugf("Init block chain error! Error:%s", err.Error())
+		Logger.Errorf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
 	chain.txDb, err = ds.NewPrefixDatabase(chain.config.tx)
 	if err != nil {
-		Logger.Debugf("Init block chain error! Error:%s", err.Error())
+		Logger.Errorf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
 	chain.stateDb, err = ds.NewPrefixDatabase(chain.config.state)
 	if err != nil {
-		Logger.Debugf("Init block chain error! Error:%s", err.Error())
+		Logger.Errorf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
 
 	receiptdb, err := ds.NewPrefixDatabase(chain.config.receipt)
 	if err != nil {
-		Logger.Debugf("Init block chain error! Error:%s", err.Error())
+		Logger.Errorf("Init block chain error! Error:%s", err.Error())
 		return err
 	}
 	chain.bonusManager = newBonusManager()

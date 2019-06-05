@@ -82,7 +82,10 @@ func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction)
 	if len(signBytes) < common.SignLength {
 		return false, fmt.Errorf("not enough bytes for bonus signature, sign =%v", signBytes)
 	}
-	groupID, _, _, _ := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
+	groupID, _, _, _, err := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse bonus transaction, err =%s", err)
+	}
 	group := Proc.GroupChain.GetGroupByID(groupID)
 	if group == nil {
 		return false, common.ErrGroupNil

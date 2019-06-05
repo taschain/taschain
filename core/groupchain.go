@@ -180,6 +180,9 @@ func (chain *GroupChain) GetGroupByID(id []byte) *types.Group {
 	return chain.getGroupByID(id)
 }
 
+// AddGroup adds a group block to the group chain. It will make sure the group data is verified and the group's pre
+// group is current group chain's last group and the groups's parent group is existing in the group chain. Then it will
+// commit the group into the chain and send out notification
 func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 	defer func() {
 		Logger.Debugf("add group id=%v, groupHeight=%v, err=%v", common.ToHex(group.ID), group.GroupHeight, err)
@@ -188,7 +191,7 @@ func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 		return errGroupExist
 	}
 
-	// CheckGroup will call the groupchain interface, which needs to be called before locking.
+	// CheckGroup will call the group chain interface, which needs to be called before locking.
 	ok, err := chain.consensusHelper.CheckGroup(group)
 	if !ok {
 		if err == common.ErrCreateBlockNil {

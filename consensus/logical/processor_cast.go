@@ -312,7 +312,11 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		}
 	}
 
-	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIDIndexs, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+	bonus, tx, err := p.MainChain.GetBonusManager().GenerateBonus(targetIDIndexs, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+	if err != nil {
+		err = fmt.Errorf("failed to generate bonus %s", err)
+		return
+	}
 	blog.debug("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
 
 	tlog := newHashTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
