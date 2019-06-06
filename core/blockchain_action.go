@@ -25,7 +25,6 @@ import (
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/account"
-	"github.com/taschain/taschain/taslog"
 )
 
 type batchAddBlockCallback func(b *types.Block, ret types.AddBlockResult) bool
@@ -114,36 +113,22 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 
 func (chain *FullBlockChain) verifyTxs(bh *types.BlockHeader, txs []*types.Transaction) (ps *executePostState, ret int8) {
 	begin := time.Now()
-	slog := taslog.NewSlowLog("verifyTxs", 0.8)
 	var err error
 	defer func() {
 		Logger.Infof("verifyTxs hash:%v,height:%d,totalQn:%d,preHash:%v,len tx:%d, cost:%v, err=%v", bh.Hash.Hex(), bh.Height, bh.TotalQN, bh.PreHash.Hex(), len(txs), time.Since(begin).String(), err)
-		slog.Log("hash=%v, height=%v, err=%v", bh.Hash.Hex(), bh.Height, err)
 	}()
 
-	size := 0
-	if txs != nil {
-		size = len(txs)
-	}
-	slog.AddStage(fmt.Sprintf("validateTxs%v", size))
 	if !chain.validateTxs(txs) {
-		slog.EndStage()
 		return nil, -1
 	}
-	slog.EndStage()
 
-	slog.AddStage("validateTxRoot")
 	if !chain.validateTxRoot(bh.TxTree, txs) {
-		slog.EndStage()
 		err = fmt.Errorf("validate tx root fail")
 		return nil, -1
 	}
-	slog.EndStage()
 
-	slog.AddStage("exeTxs")
 	block := types.Block{Header: bh, Transactions: txs}
 	executeTxResult, ps := chain.executeTransaction(&block)
-	slog.EndStage()
 	if !executeTxResult {
 		err = fmt.Errorf("execute transaction fail")
 		return nil, -1
@@ -227,10 +212,8 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 
 func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret types.AddBlockResult, err error) {
 	begin := time.Now()
-	slog := taslog.NewSlowLog("addBlockOnChain", 0.8)
 	defer func() {
 		Logger.Debugf("addBlockOnchain hash=%v, height=%v, err=%v, cost=%v", b.Header.Hash.Hex(), b.Header.Height, err, time.Since(begin).String())
-		slog.Log("hash=%v, height=%v, err=%v", b.Header.Hash.Hex(), b.Header.Height, err)
 	}()
 
 	if b == nil {
@@ -250,30 +233,22 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	if chain.HasBlock(bh.Hash) {
 		return types.BlockExisted, ErrBlockExist
 	}
-	slog.AddStage("validateBlock")
 	if ok, e := chain.validateBlock(source, b); !ok {
-		slog.EndStage()
 		ret = types.AddBlockFailed
 		err = e
 		return
 	}
-	slog.EndStage()
 
-	slog.AddStage("verify")
 	ps, verifyResult := chain.verifyTxs(bh, b.Transactions)
 	if verifyResult != 0 {
-		slog.EndStage()
 		Logger.Errorf("Fail to VerifyCastingBlock, reason code:%d \n", verifyResult)
 		ret = types.AddBlockFailed
 		err = fmt.Errorf("verify block fail")
 		return
 	}
-	slog.EndStage()
 
-	slog.AddStage("getMuLock")
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
-	slog.EndStage()
 
 	defer func() {
 		if ret == types.AddBlockSucc {
@@ -284,30 +259,22 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 
 	topBlock = chain.getLatestBlock()
 
-	slog.AddStage("HasBlock")
 	if chain.HasBlock(bh.Hash) {
-		slog.EndStage()
 		ret = types.BlockExisted
 		err = ErrBlockExist
 		return
 	}
-	slog.EndStage()
 
-	slog.AddStage("hasPre")
 	if !chain.HasBlock(bh.PreHash) {
-		slog.EndStage()
 		chain.processFutureBlock(b, source)
 		ret = types.AddBlockFailed
 		err = ErrPreNotExist
 		return
 	}
-	slog.EndStage()
 
 	// Add directly to the blockchain
 	if bh.PreHash == topBlock.Hash {
-		slog.AddStage("commitBlock")
 		ok, e := chain.commitBlock(b, ps)
-		slog.EndStage()
 		if ok {
 			ret = types.AddBlockSucc
 			return
@@ -330,24 +297,19 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 	} else { // there is a fork
 		newTop := chain.queryBlockHeaderByHash(bh.PreHash)
 		old := chain.latestBlock
-		slog.AddStage("resetTop")
 		Logger.Debugf("simple fork reset top: old %v %v %v %v, coming %v %v %v %v", old.Hash.ShortS(), old.Height, old.PreHash.ShortS(), old.TotalQN, bh.Hash.ShortS(), bh.Height, bh.PreHash.ShortS(), bh.TotalQN)
 		if e := chain.resetTop(newTop); e != nil {
-			slog.EndStage()
 			Logger.Warnf("reset top err, currTop %v, setTop %v, setHeight %v", topBlock.Hash.Hex(), newTop.Hash.Hex(), newTop.Height)
 			ret = types.AddBlockFailed
 			err = fmt.Errorf("reset top err:%v", e)
 			return
 		}
-		slog.EndStage()
 
 		if chain.getLatestBlock().Hash != bh.PreHash {
 			panic("reset top error")
 		}
 
-		slog.AddStage("commitBlock2")
 		ok, e := chain.commitBlock(b, ps)
-		slog.EndStage()
 		if ok {
 			ret = types.AddBlockSucc
 			return
