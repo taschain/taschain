@@ -467,23 +467,23 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 	}
 	ni.Balance = balance
 	if !p.Ready() {
-		ni.Status = "节点未准备就绪"
+		ni.Status = "node not ready"
 	} else {
-		ni.Status = "运行中"
+		ni.Status = "running"
 		morts := make([]MortGage, 0)
 		t := "--"
 		heavyInfo := core.MinerManagerImpl.GetMinerByID(p.GetMinerID().Serialize(), types.MinerTypeHeavy, nil)
 		if heavyInfo != nil {
 			morts = append(morts, *NewMortGageFromMiner(heavyInfo))
 			if heavyInfo.AbortHeight == 0 {
-				t = "重节点"
+				t = "proposal role"
 			}
 		}
 		lightInfo := core.MinerManagerImpl.GetMinerByID(p.GetMinerID().Serialize(), types.MinerTypeLight, nil)
 		if lightInfo != nil {
 			morts = append(morts, *NewMortGageFromMiner(lightInfo))
 			if lightInfo.AbortHeight == 0 {
-				t += " 轻节点"
+				t += " verify role"
 			}
 		}
 		ni.NType = t
@@ -604,13 +604,13 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 			btx := *convertBonusTransaction(tx)
 			if st, err := mediator.Proc.MainChain.GetTransactionPool().GetTransactionStatus(tx.Hash); err != nil {
 				common.DefaultLogger.Errorf("getTransactions statue error, hash %v, err %v", tx.Hash.Hex(), err)
-				btx.StatusReport = "获取状态错误" + err.Error()
+				btx.StatusReport = "get status error" + err.Error()
 			} else {
 				if st == types.ReceiptStatusSuccessful {
-					btx.StatusReport = "成功"
+					btx.StatusReport = "success"
 					btx.Success = true
 				} else {
-					btx.StatusReport = "失败"
+					btx.StatusReport = "fail"
 				}
 			}
 			bonusTxs = append(bonusTxs, btx)
@@ -656,14 +656,14 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 			mb.Proposal = true
 			mb.PackBonusTx = len(uniqueBonusBlockHash)
 			increase += model.Param.ProposalBonus + uint64(mb.PackBonusTx)*model.Param.PackBonus
-			mb.Explain = fmt.Sprintf("提案 打包分红交易%v个", mb.PackBonusTx)
+			mb.Explain = fmt.Sprintf("proposal, pack %v bouns-txs", mb.PackBonusTx)
 		}
 		if hs, ok := minerVerifyBlockHash[id]; ok {
 			for _, h := range hs {
 				increase += blockVerifyBonus[h]
 			}
 			mb.VerifyBlock = len(hs)
-			mb.Explain = fmt.Sprintf("%v 验证%v块", mb.Explain, mb.VerifyBlock)
+			mb.Explain = fmt.Sprintf("%v, verify %v blocks", mb.Explain, mb.VerifyBlock)
 		}
 		mb.ExpectBalance = new(big.Int).SetUint64(mb.PreBalance.Uint64() + increase)
 		mbs = append(mbs, mb)
