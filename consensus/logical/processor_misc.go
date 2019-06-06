@@ -234,7 +234,6 @@ func (p *Processor) checkProveRoot(bh *types.BlockHeader) (bool, error) {
 	//	return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
 	//}
 
-	////这个还是很耗时
 	//slog.AddStage("genProveHash")
 	//if _, root := p.proveChecker.genProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
 	//	slog.EndStage()

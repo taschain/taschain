@@ -95,7 +95,7 @@ func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 
 }
 
-// pingNodes send ping messages to the new members，
+// pingNodes send ping messages to the new members,
 // in order to avoid too much ping messages, the current node does this only when he is one of kings.
 func (gm *GroupManager) pingNodes() {
 	ctx := gm.creatingGroupCtx

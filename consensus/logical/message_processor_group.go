@@ -192,7 +192,7 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 		ski := p.getDefaultSeckeyInfo()
 		if initMsg.GenSign(ski, initMsg) && ctx.getStatus() != sendInit {
 			tlog := newHashTraceLog("OMCGS", msg.GHash, msg.SI.GetID())
-			tlog.log("收齐分片，SendGroupInitMessage")
+			tlog.log("collecting pieces,SendGroupInitMessage")
 			p.NetServer.SendGroupInitMessage(initMsg)
 			ctx.setStatus(sendInit)
 			groupLogger.Infof("OMCGS send group init: info=%v, gHash=%v, costHeight=%v", ctx.logString(), ctx.gInfo.GroupHash().ShortS(), p.MainChain.Height()-ctx.createTopHeight)
@@ -359,12 +359,12 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 		mtype = "OMSPResponse"
 	}
 	tlog := newHashTraceLog(mtype, gHash, si.GetID())
-	tlog.log("收到piece数 %v, 收齐分片%v, 缺少%v等", gc.node.groupInitPool.GetSize(), result == 1, waitPieceIds)
+	tlog.log("number of pieces received %v, collecting slices %v, missing %v etc.", gc.node.groupInitPool.GetSize(), result == 1, waitPieceIds)
 
 	// All piece collected
 	if result == 1 {
 		recover = true
-		groupLogger.Infof("OMSP收齐分片: gHash=%v, elapsed=%v.", gHash.ShortS(), time.Since(gc.createTime).String())
+		groupLogger.Infof("OMSP collecting slices: gHash=%v, elapsed=%v.", gHash.ShortS(), time.Since(gc.createTime).String())
 		jg := gc.GetGroupInfo()
 		p.joinGroup(jg)
 
@@ -450,7 +450,7 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 
 	if jg != nil {
 		blog.debug("after SignPKMessage exist mem sign pks=%v, ret=%v", jg.memSignPKSize(), ret)
-		tlog.log("收到签名公钥数 %v", jg.memSignPKSize())
+		tlog.log("signed public keys received count %v", jg.memSignPKSize())
 		for mem, pk := range jg.getMemberMap() {
 			blog.debug("signPKS: %v, %v", mem, pk.GetHexString())
 		}
@@ -589,7 +589,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		}
 	}
 
-	tlog.log("ret:%v,收到消息数量 %v, 需要消息数 %v, 缺少%v等", result, initedGroup.receiveSize(), initedGroup.threshold, waitIds)
+	tlog.log("ret:%v,number of messages received %v, number of messages required %v, missing %v etc.", result, initedGroup.receiveSize(), initedGroup.threshold, waitIds)
 
 	switch result {
 	case InitSuccess: // Receive the same message in the group >= threshold, can add on chain
@@ -602,7 +602,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		p.joiningGroups.Clean(gHash)
 
 	case InitFail: // The group is initialized abnormally and cannot be recovered
-		tlog.log("初始化失败")
+		tlog.log("initialization failed")
 		p.globalGroups.removeInitedGroup(gHash)
 	}
 	return

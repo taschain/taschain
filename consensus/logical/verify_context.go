@@ -183,27 +183,27 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 
 	// Only sign blocks with higher weights than that have been signed
 	if vc.hasSignedMoreWeightThan(bh) {
-		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxWeight().String(), bh.TotalQN)
+		err = fmt.Errorf("have signed a higher qn block %v,This block qn %v", vc.getSignedMaxWeight().String(), bh.TotalQN)
 		return
 	}
 
 	if vc.castSuccess() {
-		err = fmt.Errorf("已出块")
+		err = fmt.Errorf("already blocked")
 		return
 	}
 	if vc.castExpire() {
 		vc.markTimeout()
-		err = fmt.Errorf("已超时" + vc.expireTime.String())
+		err = fmt.Errorf("timed out" + vc.expireTime.String())
 		return
 	}
 	slot := vc.GetSlotByHash(bh.Hash)
 	if slot != nil {
 		if slot.GetSlotStatus() >= slRecoverd {
-			err = fmt.Errorf("slot不接受piece，状态%v", slot.slotStatus)
+			err = fmt.Errorf("slot does not accept piece,slot status %v", slot.slotStatus)
 			return
 		}
 		if _, ok := slot.gSignGenerator.GetWitness(sender); ok {
-			err = fmt.Errorf("重复消息%v", sender.ShortS())
+			err = fmt.Errorf("duplicate message %v", sender.ShortS())
 			return
 		}
 	}

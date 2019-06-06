@@ -27,7 +27,8 @@ package common
 //const GtasVersion = "0.8.0"		//optimize operation of chain
 //const GtasVersion = "0.8.1"		//bugFix: make sure that the current block time will be after the previous.
 //const GtasVersion = "0.8.2"		//time sync and adjustment
-const GtasVersion = "0.9.0" //add pledge agency function, verifiers ignore the correctness of transactions in block
+//const GtasVersion = "0.9.0" //add pledge agency function, verifiers ignore the correctness of transactions in block
+const GtasVersion = "0.9.1" // add comments
 
 const ConsensusVersion = 1
 

@@ -43,8 +43,8 @@ type InitedGroup struct {
 	threshold int
 
 	status int32 // -1, Group initialization failed (timeout or unable to reach consensus, irreversible)
-	// 0，Group is initializing
-	// 1，Group initialization succeeded
+	// 0,Group is initializing
+	// 1,Group initialization succeeded
 	gpk groupsig.Pubkey // output generated group public key
 }
 
@@ -134,7 +134,7 @@ func (ig *InitedGroup) convergence() bool {
 // NewGroupGenerator is group generator, parent group node or whole network node
 // group external processor (non-group initialization consensus)
 type NewGroupGenerator struct {
-	groups sync.Map // Group ID（dummyID）-> Group creation consensus string -> *InitedGroup
+	groups sync.Map // Group ID(dummyID)-> Group creation consensus string -> *InitedGroup
 }
 
 func CreateNewGroupGenerator() *NewGroupGenerator {
