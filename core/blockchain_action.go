@@ -42,7 +42,12 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	defer chain.mu.Unlock()
 
 	latestBlock := chain.QueryTopBlock()
-	if latestBlock != nil && height <= latestBlock.Height {
+	if latestBlock == nil {
+		Logger.Info("[BlockChain] fail to cast block: lastest block is nil")
+		return nil
+	}
+
+	if height <= latestBlock.Height {
 		Logger.Info("[BlockChain] fail to cast block: height problem. height:%d, latest:%d", height, latestBlock.Height)
 		return nil
 	}
