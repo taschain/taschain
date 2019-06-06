@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package model
 
 import (
@@ -7,12 +22,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/11 下午1:49
-**  Description: 矿工节点
- */
-
+// MinerDO defines the important infos for one miner
 type MinerDO struct {
 	PK          groupsig.Pubkey
 	VrfPK       base.VRFPublicKey
@@ -31,12 +41,12 @@ func (md *MinerDO) EffectAt(h uint64) bool {
 	return h >= md.ApplyHeight
 }
 
-//在该高度是否可以铸块
+// CanCastAt means whether it can be cast block at this height
 func (md *MinerDO) CanCastAt(h uint64) bool {
 	return md.IsWeight() && !md.IsAbort(h) && md.EffectAt(h)
 }
 
-//在该高度是否可以加入组
+// CanJoinGroupAt means whether it can join the group at this height
 func (md *MinerDO) CanJoinGroupAt(h uint64) bool {
 	return md.IsLight() && !md.IsAbort(h) && md.EffectAt(h)
 }
@@ -49,9 +59,11 @@ func (md *MinerDO) IsWeight() bool {
 	return md.NType == types.MinerTypeHeavy
 }
 
+// SelfMinerDO inherited from MinerDO.
+// And some private key included
 type SelfMinerDO struct {
 	MinerDO
-	SecretSeed base.Rand //私密随机数
+	SecretSeed base.Rand // Private random number
 	SK         groupsig.Seckey
 	VrfSK      base.VRFPrivateKey
 }
@@ -67,7 +79,7 @@ func (mi *SelfMinerDO) Read(p []byte) (n int, err error) {
 
 func NewSelfMinerDO(address common.Address) SelfMinerDO {
 	var mi SelfMinerDO
-	mi.SecretSeed = base.RandFromString(address.GetHexString())
+	mi.SecretSeed = base.RandFromString(address.Hex())
 	mi.SK = *groupsig.NewSeckeyFromRand(mi.SecretSeed)
 	mi.PK = *groupsig.NewPubkeyFromSeckey(mi.SK)
 	mi.ID = groupsig.DeserializeID(address.Bytes())

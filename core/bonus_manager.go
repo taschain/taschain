@@ -17,13 +17,16 @@ package core
 
 import (
 	"bytes"
-	"github.com/taschain/taschain/common"
+	"errors"
 	"sync"
+
+	"github.com/taschain/taschain/common"
 
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/vm"
 )
 
+// BonusManager manage the bonus transactions
 type BonusManager struct {
 	lock sync.RWMutex
 }
@@ -46,51 +49,50 @@ func (bm *BonusManager) GetBonusTransactionByBlockHash(blockHash []byte) *types.
 	return transaction
 }
 
-func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, groupID []byte, totalValue uint64) (*types.Bonus, *types.Transaction) {
+// GenerateBonus generate the bonus transaction for the group who just validate a block
+func (bm *BonusManager) GenerateBonus(targetIds []int32, blockHash common.Hash, groupID []byte, totalValue uint64) (*types.Bonus, *types.Transaction, error) {
 	group := GroupChainImpl.getGroupByID(groupID)
 	buffer := &bytes.Buffer{}
 	buffer.Write(groupID)
-	//Logger.Debugf("GenerateBonus Group:%s",common.BytesToAddress(groupID).GetHexString())
 	if len(targetIds) == 0 {
-		panic("GenerateBonus targetIds size 0")
+		return nil, nil, errors.New("GenerateBonus targetIds size 0")
 	}
 	for i := 0; i < len(targetIds); i++ {
 		index := targetIds[i]
 		buffer.Write(group.Members[index])
-		//Logger.Debugf("GenerateBonus Index:%d Member:%s",index,common.BytesToAddress(group.Members[index].ID).GetHexString())
 	}
 	transaction := &types.Transaction{}
 	transaction.Data = blockHash.Bytes()
 	transaction.ExtraData = buffer.Bytes()
 	if len(buffer.Bytes())%common.AddressLength != 0 {
-		panic("GenerateBonus ExtraData Size Invalid")
+		return nil, nil, errors.New("GenerateBonus ExtraData Size Invalid")
 	}
 	transaction.Value = totalValue / uint64(len(targetIds))
 	transaction.Type = types.TransactionTypeBonus
 	transaction.GasPrice = common.MaxUint64
 	transaction.Hash = transaction.GenHash()
-	return &types.Bonus{TxHash: transaction.Hash, TargetIds: targetIds, BlockHash: blockHash, GroupID: groupID, TotalValue: totalValue}, transaction
+	return &types.Bonus{TxHash: transaction.Hash, TargetIds: targetIds, BlockHash: blockHash, GroupID: groupID, TotalValue: totalValue}, transaction, nil
 }
 
-func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([]byte, [][]byte, common.Hash, uint64) {
+// ParseBonusTransaction parse a bonus transaction and  returns the group id, group menbers, block hash and transcation value
+func (bm *BonusManager) ParseBonusTransaction(transaction *types.Transaction) ([]byte, [][]byte, common.Hash, uint64, error) {
 	reader := bytes.NewReader(transaction.ExtraData)
 	groupID := make([]byte, common.GroupIDLength)
 	addr := make([]byte, common.AddressLength)
 	if n, _ := reader.Read(groupID); n != common.GroupIDLength {
-		panic("ParseBonusTransaction Read GroupID Fail")
+		return nil, nil, common.Hash{}, 0, errors.New("ParseBonusTransaction Read GroupID Fail")
 	}
 	ids := make([][]byte, 0)
 	for n, _ := reader.Read(addr); n > 0; n, _ = reader.Read(addr) {
 		if n != common.AddressLength {
 			Logger.Debugf("ParseBonusTransaction Addr Size:%d Invalid", n)
-			//panic("ParseBonusTransaction Read Address Fail")
 			break
 		}
 		ids = append(ids, addr)
 		addr = make([]byte, common.AddressLength)
 	}
 	blockHash := bm.parseBonusBlockHash(transaction)
-	return groupID, ids, blockHash, transaction.Value
+	return groupID, ids, blockHash, transaction.Value, nil
 }
 
 func (bm *BonusManager) parseBonusBlockHash(tx *types.Transaction) common.Hash {

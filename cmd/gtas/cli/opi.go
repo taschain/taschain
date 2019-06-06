@@ -1,16 +1,26 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
 	"fmt"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2018/12/20 下午2:38
-**  Description:
- */
 
 var (
 	ErrPassword    = fmt.Errorf("password error")
@@ -19,7 +29,6 @@ var (
 )
 
 type txRawData struct {
-	//from string
 	Target    string `json:"target"`
 	Value     uint64 `json:"value"`
 	Gas       uint64 `json:"gas"`
@@ -59,16 +68,15 @@ func txRawToTransaction(tx *txRawData) *types.Transaction {
 	}
 	var sign []byte
 	if tx.Sign != "" {
-		sign = common.HexStringToSign(tx.Sign).Bytes()
+		sign = common.HexToSign(tx.Sign).Bytes()
 	} else {
 
 	}
 
 	return &types.Transaction{
-		Data:  []byte(tx.Data),
-		Value: tx.Value,
-		Nonce: tx.Nonce,
-		//Source: &source,
+		Data:      []byte(tx.Data),
+		Value:     tx.Value,
+		Nonce:     tx.Nonce,
 		Target:    target,
 		Type:      int8(tx.TxType),
 		GasLimit:  tx.Gas,
@@ -95,14 +103,15 @@ type accountOp interface {
 }
 
 type chainOp interface {
+	// Connect connect node by ip and port
 	Connect(ip string, port int) error
-
+	// Endpoint returns current connected ip and port
 	Endpoint() string
-
+	// SendRaw send transaction to connected node
 	SendRaw(tx *txRawData) *Result
-
+	// Balance query Balance by address
 	Balance(addr string) *Result
-
+	// MinerInfo query miner info by address
 	MinerInfo(addr string) *Result
 
 	BlockHeight() *Result

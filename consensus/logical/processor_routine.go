@@ -1,20 +1,31 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
 	"fmt"
+	"sync/atomic"
+	time2 "time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/monitor"
-	time2 "time"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2018/11/28 下午2:03
-**  Description:
- */
 
 func (p *Processor) getCastCheckRoutineName() string {
 	return "self_cast_check_" + p.getPrefix()
@@ -28,25 +39,28 @@ func (p *Processor) getReleaseRoutineName() string {
 	return "release_routine_" + p.getPrefix()
 }
 
-//检查是否当前组铸块
+// checkSelfCastRoutine check if the current group cast block
 func (p *Processor) checkSelfCastRoutine() bool {
+	if !atomic.CompareAndSwapInt32(&p.isCasting, 0, 1) {
+		return false
+	}
+	defer func() {
+		p.isCasting = 0
+	}()
+
 	if !p.Ready() {
 		return false
 	}
 
 	blog := newBizLog("checkSelfCastRoutine")
 
-	if p.MainChain.IsAdujsting() {
-		blog.log("isAdjusting, return...")
+	if p.MainChain.IsAdjusting() {
+		blog.warn("isAdjusting, return...")
 		p.triggerCastCheck()
 		return false
 	}
 
 	top := p.MainChain.QueryTopBlock()
-	//if time.Since(top.CurTime).Seconds() < 1.0 {
-	//	blog.log("too quick, slow down. preTime %v, now %v", top.CurTime.String(), time.Now().String())
-	//	return false
-	//}
 
 	var (
 		expireTime  time.TimeStamp
@@ -64,7 +78,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	} else {
 		castHeight = uint64(1)
 	}
-	expireTime = GetCastExpireTime(top.CurTime, deltaHeight, castHeight)
+	expireTime = getCastExpireTime(top.CurTime, deltaHeight, castHeight)
 
 	if !p.canProposalAt(castHeight) {
 		return false
@@ -73,11 +87,10 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	worker := p.getVrfWorker()
 
 	if worker != nil && worker.workingOn(top, castHeight) {
-		//blog.log("already working on that block height=%v, status=%v", castHeight, worker.getStatus())
 		return false
 	}
-	blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
-	worker = newVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime, p.ts)
+	blog.debug("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
+	worker = newVRFWorker(p.getSelfMinerDO(), top, castHeight, expireTime, p.ts)
 	p.setVrfWorker(worker)
 	p.blockProposal()
 	return true
@@ -96,7 +109,9 @@ func (p *Processor) releaseRoutine() bool {
 	if topHeight <= model.Param.CreateGroupInterval {
 		return true
 	}
-	//在当前高度解散的组不应立即从缓存删除，延缓一个建组周期删除。保证该组解散前夕建的块有效
+	// Groups that are currently highly disbanded should not be deleted from
+	// the cache immediately, delaying the deletion of a build cycle. Ensure that
+	// the block built on the eve of the dissolution of the group is valid
 	groups := p.globalGroups.DismissGroups(topHeight - model.Param.CreateGroupInterval)
 	ids := make([]groupsig.ID, 0)
 	for _, g := range groups {
@@ -108,8 +123,8 @@ func (p *Processor) releaseRoutine() bool {
 	blog := newBizLog("releaseRoutine")
 
 	if len(ids) > 0 {
-		blog.log("clean group %v\n", len(ids))
-		p.globalGroups.RemoveGroups(ids)
+		blog.debug("clean group %v\n", len(ids))
+		p.globalGroups.removeGroups(ids)
 		p.belongGroups.leaveGroups(ids)
 		for _, g := range groups {
 			gid := g.GroupID
@@ -119,7 +134,7 @@ func (p *Processor) releaseRoutine() bool {
 		}
 	}
 
-	//释放超时未建成组的组网络和相应的dummy组
+	// Release the group network of the uncompleted group and the corresponding dummy group
 	p.joiningGroups.forEach(func(gc *GroupContext) bool {
 		if gc.gInfo == nil || gc.is == GisGroupInitDone {
 			return true
@@ -144,7 +159,7 @@ func (p *Processor) releaseRoutine() bool {
 					waitIds = append(waitIds, mem)
 				}
 			}
-			//发送日志
+			// Send info
 			le := &monitor.LogEntry{
 				LogType:  monitor.LogTypeInitGroupRevPieceTimeout,
 				Height:   p.GroupChain.Height(),
@@ -160,15 +175,15 @@ func (p *Processor) releaseRoutine() bool {
 			msg := &model.ReqSharePieceMessage{
 				GHash: gc.gInfo.GroupHash(),
 			}
-			stdLogger.Infof("reqSharePieceRoutine:req size %v, ghash=%v", len(waitIds), gc.gInfo.GroupHash().ShortS())
+			stdLogger.Debugf("reqSharePieceRoutine:req size %v, ghash=%v", len(waitIds), gc.gInfo.GroupHash().ShortS())
 			if msg.GenSign(p.getDefaultSeckeyInfo(), msg) {
 				for _, receiver := range waitIds {
-					stdLogger.Infof("reqSharePieceRoutine:req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
+					stdLogger.Debugf("reqSharePieceRoutine:req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
 					p.NetServer.ReqSharePiece(msg, receiver)
 				}
 			} else {
 				ski := p.getDefaultSeckeyInfo()
-				stdLogger.Infof("gen req sharepiece sign fail, ski=%v %v", ski.ID.ShortS(), ski.SK.ShortS())
+				stdLogger.Debugf("gen req sharepiece sign fail, ski=%v %v", ski.ID.ShortS(), ski.SK.ShortS())
 			}
 
 		}
@@ -183,7 +198,7 @@ func (p *Processor) releaseRoutine() bool {
 			if gctx != nil && gctx.gInfo != nil {
 				gHash = gctx.gInfo.GroupHash().Hex()
 			}
-			//发送日志
+			// Send info
 			le := &monitor.LogEntry{
 				LogType:  monitor.LogTypeCreateGroupSignTimeout,
 				Height:   p.GroupChain.Height(),
@@ -197,16 +212,7 @@ func (p *Processor) releaseRoutine() bool {
 		}
 		p.groupManager.removeContext()
 	}
-	//p.groupManager.creatingGroups.forEach(func(cg *CreatingGroupContext) bool {
-	//	gis := &cg.gInfo.GI
-	//	gHash := gis.GetHash()
-	//	if gis.ReadyTimeout(topHeight) {
-	//		blog.debug("DissolveGroupNet dummyGroup from creatingGroups gHash %v", gHash.ShortS())
-	//		p.NetServer.ReleaseGroupNet(gHash.Hex())
-	//		p.groupManager.creatingGroups.removeGroup(gHash)
-	//	}
-	//	return true
-	//})
+
 	p.globalGroups.generator.forEach(func(ig *InitedGroup) bool {
 		hash := ig.gInfo.GroupHash()
 		if ig.gInfo.GI.ReadyTimeout(topHeight) {
@@ -217,32 +223,34 @@ func (p *Processor) releaseRoutine() bool {
 		return true
 	})
 
-	//释放futureVerifyMsg
+	// Release futureVerifyMsg
 	p.futureVerifyMsgs.forEach(func(key common.Hash, arr []interface{}) bool {
 		for _, msg := range arr {
 			b := msg.(*model.ConsensusCastMessage)
 			if b.BH.Height+200 < topHeight {
-				blog.debug("remove future verify msg, hash=%v", key.String())
+				blog.debug("remove future verify msg, hash=%v", key.Hex())
 				p.removeFutureVerifyMsgs(key)
 				break
 			}
 		}
 		return true
 	})
-	//释放futureRewardMsg
+	// Release futureRewardMsg
 	p.futureRewardReqs.forEach(func(key common.Hash, arr []interface{}) bool {
 		for _, msg := range arr {
 			b := msg.(*model.CastRewardTransSignReqMessage)
-			if time2.Now().After(b.ReceiveTime.Add(400 * time2.Second)) { //400s不能处理的，都删除
+
+			// Can not be processed within 400s, are deleted
+			if time2.Now().After(b.ReceiveTime.Add(400 * time2.Second)) {
 				p.futureRewardReqs.remove(key)
-				blog.debug("remove future reward msg, hash=%v", key.String())
+				blog.debug("remove future reward msg, hash=%v", key.Hex())
 				break
 			}
 		}
 		return true
 	})
 
-	//清理超时的签名公钥请求
+	// Clean up the timeout signature public key request
 	cleanSignPkReqRecord()
 
 	for _, h := range p.blockContexts.verifyMsgCaches.Keys() {
@@ -264,13 +272,13 @@ func (p *Processor) getUpdateGlobalGroupsRoutineName() string {
 func (p *Processor) updateGlobalGroups() bool {
 	top := p.MainChain.Height()
 	iter := p.GroupChain.NewIterator()
-	for g := iter.Current(); g != nil && !IsGroupDissmisedAt(g.Header, top); g = iter.MovePre() {
+	for g := iter.Current(); g != nil && !isGroupDissmisedAt(g.Header, top); g = iter.MovePre() {
 		gid := groupsig.DeserializeID(g.ID)
 		if g, _ := p.globalGroups.getGroupFromCache(gid); g != nil {
 			continue
 		}
-		sgi := NewSGIFromCoreGroup(g)
-		stdLogger.Debugf("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
+		sgi := newSGIFromCoreGroup(g)
+		stdLogger.Infof("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
 		p.acceptGroup(sgi)
 	}
 	return true

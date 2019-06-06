@@ -1,20 +1,33 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+// Package time provides time-zone and local-machine independent time service
 package time
 
 import (
 	"fmt"
-	"github.com/beevik/ntp"
-	"github.com/taschain/taschain/middleware/ticker"
-	"github.com/taschain/taschain/utility"
 	"math/rand"
 	"time"
+
+	"github.com/taschain/taschain/common"
+
+	"github.com/beevik/ntp"
+	"github.com/taschain/taschain/middleware/ticker"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/4/10 上午11:15
-**  Description:
- */
-
+// TimeStamp in seconds
 type TimeStamp int64
 
 func Int64ToTimeStamp(sec int64) TimeStamp {
@@ -25,12 +38,8 @@ func TimeToTimeStamp(t time.Time) TimeStamp {
 	return TimeStamp(t.Unix())
 }
 
-func BytesToTimeStamp(bs []byte) TimeStamp {
-	return TimeStamp(utility.ByteToInt64(bs))
-}
-
 func (ts TimeStamp) Bytes() []byte {
-	return utility.Int64ToByte(int64(ts))
+	return common.Int64ToByte(int64(ts))
 }
 
 func (ts TimeStamp) UTC() time.Time {
@@ -61,18 +70,24 @@ func (ts TimeStamp) String() string {
 	return ts.Local().String()
 }
 
+// ntpServer defines the ntp servers used for time synchronization
 var ntpServer = []string{"ntp.aliyun.com", "ntp1.aliyun.com", "ntp2.aliyun.com", "ntp3.aliyun.com", "ntp4.aliyun.com", "ntp4.aliyun.com", "ntp5.aliyun.com", "ntp6.aliyun.com", "ntp7.aliyun.com"}
 
+// TimeSync implements time synchronization from ntp servers
 type TimeSync struct {
-	currentOffset time.Duration
+	currentOffset time.Duration // The offset of the local time to the ntp server
 	ticker        *ticker.GlobalTicker
 }
 
-//time service return utc time;
-//all input time will convert to utc time
+// TimeService is a time service, it return a timestamp in seconds
 type TimeService interface {
+	// Now returns the current timestamp calibrated with ntp server
 	Now() TimeStamp
+
+	// Since returns the time duration from the given timestamp to current moment
 	Since(t TimeStamp) int64
+
+	// NowAfter checks if current timestamp greater than the given one
 	NowAfter(t TimeStamp) bool
 }
 
@@ -103,14 +118,17 @@ func (ts *TimeSync) syncRoutine() bool {
 	return true
 }
 
+// Now returns the current timestamp calibrated with ntp server
 func (ts *TimeSync) Now() TimeStamp {
 	return TimeToTimeStamp(time.Now().Add(ts.currentOffset).UTC())
 }
 
+// Since returns the time duration from the given timestamp to current moment
 func (ts *TimeSync) Since(t TimeStamp) int64 {
 	return ts.Now().Since(t)
 }
 
+// NowAfter checks if current timestamp greater than the given one
 func (ts *TimeSync) NowAfter(t TimeStamp) bool {
 	return ts.Now().After(t)
 }

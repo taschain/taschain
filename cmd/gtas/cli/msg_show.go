@@ -1,22 +1,32 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/core"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/ticker"
 	"github.com/taschain/taschain/middleware/types"
-	"io"
-	"os"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2019/3/19 上午10:51
-**  Description:
- */
 
 type applyFunc func()
 
@@ -86,10 +96,14 @@ func (ms *msgShower) onBlockAddSuccess(message notify.Message) {
 		for _, tx := range b.Transactions {
 			switch tx.Type {
 			case types.TransactionTypeBonus:
-				_, ids, blockHash, value := ms.bchain.GetBonusManager().ParseBonusTransaction(tx)
+				_, ids, blockHash, value, err := ms.bchain.GetBonusManager().ParseBonusTransaction(tx)
+				if err != nil {
+					ms.showMsg("failed to parse bonus transaction %s", err)
+					continue
+				}
 				for _, id := range ids {
 					if bytes.Equal(id, ms.id) {
-						ms.showMsg("congratulations, you verified block hash %v success, bonus %v TAS", blockHash.String(), common.RA2TAS(value))
+						ms.showMsg("congratulations, you verified block hash %v success, bonus %v TAS", blockHash.Hex(), common.RA2TAS(value))
 						break
 					}
 				}

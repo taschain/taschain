@@ -18,80 +18,60 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/hashicorp/golang-lru"
+	"sync"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/tasdb"
-	"sync"
 )
 
 const (
-	maxTxPoolSize  = 50000
-	bonusTxMaxSize = 1000
-	//missTxCacheSize  = 60000
-
-	//broadcastListLength         = 100
-	//
-	//oldTxBroadcastTimerInterval = time.Second * 30
-	//oldTxInterval               = time.Second * 60
-
+	maxTxPoolSize   = 50000
+	bonusTxMaxSize  = 1000
 	txCountPerBlock = 3000
 	gasLimitMax     = 500000
 
-	txMaxSize = 64000 //每个交易最大大小
+	// Maximum size per transaction
+	txMaxSize = 64000
 )
 
 var (
-	ErrNil = errors.New("nil transaction")
-
+	ErrNil  = errors.New("nil transaction")
 	ErrHash = errors.New("invalid transaction hash")
-
-	ErrExist = errors.New("transaction already exist in pool")
 )
 
-type TxPool struct {
-	//bonusTxs *lru.Cache // bonus tx
-	bonPool *bonusPool
-	//missTxs  *lru.Cache
-	received *simpleContainer
+type txPool struct {
+	bonPool   *bonusPool
+	received  *simpleContainer
+	asyncAdds *lru.Cache // Asynchronously added, accelerates validated transaction
+	// when add block on chain, does not participate in the broadcast
 
-	asyncAdds *lru.Cache //异步添加的，加速块上链时validateTxs，不参与广播
-
-	receiptdb *tasdb.PrefixedDatabase
-	batch     tasdb.Batch
-
-	chain BlockChain
-	//broadcastList   []*types.Transaction
-	//broadcastTxLock sync.Mutex
-	//broadcastTimer  *time.Timer
-	//
-	//txBroadcastTime       *lru.Cache
-	//oldTxBroadTimer *time.Timer
-
+	receiptDb          *tasdb.PrefixedDatabase
+	batch              tasdb.Batch
+	chain              BlockChain
 	gasPriceLowerBound uint64
-
-	lock sync.RWMutex
+	lock               sync.RWMutex
 }
 
-type TxPoolAddMessage struct {
+type txPoolAddMessage struct {
 	txs   []*types.Transaction
 	txSrc txSource
 }
 
-func (m *TxPoolAddMessage) GetRaw() []byte {
+func (m *txPoolAddMessage) GetRaw() []byte {
 	panic("implement me")
 }
 
-func (m *TxPoolAddMessage) GetData() interface{} {
+func (m *txPoolAddMessage) GetData() interface{} {
 	panic("implement me")
 }
 
-func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase) TransactionPool {
-	pool := &TxPool{
-		//broadcastTimer:  time.NewTimer(broadcastTimerInterval),
-		//oldTxBroadTimer: time.NewTimer(oldTxBroadcastTimerInterval),
-		receiptdb:          receiptdb,
+// newTransactionPool returns a new transaction tool object
+func newTransactionPool(chain *FullBlockChain, receiptDb *tasdb.PrefixedDatabase) TransactionPool {
+	pool := &txPool{
+		receiptDb:          receiptDb,
 		batch:              chain.batch,
 		asyncAdds:          common.MustNewLRUCache(txCountPerBlock * maxReqBlockCount),
 		chain:              chain,
@@ -104,35 +84,36 @@ func NewTransactionPool(chain *FullBlockChain, receiptdb *tasdb.PrefixedDatabase
 	return pool
 }
 
-func (pool *TxPool) tryAddTransaction(tx *types.Transaction, from txSource) (bool, error) {
+func (pool *txPool) tryAddTransaction(tx *types.Transaction, from txSource) (bool, error) {
 	if err := pool.RecoverAndValidateTx(tx); err != nil {
-		//Logger.Debugf("Tx verify sig error:%s, txRaw from %v, type:%d, txRaw %+v", err.Error(), from, txRaw.Type, txRaw)
-		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.String(), tx.HexSign())
+		Logger.Debugf("tryAddTransaction err %v, from %v, hash %v, sign %v", err.Error(), from, tx.Hash.Hex(), tx.HexSign())
 		return false, err
 	}
 	b, err := pool.tryAdd(tx)
 	if err != nil {
-		Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.String(), tx.Type, err)
+		Logger.Debugf("tryAdd tx fail: from %v, hash=%v, type=%v, err=%v", from, tx.Hash.Hex(), tx.Type, err)
 	}
 	return b, err
 }
 
-func (pool *TxPool) AddTransaction(tx *types.Transaction) (bool, error) {
+// AddTransaction try to add a transaction into the tool
+func (pool *txPool) AddTransaction(tx *types.Transaction) (bool, error) {
 	return pool.tryAddTransaction(tx, 0)
 }
 
-func (pool *TxPool) AddTransactions(txs []*types.Transaction, from txSource) {
+// AddTransaction try to add a list of transactions into the tool
+func (pool *txPool) AddTransactions(txs []*types.Transaction, from txSource) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
-	//Logger.Debugf("add transactions size %v, txsrc %v", len(txs), from)
 	for _, tx := range txs {
 		pool.tryAddTransaction(tx, from)
 	}
-	notify.BUS.Publish(notify.TxPoolAddTxs, &TxPoolAddMessage{txs: txs, txSrc: from})
+	notify.BUS.Publish(notify.TxPoolAddTxs, &txPoolAddMessage{txs: txs, txSrc: from})
 }
 
-func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction) {
+// AddTransaction try to add a list of transactions into the tool asynchronously
+func (pool *txPool) AsyncAddTxs(txs []*types.Transaction) {
 	if nil == txs || 0 == len(txs) {
 		return
 	}
@@ -159,7 +140,8 @@ func (pool *TxPool) AsyncAddTxs(txs []*types.Transaction) {
 	}
 }
 
-func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) *types.Transaction {
+// GetTransaction trys to find a transaction from pool by hash and return it
+func (pool *txPool) GetTransaction(bonus bool, hash common.Hash) *types.Transaction {
 	var tx = pool.bonPool.get(hash)
 	if bonus || tx != nil {
 		return tx
@@ -174,24 +156,24 @@ func (pool *TxPool) GetTransaction(bonus bool, hash common.Hash) *types.Transact
 	return nil
 }
 
-func (pool *TxPool) Clear() {
-	pool.batch.Reset()
-}
-
-func (pool *TxPool) GetReceived() []*types.Transaction {
+// GetReceived returns the received transactions in the pool with a limited size
+func (pool *txPool) GetReceived() []*types.Transaction {
 	return pool.received.asSlice(maxTxPoolSize)
 }
 
-func (pool *TxPool) TxNum() uint64 {
+// TxNum returns the number of transactions in the pool
+func (pool *txPool) TxNum() uint64 {
 	return uint64(pool.received.Len() + pool.bonPool.len())
 }
 
-func (pool *TxPool) PackForCast() []*types.Transaction {
+// PackForCast returns a list of transactions for casting a block
+func (pool *txPool) PackForCast() []*types.Transaction {
 	result := pool.packTx()
 	return result
 }
 
-func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) error {
+// RecoverAndValidateTx recovers the sender of the transaction and also validates the transaction
+func (pool *txPool) RecoverAndValidateTx(tx *types.Transaction) error {
 	if !tx.Hash.IsValid() {
 		return ErrHash
 	}
@@ -253,7 +235,7 @@ func (pool *TxPool) RecoverAndValidateTx(tx *types.Transaction) error {
 	return nil
 }
 
-func (pool *TxPool) tryAdd(tx *types.Transaction) (bool, error) {
+func (pool *txPool) tryAdd(tx *types.Transaction) (bool, error) {
 	if tx == nil {
 		return false, ErrNil
 	}
@@ -269,7 +251,7 @@ func (pool *TxPool) tryAdd(tx *types.Transaction) (bool, error) {
 	return true, nil
 }
 
-func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
+func (pool *txPool) add(tx *types.Transaction) bool {
 	if tx.Type == types.TransactionTypeBonus {
 		pool.bonPool.add(tx)
 	} else {
@@ -277,23 +259,20 @@ func (pool *TxPool) add(tx *types.Transaction) (bool, error) {
 	}
 	TxSyncer.add(tx)
 
-	return true, nil
+	return true
 }
 
-func (pool *TxPool) remove(txHash common.Hash) {
+func (pool *txPool) remove(txHash common.Hash) {
 	pool.bonPool.remove(txHash)
 	pool.received.remove(txHash)
 	pool.asyncAdds.Remove(txHash)
 }
 
-func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, where int) {
+func (pool *txPool) isTransactionExisted(tx *types.Transaction) (exists bool, where int) {
 	if tx.Type == types.TransactionTypeBonus {
 		if pool.bonPool.contains(tx.Hash) {
 			return true, 1
 		}
-		//if pool.bonPool.hasBonus(tx.Data) {
-		//	return true, 2
-		//}
 	} else {
 		if pool.received.contains(tx.Hash) {
 			return true, 1
@@ -309,7 +288,7 @@ func (pool *TxPool) isTransactionExisted(tx *types.Transaction) (exists bool, wh
 	return false, -1
 }
 
-func (pool *TxPool) packTx() []*types.Transaction {
+func (pool *txPool) packTx() []*types.Transaction {
 	txs := make([]*types.Transaction, 0, txCountPerBlock)
 	pool.bonPool.forEach(func(tx *types.Transaction) bool {
 		txs = append(txs, tx)
@@ -330,7 +309,8 @@ func (pool *TxPool) packTx() []*types.Transaction {
 	return txs
 }
 
-func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
+// RemoveFromPool removes the transactions from pool by hash
+func (pool *txPool) RemoveFromPool(txs []common.Hash) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 	for _, tx := range txs {
@@ -338,14 +318,15 @@ func (pool *TxPool) RemoveFromPool(txs []common.Hash) {
 	}
 }
 
-func (pool *TxPool) BackToPool(txs []*types.Transaction) {
+// BackToPool will put the transactions back to pool
+func (pool *txPool) BackToPool(txs []*types.Transaction) {
 	pool.lock.Lock()
 	defer pool.lock.Unlock()
 	for _, txRaw := range txs {
 		if txRaw.Type != types.TransactionTypeBonus && txRaw.Source == nil {
 			err := txRaw.RecoverSource()
 			if err != nil {
-				Logger.Errorf("backtopPool recover source fail:tx=%v", txRaw.Hash.String())
+				Logger.Errorf("backtopPool recover source fail:tx=%v", txRaw.Hash.Hex())
 				continue
 			}
 		}
@@ -353,7 +334,8 @@ func (pool *TxPool) BackToPool(txs []*types.Transaction) {
 	}
 }
 
-func (pool *TxPool) GetBonusTxs() []*types.Transaction {
+// GetBonusTxs returns all the bonus transactions in the pool
+func (pool *txPool) GetBonusTxs() []*types.Transaction {
 	txs := make([]*types.Transaction, 0)
 	pool.bonPool.forEach(func(tx *types.Transaction) bool {
 		txs = append(txs, tx)

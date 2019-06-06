@@ -13,20 +13,22 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+/*
+	Package vm is used as the vm call chain
+*/
 package vm
 
 import (
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/storage/account"
 	"github.com/taschain/taschain/storage/trie"
-	"math/big"
 )
 
 type AccountDB interface {
 	CreateAccount(common.Address)
 
-	GetTrie() account.Trie
 	SubBalance(common.Address, *big.Int)
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int

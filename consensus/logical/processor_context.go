@@ -1,21 +1,32 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
-	"github.com/hashicorp/golang-lru"
+	"sync"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/core"
 	time2 "github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
-	"sync"
-	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/2/1 上午10:58
-**  Description:
- */
 type castedBlock struct {
 	height  uint64
 	preHash common.Hash
@@ -63,20 +74,21 @@ func (c *verifyMsgCache) removeVerifyMsgs() {
 	c.verifyMsgs = make([]*model.ConsensusVerifyMessage, 0)
 }
 
+// castBlockContexts stores the proposal messages for proposal role and the verification context for verify roles
 type castBlockContexts struct {
-	proposed        *lru.Cache //hash -> *Block
-	heightVctxs     *lru.Cache //height -> *VerifyContext
-	hashVctxs       *lru.Cache //hash -> *VerifyContext
-	reservedVctx    *lru.Cache //uint64 -> *VerifyContext 存储已经有签出块的verifyContext，待广播
-	verifyMsgCaches *lru.Cache //hash -> *verifyMsgCache 缓存验证消息
-	recentCasted    *lru.Cache //height -> *castedBlock
+	proposed        *lru.Cache // hash -> *Block, only used for proposal role
+	heightVctxs     *lru.Cache // height -> *VerifyContext
+	hashVctxs       *lru.Cache // hash -> *VerifyContext
+	reservedVctx    *lru.Cache // uint64 -> *VerifyContext, Store the verifyContext that already has the checked out block, to be broadcast
+	verifyMsgCaches *lru.Cache // hash -> *verifyMsgCache, Cache verification message
+	recentCasted    *lru.Cache // height -> *castedBlock
 	chain           core.BlockChain
 }
 
 func newCastBlockContexts(chain core.BlockChain) *castBlockContexts {
 	return &castBlockContexts{
 		proposed:        common.MustNewLRUCache(20),
-		heightVctxs:     common.MustNewLRUCacheWithEvitCB(20, heightVctxEvitCallback),
+		heightVctxs:     common.MustNewLRUCacheWithEvictCB(20, heightVctxEvitCallback),
 		hashVctxs:       common.MustNewLRUCache(200),
 		reservedVctx:    common.MustNewLRUCache(100),
 		verifyMsgCaches: common.MustNewLRUCache(200),
@@ -173,27 +185,27 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 	var vctx *VerifyContext
 	blog := newBizLog("getOrNewVctx")
 
-	//若该高度还没有verifyContext， 则创建一个
+	// If the height does not yet have a verifyContext, create one
 	if vctx = bctx.getVctxByHeight(height); vctx == nil {
 		vctx = newVerifyContext(group, height, expireTime, preBH)
 		bctx.addVctx(vctx)
-		blog.log("add vctx expire %v", expireTime)
+		blog.debug("add vctx expire %v", expireTime)
 	} else {
-		// hash不一致的情况下，
+		// In case of hash inconsistency,
 		if vctx.prevBH.Hash != preBH.Hash {
-			blog.log("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, vctx.prevBH.Hash.ShortS(), preBH.Hash.ShortS())
+			blog.error("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, vctx.prevBH.Hash.ShortS(), preBH.Hash.ShortS())
 			preOld := bctx.chain.QueryBlockHeaderByHash(vctx.prevBH.Hash)
-			//原来的preBH可能被分叉调整干掉了，则此vctx已无效， 重新用新的preBH
+			// The original preBH may be removed by the fork adjustment, then the vctx is invalid, re-use the new preBH
 			if preOld == nil {
 				vctx = bctx.replaceVerifyCtx(group, height, expireTime, preBH)
 				return vctx
 			}
 			preNew := bctx.chain.QueryBlockHeaderByHash(preBH.Hash)
-			//新的preBH不存在了，也可能被分叉干掉了，此处直接返回nil
+			// The new preBH doesn't exist, it may be forked, and it returns nil directly here.
 			if preNew == nil {
 				return nil
 			}
-			//新旧preBH都非空， 取高度高的preBH？
+			// Both old and new preBH are not empty, take high preBH?
 			if preOld.Height < preNew.Height {
 				vctx = bctx.replaceVerifyCtx(group, height, expireTime, preNew)
 			}
@@ -201,16 +213,16 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 			if height == 1 && expireTime.After(vctx.expireTime) {
 				vctx.expireTime = expireTime
 			}
-			blog.log("get exist vctx height %v, expire %v", height, vctx.expireTime)
+			blog.debug("get exist vctx height %v, expire %v", height, vctx.expireTime)
 		}
 	}
 	return vctx
 }
 
 func (bctx *castBlockContexts) getOrNewVerifyContext(group *StaticGroupInfo, bh *types.BlockHeader, preBH *types.BlockHeader) *VerifyContext {
-	deltaHeightByTime := DeltaHeightByTime(bh, preBH)
+	deltaHeightByTime := deltaHeightByTime(bh, preBH)
 
-	expireTime := GetCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)
+	expireTime := getCastExpireTime(preBH.CurTime, deltaHeightByTime, bh.Height)
 
 	vctx := bctx.getOrNewVctx(group, bh.Height, expireTime, preBH)
 	return vctx

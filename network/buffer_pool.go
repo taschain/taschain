@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package network
 
 import (
@@ -6,11 +21,12 @@ import (
 	"sync"
 )
 
+// BufferPoolItem  maintain the buffers of this size
 type BufferPoolItem struct {
 	buffers *list.List
-	size    int
-	max     int
-	inuse   int
+	size    int //buffer size
+	max     int //max count of cache buffer
+	inuse   int //buffer count in use
 }
 
 func newBufferPoolItem(size int, max int) *BufferPoolItem {
@@ -22,7 +38,7 @@ func newBufferPoolItem(size int, max int) *BufferPoolItem {
 	return item
 }
 
-func (poolItem *BufferPoolItem) GetBuffer() *bytes.Buffer {
+func (poolItem *BufferPoolItem) getBuffer() *bytes.Buffer {
 
 	if poolItem.buffers.Len() > 0 {
 		e := poolItem.buffers.Front()
@@ -45,9 +61,10 @@ func (poolItem *BufferPoolItem) freeBuffer(buf *bytes.Buffer) {
 	poolItem.inuse--
 }
 
-//BufferPool
+// BufferPool Cache the buffers used to send and recv data,
+// reduce alloc and free times of memory to improve performance
 type BufferPool struct {
-	items [5]*BufferPoolItem //key为网络ID
+	items [5]*BufferPoolItem // The key is the network ID
 	mutex sync.RWMutex
 }
 
@@ -55,12 +72,12 @@ func newBufferPool() *BufferPool {
 
 	pool := &BufferPool{}
 
-	pool.Init()
+	pool.init()
 
 	return pool
 }
 
-func (pool *BufferPool) Init() {
+func (pool *BufferPool) init() {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 
@@ -71,7 +88,8 @@ func (pool *BufferPool) Init() {
 	pool.items[4] = newBufferPoolItem(1024*1024*1.5, 32)
 }
 
-func (pool *BufferPool) GetPoolItem(size int) *BufferPoolItem {
+// getPoolItem find pool item of this size,if can't found return nil
+func (pool *BufferPool) getPoolItem(size int) *BufferPoolItem {
 
 	for i := 0; i < len(pool.items); i++ {
 		if pool.items[i].size >= size {
@@ -88,23 +106,25 @@ func (pool *BufferPool) Print() {
 	}
 }
 
-func (pool *BufferPool) GetBuffer(size int) *bytes.Buffer {
+// getBuffer get a buffer of this size from pool, if buffers is run out make a new one
+func (pool *BufferPool) getBuffer(size int) *bytes.Buffer {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
-	poolItem := pool.GetPoolItem(size)
+	poolItem := pool.getPoolItem(size)
 	if poolItem != nil {
-		buf := poolItem.GetBuffer()
+		buf := poolItem.getBuffer()
 		return buf
 	}
 
 	return new(bytes.Buffer)
 }
 
-func (pool *BufferPool) FreeBuffer(buf *bytes.Buffer) {
+//freeBuffer return buffer to pool,if pool if full then free this buffer,if not add to cache
+func (pool *BufferPool) freeBuffer(buf *bytes.Buffer) {
 	pool.mutex.Lock()
 	defer pool.mutex.Unlock()
 
-	poolItem := pool.GetPoolItem(buf.Cap())
+	poolItem := pool.getPoolItem(buf.Cap())
 	if poolItem != nil {
 		poolItem.freeBuffer(buf)
 	}

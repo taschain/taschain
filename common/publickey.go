@@ -18,25 +18,24 @@ package common
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"encoding/hex"
+	"io"
+
 	"github.com/taschain/taschain/common/ecies"
 	"github.com/taschain/taschain/common/secp256k1"
 	"golang.org/x/crypto/sha3"
-	"io"
 )
 
-//用户公钥
+// PublicKey data struct
 type PublicKey struct {
 	PubKey ecdsa.PublicKey
 }
 
-//公钥验证函数
+// Verify the validation of signature and message
 func (pk PublicKey) Verify(hash []byte, s *Sign) bool {
-	//return ecdsa.Verify(&pk.PubKey, hash, &s.r, &s.s)
-	return secp256k1.VerifySignature(pk.ToBytes(), hash, s.Bytes()[:64])
+	return secp256k1.VerifySignature(pk.Bytes(), hash, s.Bytes()[:64])
 }
 
-//由公钥萃取地址函数
+// GetAddress obtains the address mapped from the public key
 func (pk PublicKey) GetAddress() Address {
 	x := pk.PubKey.X.Bytes()
 	y := pk.PubKey.Y.Bytes()
@@ -44,20 +43,19 @@ func (pk PublicKey) GetAddress() Address {
 
 	addrBuf := sha3.Sum256(x)
 	if len(addrBuf) != AddressLength {
-		panic("地址长度错误")
+		panic("the length is error!")
 	}
-	Addr := BytesToAddress(addrBuf[:])
-	return Addr
+	return BytesToAddress(addrBuf[:])
 }
 
-//把公钥转换成字节切片
-func (pk PublicKey) ToBytes() []byte {
+// Bytes converts the public key to a byte array
+func (pk PublicKey) Bytes() []byte {
 	buf := elliptic.Marshal(pk.PubKey.Curve, pk.PubKey.X, pk.PubKey.Y)
 	//fmt.Printf("end pub key marshal, len=%v, data=%v\n", len(buf), buf)
 	return buf
 }
 
-//从字节切片转换到公钥
+// BytesToPublicKey returns a public key with the byte array imported
 func BytesToPublicKey(data []byte) (pk *PublicKey) {
 	pk = new(PublicKey)
 	pk.PubKey.Curve = getDefaultCurve()
@@ -71,28 +69,26 @@ func BytesToPublicKey(data []byte) (pk *PublicKey) {
 	return
 }
 
-//导出函数
-func (pk PublicKey) GetHexString() string {
-	buf := pk.ToBytes()
-	str := PREFIX + hex.EncodeToString(buf)
-	return str
+// Hex converts the public key to a hex string
+func (pk PublicKey) Hex() string {
+	return ToHex(pk.Bytes())
 }
 
+// Encrypt returns the cipher text of the message
 func (pk *PublicKey) Encrypt(rand io.Reader, msg []byte) ([]byte, error) {
 	return Encrypt(rand, pk, msg)
 }
 
-//导入函数
-func HexStringToPubKey(s string) (pk *PublicKey) {
+// HexToPubKey returns a public key with the hex string imported
+func HexToPubKey(s string) (pk *PublicKey) {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return
 	}
-	buf, _ := hex.DecodeString(s[len(PREFIX):])
-	pk = BytesToPublicKey(buf)
+	pk = BytesToPublicKey(FromHex(s))
 	return
 }
 
-//公钥加密消息
+// Encrypt returns the cipher text of the message
 func Encrypt(rand io.Reader, pub *PublicKey, msg []byte) (ct []byte, err error) {
 	pubECIES := ecies.ImportECDSAPublic(&pub.PubKey)
 	return ecies.Encrypt(rand, pubECIES, msg, nil, nil)

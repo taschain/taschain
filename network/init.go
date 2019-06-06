@@ -13,23 +13,21 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package network module implements p2p network, It uses a Kademlia-like protocol to maintain and discover Nodes.
+// network transfer protocol use  KCP, a open source RUDP implementation,it provide NAT Traversal ability,let nodes
+// under NAT can be connecting with other.
 package network
 
 import (
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/taslog"
 
-	"github.com/taschain/taschain/middleware/statistics"
 	nnet "net"
+
+	"github.com/taschain/taschain/middleware/statistics"
 )
 
 const (
-	seedIDKey = "seed_id"
-
-	seedIPKey = "seed_ip"
-
-	seedPortKey = "seed_port"
-
 	seedDefaultID = "0x10b94f335f1842befc329f996b9bee0d3f4fe034306842bb301023ca38711779"
 
 	seedDefaultIP = "47.105.51.161"
@@ -37,15 +35,15 @@ const (
 	seedDefaultPort = 1122
 )
 
-//网络配置
+// NetworkConfig is the network configuration
 type NetworkConfig struct {
 	NodeIDHex       string
 	NatIP           string
 	NatPort         uint16
 	SeedIP          string
 	SeedID          string
-	ChainID         uint16 //链id
-	ProtocolVersion uint16 //协议id
+	ChainID         uint16 // Chain id
+	ProtocolVersion uint16 // Protocol version
 	TestMode        bool
 	IsSuper         bool
 }
@@ -54,6 +52,7 @@ var net *Server
 
 var Logger taslog.Logger
 
+// Init initialize network instance,register message handler,join p2p network
 func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig NetworkConfig) (err error) {
 	index := common.GlobalConf.GetString("instance", "index", "")
 	Logger = taslog.GetLoggerByIndex(taslog.P2PLogConfig, index)
@@ -65,16 +64,6 @@ func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig 
 		return err
 	}
 
-	//test
-
-	//if index == "4" {
-	//	networkConfig.ChainID = 2
-	//	networkConfig.ProtocolVersion = 2
-	//} else {
-	//	networkConfig.ChainID = 1
-	//	networkConfig.ProtocolVersion = 1
-	//}
-
 	if networkConfig.SeedIP == "" {
 		networkConfig.SeedIP = seedDefaultIP
 	}
@@ -82,7 +71,7 @@ func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig 
 		networkConfig.SeedID = seedDefaultID
 	}
 
-	_, _, seedPort := getSeedInfo(config)
+	seedPort := seedDefaultPort
 
 	seeds := make([]*Node, 0, 16)
 
@@ -117,12 +106,4 @@ func Init(config common.ConfManager, consensusHandler MsgHandler, networkConfig 
 
 func GetNetInstance() Network {
 	return net
-}
-
-func getSeedInfo(config common.ConfManager) (id string, ip string, port int) {
-	id = config.GetString(BaseSection, seedIDKey, seedDefaultID)
-	ip = config.GetString(BaseSection, seedIPKey, seedDefaultIP)
-	port = config.GetInt(BaseSection, seedPortKey, seedDefaultPort)
-
-	return
 }

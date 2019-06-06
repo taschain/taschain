@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package statistics
 
 import (
@@ -7,6 +22,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
 	"github.com/taschain/taschain/common"
 )
 
@@ -104,9 +120,6 @@ func AddBlockLog(bootID int, code string, blockHeight uint64, qn uint64, txCount
 }
 
 func PutLog(data *LogObj) {
-	//if !HasInit(){
-	//	Init()
-	//}
 	LogChannel <- data
 }
 
@@ -116,7 +129,6 @@ func PutBlockLog(data *BlockLogObject) {
 
 func InitStatistics(config common.ConfManager) {
 	url = config.GetString("statistics", "url", "http://118.31.60.210:9090/send")
-	//url = config.GetString("statistics","url","http://localhost:9090/send")
 	timeout = time.Duration(config.GetInt("statistics", "timeout", 1)) * time.Second
 	batch = config.GetInt("statistics", "batch", 0)
 	enable = config.GetBool("statistics", "enable", false)

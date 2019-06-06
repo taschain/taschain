@@ -15,7 +15,7 @@
 
 package cli
 
-// Wallet 账户struct
+// Wallet account struct, contains private key and address
 type wallet struct {
 	PrivateKey string `json:"private_key"`
 	Address    string `json:"address"`

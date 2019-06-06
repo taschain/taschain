@@ -13,35 +13,29 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package types define the key data structures for the chain
 package types
 
 import (
 	"bytes"
 	"fmt"
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/time"
-	"github.com/taschain/taschain/utility"
-	"math/big"
 )
 
 type AddBlockOnChainSituation string
 
-const (
-	Sync                  AddBlockOnChainSituation = "sync"
-	NewBlock              AddBlockOnChainSituation = "newBlock"
-	FutureBlockCache      AddBlockOnChainSituation = "futureBlockCache"
-	DependGroupBlock      AddBlockOnChainSituation = "dependGroupBlock"
-	LocalGenerateNewBlock AddBlockOnChainSituation = "localGenerateNewBlock"
-	MergeFork             AddBlockOnChainSituation = "mergeFork"
-)
-
+// AddBlockResult is the result of the add-block operation
 type AddBlockResult int8
 
+// defines all possible result of the add-block operation
 const (
-	AddBlockFailed            AddBlockResult = -1
-	AddBlockSucc              AddBlockResult = 0
-	BlockExisted              AddBlockResult = 1
-	BlockTotalQnLessThanLocal AddBlockResult = 2
+	AddBlockFailed            AddBlockResult = -1 // Means the operations is fail
+	AddBlockSucc              AddBlockResult = 0  // Means success
+	BlockExisted              AddBlockResult = 1  // Means the block already added before
+	BlockTotalQnLessThanLocal AddBlockResult = 2  // Weight consideration
 	Forking                   AddBlockResult = 3
 )
 const (
@@ -86,6 +80,7 @@ func NewTransactionError(code int, msg string) *TransactionError {
 	return &TransactionError{Code: code, Message: msg}
 }
 
+// Supported transaction types
 const (
 	TransactionTypeTransfer         = 0
 	TransactionTypeContractCreate   = 1
@@ -100,27 +95,25 @@ const (
 	TransactionTypeToBeRemoved = -1
 )
 
-//tx data with source
+// Transaction denotes one transaction infos
 type Transaction struct {
-	Data   []byte          `msgpack:"dt,omitempty"`
-	Value  uint64          `msgpack:"v"`
-	Nonce  uint64          `msgpack:"nc"`
-	Target *common.Address `msgpack:"tg,omitempty"`
-	Type   int8            `msgpack:"tp"`
+	Data   []byte          `msgpack:"dt,omitempty"` // Data of the transaction, cost gas
+	Value  uint64          `msgpack:"v"`            // The value the sender suppose to transfer
+	Nonce  uint64          `msgpack:"nc"`           // The nonce indicates the transaction sequence related to sender
+	Target *common.Address `msgpack:"tg,omitempty"` // The receiver address
+	Type   int8            `msgpack:"tp"`           // Transaction type
 
 	GasLimit uint64      `msgpack:"gl"`
 	GasPrice uint64      `msgpack:"gp"`
 	Hash     common.Hash `msgpack:"h"`
 
-	ExtraData     []byte `msgpack:"ed"`
-	ExtraDataType int8   `msgpack:"et,omitempty"`
-	//PubKey *common.PublicKey
-	//Sign *common.Sign
-	Sign   []byte          `msgpack:"si"`
-	Source *common.Address `msgpack:"src"` //don't streamlize
+	ExtraData     []byte          `msgpack:"ed"`
+	ExtraDataType int8            `msgpack:"et,omitempty"`
+	Sign          []byte          `msgpack:"si"`  // The Sign of the sender
+	Source        *common.Address `msgpack:"src"` // Sender address, recovered from sign
 }
 
-//source,sign在hash计算范围内
+// GenHash generate unique hash of the transaction. source,sign is out of the hash calculation range
 func (tx *Transaction) GenHash() common.Hash {
 	if nil == tx {
 		return common.Hash{}
@@ -149,6 +142,8 @@ func (tx *Transaction) HexSign() string {
 	return common.ToHex(tx.Sign)
 }
 
+// RecoverSource recover source from the sign field.
+// It returns directly if source is not nil or it is a bonus transaction.
 func (tx *Transaction) RecoverSource() error {
 	if tx.Source != nil || tx.Type == TransactionTypeBonus {
 		return nil
@@ -169,20 +164,8 @@ func (tx Transaction) GetSource() *common.Address { return tx.Source }
 func (tx Transaction) GetTarget() *common.Address { return tx.Target }
 func (tx Transaction) GetHash() common.Hash       { return tx.Hash }
 
-//type Transactions []*Transaction
-//
-//func (c Transactions) Len() int {
-//	return len(c)
-//}
-//func (c Transactions) Swap(i, j int) {
-//	c[i], c[j] = c[j], c[i]
-//}
-//func (c Transactions) Less(i, j int) bool {
-//	return c[i].Nonce < c[j].Nonce
-//}
-
-// 根据gasprice决定优先级的transaction数组
-// gasprice 低的，放在前
+// PriorityTransactions is a transaction array that determines the priority based on gasprice.
+// Gasprice is placed low
 type PriorityTransactions []*Transaction
 
 func (pt PriorityTransactions) Len() int {
@@ -214,6 +197,7 @@ func (pt *PriorityTransactions) Pop() interface{} {
 	return item
 }
 
+// Bonus is the bonus transaction raw data
 type Bonus struct {
 	TxHash     common.Hash
 	TargetIds  []int32
@@ -230,6 +214,7 @@ const (
 	MinerStatusAbort  = 1
 )
 
+// Miner is the miner info including public keys and pledges
 type Miner struct {
 	ID           []byte
 	PublicKey    []byte
@@ -241,41 +226,39 @@ type Miner struct {
 	Status       byte
 }
 
-//区块头结构
+// BlockHeader is block header structure
 type BlockHeader struct {
-	Hash       common.Hash    // 本块的hash，to do : 是对哪些数据的哈希
-	Height     uint64         // 本块的高度
-	PreHash    common.Hash    //上一块哈希
-	Elapsed    int32          //距离上一块铸块时间的时长
-	ProveValue []byte         //vrf prove
-	TotalQN    uint64         //整条链的QN
-	CurTime    time.TimeStamp //当前铸块时间
-	Castor     []byte         //出块人ID
-	GroupID    []byte         //组ID，groupsig.ID的二进制表示
-	Signature  []byte         // 组签名
-	Nonce      int32          //盐
-	//Transactions []common.Hash // 交易集哈希列表
-	TxTree      common.Hash // 交易默克尔树根hash
-	ReceiptTree common.Hash
-	StateTree   common.Hash
+	Hash        common.Hash    // The hash of this block
+	Height      uint64         // The height of this block
+	PreHash     common.Hash    // The hash of previous block
+	Elapsed     int32          // The length of time from the last block
+	ProveValue  []byte         // Vrf prove
+	TotalQN     uint64         // QN of the entire chain
+	CurTime     time.TimeStamp // Current block time
+	Castor      []byte         // Proposer ID
+	GroupID     []byte         // Verify group ID，binary representation of groupsig.ID
+	Signature   []byte         // Group signature from consensus
+	Nonce       int32          // Salt
+	TxTree      common.Hash    // Transaction Merkel root hash
+	ReceiptTree common.Hash    // Receipte Merkel root hash
+	StateTree   common.Hash    // State db Merkel root hash
 	ExtraData   []byte
-	Random      []byte
-	//ProveRoot    common.Hash
-	//EvictedTxs   []common.Hash
+	Random      []byte // Random number generated during the consensus process
 }
 
+// GenHash calculates the hash of the block
 func (bh *BlockHeader) GenHash() common.Hash {
 	buf := bytes.NewBuffer([]byte{})
 
-	buf.Write(utility.UInt64ToByte(bh.Height))
+	buf.Write(common.UInt64ToByte(bh.Height))
 
 	buf.Write(bh.PreHash.Bytes())
 
-	buf.Write(utility.Int32ToByte(bh.Elapsed))
+	buf.Write(common.Int32ToByte(bh.Elapsed))
 
 	buf.Write(bh.ProveValue)
 
-	buf.Write(utility.UInt64ToByte(bh.TotalQN))
+	buf.Write(common.UInt64ToByte(bh.TotalQN))
 
 	buf.Write(bh.CurTime.Bytes())
 
@@ -283,20 +266,14 @@ func (bh *BlockHeader) GenHash() common.Hash {
 
 	buf.Write(bh.GroupID)
 
-	buf.Write(utility.Int32ToByte(bh.Nonce))
+	buf.Write(common.Int32ToByte(bh.Nonce))
 
-	//if bh.Transactions != nil {
-	//	for _, tx := range bh.Transactions {
-	//		buf.Write(tx.Bytes())
-	//	}
-	//}
 	buf.Write(bh.TxTree.Bytes())
 	buf.Write(bh.ReceiptTree.Bytes())
 	buf.Write(bh.StateTree.Bytes())
 	if bh.ExtraData != nil {
 		buf.Write(bh.ExtraData)
 	}
-	//buf.Write(bh.ProveRoot.Bytes())
 
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
@@ -309,6 +286,7 @@ func (bh *BlockHeader) HasTransactions() bool {
 	return bh.TxTree != common.EmptyHash
 }
 
+// Block is the block data structure consists of the header and transactions as body
 type Block struct {
 	Header       *BlockHeader
 	Transactions []*Transaction
@@ -325,24 +303,26 @@ func (b *Block) GetTransactionHashs() []common.Hash {
 	return hashs
 }
 
+// Member is used for one member of groups
 type Member struct {
 	ID     []byte
 	PubKey []byte
 }
 
+// GroupHeader is the group header info
 type GroupHeader struct {
-	Hash          common.Hash //组头hash
-	Parent        []byte      //父亲组 的组ID
-	PreGroup      []byte      //前一块的ID
-	Authority     uint64      //权限相关数据（父亲组赋予）
-	Name          string      //父亲组取的名字
+	Hash          common.Hash // Group header hash
+	Parent        []byte      // Parent group ID, which create the current group
+	PreGroup      []byte      // Previous group ID on group chain
+	Authority     uint64      // The authority given by the parent group
+	Name          string      // The name given by the parent group
 	BeginTime     time.TimeStamp
-	MemberRoot    common.Hash //成员列表hash
-	CreateHeight  uint64      //建组高度
-	ReadyHeight   uint64      //准备就绪最迟高度
-	WorkHeight    uint64      //组开始参与铸块的高度
-	DismissHeight uint64      //组解散的高度
-	Extends       string      //带外数据
+	MemberRoot    common.Hash // Group members list root hash
+	CreateHeight  uint64      // Height of the group created
+	ReadyHeight   uint64      // Latest height of ready
+	WorkHeight    uint64      // Height of work
+	DismissHeight uint64      // Height of dismiss
+	Extends       string      // Extend data
 }
 
 func (gh *GroupHeader) GenHash() common.Hash {
@@ -352,8 +332,6 @@ func (gh *GroupHeader) GenHash() common.Hash {
 	buf.Write(common.Uint64ToByte(gh.Authority))
 	buf.WriteString(gh.Name)
 
-	//bt, _ := gh.BeginTime.MarshalBinary()
-	//buf.Write(bt)
 	buf.Write(gh.MemberRoot.Bytes())
 	buf.Write(common.Uint64ToByte(gh.CreateHeight))
 	buf.Write(common.Uint64ToByte(gh.ReadyHeight))
@@ -363,21 +341,23 @@ func (gh *GroupHeader) GenHash() common.Hash {
 	return common.BytesToHash(common.Sha256(buf.Bytes()))
 }
 
+// DismissedAt checks if the group dismissed at the given height
 func (gh *GroupHeader) DismissedAt(h uint64) bool {
 	return gh.DismissHeight <= h
 }
 
+// WorkAt checks if the group can working at the given height
 func (gh *GroupHeader) WorkAt(h uint64) bool {
 	return !gh.DismissedAt(h) && gh.WorkHeight <= h
 }
 
+// Group is the whole group info
 type Group struct {
-	Header *GroupHeader
-	//不参与签名
+	Header      *GroupHeader
 	ID          []byte
 	PubKey      []byte
 	Signature   []byte
-	Members     [][]byte //成员id列表
+	Members     [][]byte // Member id list
 	GroupHeight uint64
 }
 
@@ -395,19 +375,25 @@ type StateNode struct {
 	Value []byte
 }
 
+// BlockWeight denotes the weight of one block
 type BlockWeight struct {
-	TotalQN uint64
-	PV      *big.Int
+	TotalQN uint64   // Same as TotalQN field of BlockHeader
+	PV      *big.Int // Converted from ProveValue field of BlockHeader
 }
 
 type PvFunc func(pvBytes []byte) *big.Int
 
 var DefaultPVFunc PvFunc
 
+// MoreWeight checks the current block is more weight than the given one
 func (bw *BlockWeight) MoreWeight(bw2 *BlockWeight) bool {
 	return bw.Cmp(bw2) > 0
 }
 
+// Cmp compares the weight between current block and the given one.
+// 1 returns if current block is more weight
+// 0 returns if equal
+// otherwise -1 is returned
 func (bw *BlockWeight) Cmp(bw2 *BlockWeight) int {
 	if bw.TotalQN > bw2.TotalQN {
 		return 1

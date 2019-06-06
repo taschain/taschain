@@ -105,9 +105,7 @@ func (sendList *SendList) send(peer *Peer, packet *bytes.Buffer, code int) {
 		Logger.Infof("send list send is full, drop this message!  net id:%v session:%v code:%v", peer.ID.GetHexString(), peer.sessionID, code)
 		return
 	}
-	//	Logger.Debugf("send  net id:%v session:%v code:%v size:%v", peer.ID.GetHexString(), peer.sessionID,code,packet.Len())
 	sendListItem.list.PushBack(packet)
-
 	netCore.flowMeter.send(int64(code), int64(len(packet.Bytes())))
 	sendList.autoSend(peer)
 }
@@ -118,7 +116,6 @@ func (sendList *SendList) isSendAvailable() bool {
 
 func (sendList *SendList) onSendWaited(peer *Peer) {
 	sendList.lastOnWait = time.Now()
-	//	Logger.Infof("OnSendWaited, id：%v, session:%v ", peer.ID.GetHexString(), peer.sessionID)
 	sendList.lastOnWait = time.Now()
 	sendList.pendingSend = 0
 	sendList.autoSend(peer)
@@ -147,7 +144,7 @@ func (sendList *SendList) autoSend(peer *Peer) {
 			Logger.Debugf("P2PSend  net id:%v session:%v size:%v ", peer.ID.GetHexString(), peer.sessionID, buf.Len())
 			P2PSend(peer.sessionID, buf.Bytes())
 
-			netCore.bufferPool.FreeBuffer(buf)
+			netCore.bufferPool.freeBuffer(buf)
 
 			item.list.Remove(e)
 			sendList.pendingSend++
@@ -191,7 +188,7 @@ func (sendList *SendList) getDataSize() int {
 	return size
 }
 
-//Peer 节点连接对象
+// Peer is node connection object
 type Peer struct {
 	ID             NodeID
 	relayID        NodeID
@@ -211,7 +208,7 @@ type Peer struct {
 	bytesSend       int
 	sendWaitCount   int
 	disconnectCount int
-	chainID         uint16 //链id
+	chainID         uint16
 }
 
 func newPeer(ID NodeID, sessionID uint32) *Peer {
@@ -225,7 +222,7 @@ func (p *Peer) addRecvData(data []byte) {
 
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	b := netCore.bufferPool.GetBuffer(len(data))
+	b := netCore.bufferPool.getBuffer(len(data))
 	b.Write(data)
 	p.recvList.PushBack(b)
 	p.bytesReceived += len(data)
@@ -277,7 +274,7 @@ func (p *Peer) isEmpty() bool {
 func (p *Peer) write(packet *bytes.Buffer, code uint32) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	b := netCore.bufferPool.GetBuffer(packet.Len())
+	b := netCore.bufferPool.getBuffer(packet.Len())
 	b.Write(packet.Bytes())
 
 	p.sendList.send(p, b, int(code))
@@ -299,9 +296,9 @@ func (p *Peer) IsCompatible() bool {
 	return netCore.chainID == p.chainID
 }
 
-//PeerManager 节点连接管理
+// PeerManager is node connection management
 type PeerManager struct {
-	peers              map[uint64]*Peer //key为网络ID
+	peers              map[uint64]*Peer // Key is the network ID
 	mutex              sync.RWMutex
 	natTraversalEnable bool
 	natPort            uint16
@@ -333,7 +330,7 @@ func newPeerManager() *PeerManager {
 
 func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Buffer, code uint32, relay bool) {
 
-	netID := netCoreNodeID(toid)
+	netID := genNetID(toid)
 	p := pm.peerByNetID(netID)
 	if p == nil {
 		p = newPeer(toid, 0)
@@ -341,11 +338,6 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 		p.connecting = false
 		pm.addPeer(netID, p)
 	}
-	//test
-	//if time.Since(p.relayTestTime) > RelayTestTimeOut {
-	//	p.relayTestTime = time.Now()
-	//	netCore.RelayTest(toid)
-	//}
 	if p.relayID.IsValid() && relay {
 		relayPeer := pm.peerByID(p.relayID)
 
@@ -386,7 +378,7 @@ func (pm *PeerManager) write(toid NodeID, toaddr *nnet.UDPAddr, packet *bytes.Bu
 	}
 }
 
-//newConnection 处理连接成功的回调
+// newConnection handling callbacks for successful connections
 func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, isAccepted bool) {
 
 	p := pm.peerByNetID(id)
@@ -410,16 +402,16 @@ func (pm *PeerManager) newConnection(id uint64, session uint32, p2pType uint32, 
 	Logger.Infof("new connection, node id:%v  netid :%v session:%v isAccepted:%v ", p.ID.GetHexString(), id, session, isAccepted)
 }
 
-//OnSendWaited  发送队列空闲
-func (pm *PeerManager) OnSendWaited(id uint64, session uint32) {
+// onSendWaited  when the send queue is idle
+func (pm *PeerManager) onSendWaited(id uint64, session uint32) {
 	p := pm.peerByNetID(id)
 	if p != nil {
 		p.onSendWaited()
 	}
 }
 
-//OnDisconnected 处理连接断开的回调
-func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32) {
+// onDisconnected handles callbacks for disconnected connections
+func (pm *PeerManager) onDisconnected(id uint64, session uint32, p2pCode uint32) {
 	p := pm.peerByNetID(id)
 	if p != nil {
 
@@ -435,7 +427,7 @@ func (pm *PeerManager) OnDisconnected(id uint64, session uint32, p2pCode uint32)
 }
 
 func (pm *PeerManager) disconnect(id NodeID) {
-	netID := netCoreNodeID(id)
+	netID := genNetID(id)
 
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
@@ -450,15 +442,13 @@ func (pm *PeerManager) disconnect(id NodeID) {
 	}
 }
 
-//OnChecked 网络类型检查
-func (pm *PeerManager) OnChecked(p2pType uint32, privateIP string, publicIP string) {
+func (pm *PeerManager) onChecked(p2pType uint32, privateIP string, publicIP string) {
 
 }
 
 func (pm *PeerManager) checkPeers() {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	//	Logger.Infof("[PeerManager] [checkPeers] peers :%v ", len( pm.peers))
 	for _, p := range pm.peers {
 		if p.bytesReceived == 0 {
 			Logger.Infof("[PeerManager] [checkPeers] peer ip:%v port:%v bytes recv:%v ,bytes send:%v disconnect count:%v send wait count:%v ",
@@ -468,11 +458,10 @@ func (pm *PeerManager) checkPeers() {
 	}
 }
 
-//SendDataToAll 向所有已经连接的节点发送自定义数据包
-func (pm *PeerManager) SendAll(packet *bytes.Buffer, code uint32) {
+func (pm *PeerManager) broadcast(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	Logger.Infof("send all total peer size:%v code:%v", len(pm.peers), code)
+	Logger.Infof("broadcast total peer size:%v code:%v", len(pm.peers), code)
 
 	for _, p := range pm.peers {
 		if p.sessionID > 0 && p.IsCompatible() {
@@ -496,8 +485,7 @@ func (pm *PeerManager) checkPeerSource() {
 	}
 }
 
-//BroadcastRandom
-func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
+func (pm *PeerManager) broadcastRandom(packet *bytes.Buffer, code uint32) {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
 	Logger.Infof("broadcast random total peer size:%v code:%v", len(pm.peers), code)
@@ -539,7 +527,7 @@ func (pm *PeerManager) BroadcastRandom(packet *bytes.Buffer, code uint32) {
 }
 
 func (pm *PeerManager) peerByID(id NodeID) *Peer {
-	netID := netCoreNodeID(id)
+	netID := genNetID(id)
 
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()

@@ -1,32 +1,54 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package model
 
 import (
 	"bytes"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/taslog"
-	"strconv"
-	"time"
 )
 
-var SlowLog taslog.Logger
-
+// ISignedMessage defines the message functions
 type ISignedMessage interface {
+	// GenSign generates signature with the given secKeyInfo and hash function
+	// Returns false when generating failure
 	GenSign(ski SecKeyInfo, hasher Hasher) bool
+
+	// VerifySign verifies the signature with the public key
 	VerifySign(pk groupsig.Pubkey) bool
 }
 
+// Hasher defines the hash generated function for messages
 type Hasher interface {
 	GenHash() common.Hash
 }
 
+// BaseSignedMessage is the base class of all messages that need to be signed
 type BaseSignedMessage struct {
 	SI SignData
 }
 
+// GenSign generates signature with the given secKeyInfo and hash function
+// Returns false when generating failure
 func (sign *BaseSignedMessage) GenSign(ski SecKeyInfo, hasher Hasher) bool {
 	if !ski.IsValid() {
 		return false
@@ -35,6 +57,7 @@ func (sign *BaseSignedMessage) GenSign(ski SecKeyInfo, hasher Hasher) bool {
 	return true
 }
 
+// VerifySign verifies the signature with the public key
 func (sign *BaseSignedMessage) VerifySign(pk groupsig.Pubkey) (ok bool) {
 	if !sign.SI.GetID().IsValid() {
 		return false
@@ -46,10 +69,10 @@ func (sign *BaseSignedMessage) VerifySign(pk groupsig.Pubkey) (ok bool) {
 	return
 }
 
-//收到父亲组的启动组初始化消息
-//to do : 组成员ID列表在哪里提供
+// ConsensusGroupRawMessage is the basic info of the new-group
+// Nobody but the members of the group concerns the message
 type ConsensusGroupRawMessage struct {
-	GInfo ConsensusGroupInitInfo //组初始化共识
+	GInfo ConsensusGroupInitInfo // Group initialization consensus
 	BaseSignedMessage
 }
 
@@ -61,45 +84,32 @@ func (msg *ConsensusGroupRawMessage) MemberExist(id groupsig.ID) bool {
 	return msg.GInfo.MemberExists(id)
 }
 
-//向所有组内成员发送秘密片段消息（不同成员不同）
+// ConsensusSharePieceMessage represents secret fragment messages to all members
+// of the group（different members have different messages）
 type ConsensusSharePieceMessage struct {
-	GHash common.Hash //组初始化共识（ConsensusGroupInitSummary）的哈希
-	//GHash   common.Hash //父亲组指定的新组hash，GroupHeader的hash
-	Dest  groupsig.ID //接收者（矿工）的ID
-	Share SharePiece  //消息明文（由传输层用接收者公钥对消息进行加密和解密）
-	//SI      SignData    //矿工个人签名
+	GHash  common.Hash // Group initialization consensus (ConsensusGroupInitSummary) hash
+	Dest   groupsig.ID // Receiver (miner) ID
+	Share  SharePiece  // Message plaintext (encrypted and decrypted by the transport layer with the recipient public key)
 	MemCnt int32
 	BaseSignedMessage
 }
 
 func (msg *ConsensusSharePieceMessage) GenHash() common.Hash {
 	buf := msg.GHash.Bytes()
-	//buf = append(buf, msg.GHash.Bytes()...)
 	buf = append(buf, msg.Dest.Serialize()...)
 	buf = append(buf, msg.Share.Pub.Serialize()...)
 	buf = append(buf, msg.Share.Share.Serialize()...)
 	return base.Data2CommonHash(buf)
 }
 
-//向组内成员发送签名公钥消息（所有成员相同）
+// ConsensusSignPubKeyMessage represents a signed public key message related to one specified group
 type ConsensusSignPubKeyMessage struct {
 	GHash   common.Hash
-	GroupID groupsig.ID     //组id
-	SignPK  groupsig.Pubkey //组成员签名公钥
-	//GSign  groupsig.Signature //用组成员签名私钥对GIS进行的签名（用于验证组成员签名公钥的正确性）
-	//SI      SignData           //矿工个人签名
-	MemCnt int32
+	GroupID groupsig.ID     // Group id
+	SignPK  groupsig.Pubkey // Group member signature public key
+	MemCnt  int32
 	BaseSignedMessage
 }
-
-//func (msg *ConsensusSignPubKeyMessage) GenGSign(sk groupsig.Seckey) {
-//	msg.GSign = groupsig.Sign(sk, msg.GHash.Bytes())
-//}
-//
-//
-//func (msg *ConsensusSignPubKeyMessage) VerifyGSign(pk groupsig.Pubkey) bool {
-//	return groupsig.VerifySig(pk, msg.GHash.Bytes(), msg.GSign)
-//}
 
 func (msg *ConsensusSignPubKeyMessage) GenHash() common.Hash {
 	buf := msg.GHash.Bytes()
@@ -108,7 +118,7 @@ func (msg *ConsensusSignPubKeyMessage) GenHash() common.Hash {
 	return base.Data2CommonHash(buf)
 }
 
-//请求签名公钥
+// ConsensusSignPubkeyReqMessage represents the request for the group-related public key of one member
 type ConsensusSignPubkeyReqMessage struct {
 	BaseSignedMessage
 	GroupID groupsig.ID
@@ -118,14 +128,15 @@ func (m *ConsensusSignPubkeyReqMessage) GenHash() common.Hash {
 	return base.Data2CommonHash(m.GroupID.Serialize())
 }
 
-//向组外广播该组已经初始化完成(组外节点要收到门限个消息相同，才进行上链)
+// ConsensusGroupInitedMessage represents the complete group info that has been initialized
+// It is network-wide broadcast
 type ConsensusGroupInitedMessage struct {
 	GHash        common.Hash
-	GroupID      groupsig.ID     //组ID(可以由组公钥生成)
-	GroupPK      groupsig.Pubkey //组公钥
-	CreateHeight uint64          //组开始创建时的高度
+	GroupID      groupsig.ID     // Group ID (can be generated by the group public key)
+	GroupPK      groupsig.Pubkey // Group public key
+	CreateHeight uint64          // The height at which the group started to be created
 	ParentSign   groupsig.Signature
-	MemMask      []byte //组成员mask，值为1的位表名该candidate在组成员列表中,根据该mask表和candidate集合可恢复出组成员列表
+	MemMask      []byte // Group member mask, a value of 1 indicates that the candidate is in the group member list, and the group member list can be restored according to the mask table and the candidate set.
 	MemCnt       int32
 	BaseSignedMessage
 }
@@ -141,48 +152,41 @@ func (msg *ConsensusGroupInitedMessage) GenHash() common.Hash {
 	return base.Data2CommonHash(buf.Bytes())
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//铸块消息族
-//铸块消息族的SI用组成员签名公钥验签
+/*
+cast block message family
+The SI of the cast block message family is signed with the public key of the group member.
+*/
 
-//成为当前处理组消息 - 由第一个发现当前组成为铸块组的成员发出
+// ConsensusCurrentMessage become the current processing group message, issued
+// by the first member who finds the current group become the cast block group
+// deprecated
 type ConsensusCurrentMessage struct {
-	GroupID     []byte      //铸块组
-	PreHash     common.Hash //上一块哈希
-	PreTime     time.Time   //上一块完成时间
-	BlockHeight uint64      //铸块高度
+	GroupID     []byte      // Cast block group
+	PreHash     common.Hash // Previous block hash
+	PreTime     time.Time   // Last block completion time
+	BlockHeight uint64      // Cast block height
 	BaseSignedMessage
 }
 
 func (msg *ConsensusCurrentMessage) GenHash() common.Hash {
-	buf := msg.PreHash.String()
+	buf := msg.PreHash.Hex()
 	buf += string(msg.GroupID[:])
 	buf += msg.PreTime.String()
 	buf += strconv.FormatUint(msg.BlockHeight, 10)
 	return base.Data2CommonHash([]byte(buf))
 }
 
+// ConsensusCastMessage is the block proposal message from proposers
+// and handled by the verify-group members
 type ConsensusCastMessage struct {
-	BH types.BlockHeader
-	//GroupID groupsig.ID
+	BH        types.BlockHeader
 	ProveHash common.Hash
 	BaseSignedMessage
 }
 
 func (msg *ConsensusCastMessage) GenHash() common.Hash {
-	//buf := bytes.Buffer{}
-	//buf.Write(msg.BH.GenHash().Bytes())
-	//for _, h := range msg.ProveHash {
-	//	buf.Write(h.Bytes())
-	//}
-	//return base.Data2CommonHash(buf.Bytes())
 	return msg.BH.GenHash()
 }
-
-//func (msg *ConsensusCastMessage) GenRandomSign(skey groupsig.Seckey, preRandom []byte)  {
-//	sig := groupsig.Sign(skey, preRandom)
-//    msg.BH.Random = sig.Serialize()
-//}
 
 func (msg *ConsensusCastMessage) VerifyRandomSign(pkey groupsig.Pubkey, preRandom []byte) bool {
 	sig := groupsig.DeserializeSign(msg.BH.Random)
@@ -192,12 +196,7 @@ func (msg *ConsensusCastMessage) VerifyRandomSign(pkey groupsig.Pubkey, preRando
 	return groupsig.VerifySig(pkey, preRandom, *sig)
 }
 
-//出块消息 - 由成为KING的组成员发出
-//type ConsensusCastMessage struct {
-//	ConsensusBlockMessageBase
-//}
-
-//验证消息 - 由组内的验证人发出（对KING的出块进行验证）
+// ConsensusVerifyMessage is Verification message - issued by the each members of the verify-group for a specified block
 type ConsensusVerifyMessage struct {
 	BlockHash  common.Hash
 	RandomSign groupsig.Signature
@@ -205,12 +204,6 @@ type ConsensusVerifyMessage struct {
 }
 
 func (msg *ConsensusVerifyMessage) GenHash() common.Hash {
-	//buf := bytes.Buffer{}
-	//buf.Write(msg.BH.GenHash().Bytes())
-	//for _, h := range msg.ProveHash {
-	//	buf.Write(h.Bytes())
-	//}
-	//return base.Data2CommonHash(buf.Bytes())
 	return msg.BlockHash
 }
 
@@ -219,15 +212,8 @@ func (msg *ConsensusVerifyMessage) GenRandomSign(skey groupsig.Seckey, preRandom
 	msg.RandomSign = sig
 }
 
-//func (msg *ConsensusVerifyMessage) VerifyRandomSign(pkey groupsig.Pubkey, preRandom []byte) bool {
-//	sig := msg.RandomSign
-//	if sig.IsNil() {
-//		return false
-//	}
-//	return groupsig.VerifySig(pkey, preRandom, sig)
-//}
-
-//铸块成功消息 - 该组成功完成了一个铸块，由组内任意一个收集到k个签名的成员发出
+// ConsensusBlockMessage is the block Successfully added Message
+// deprecated
 type ConsensusBlockMessage struct {
 	Block types.Block
 }
@@ -254,10 +240,13 @@ func (msg *ConsensusBlockMessage) VerifySig(gpk groupsig.Pubkey, preRandom []byt
 	return groupsig.VerifySig(gpk, preRandom, *rsig)
 }
 
-//====================================父组建组共识消息================================
-
+/*
+Parent group build consensus message
+*/
+// ConsensusCreateGroupRawMessage is the group-create consensus raw message
+// Parent group members need to reach consensus on the basic info of the new-group stored in the field GInfo
 type ConsensusCreateGroupRawMessage struct {
-	GInfo ConsensusGroupInitInfo //组初始化共识
+	GInfo ConsensusGroupInitInfo // Group initialization consensus
 	BaseSignedMessage
 }
 
@@ -265,6 +254,7 @@ func (msg *ConsensusCreateGroupRawMessage) GenHash() common.Hash {
 	return msg.GInfo.GI.GetHash()
 }
 
+// ConsensusCreateGroupSignMessage is the signature message transfer among group members during the group-create consensus
 type ConsensusCreateGroupSignMessage struct {
 	GHash common.Hash
 	BaseSignedMessage
@@ -275,24 +265,29 @@ func (msg *ConsensusCreateGroupSignMessage) GenHash() common.Hash {
 	return msg.GHash
 }
 
-//==============================奖励交易==============================
+/*
+Reward transaction
+*/
+
+// CastRewardTransSignReqMessage is the signature requesting message for bonus transaction
 type CastRewardTransSignReqMessage struct {
 	BaseSignedMessage
 	Reward       types.Bonus
 	SignedPieces []groupsig.Signature
-	ReceiveTime  time.Time //收到请求信息的时间戳，加入future的msg，若对应的块长期未上链则需要根据此时间戳清除
+	ReceiveTime  time.Time
 }
 
 func (msg *CastRewardTransSignReqMessage) GenHash() common.Hash {
 	return msg.Reward.TxHash
 }
 
+// CastRewardTransSignMessage is the signature response message to requester who should be one of the group members
 type CastRewardTransSignMessage struct {
 	BaseSignedMessage
 	ReqHash   common.Hash
 	BlockHash common.Hash
 
-	//不序列化
+	// Not serialized
 	GroupID  groupsig.ID
 	Launcher groupsig.ID
 }
@@ -301,6 +296,7 @@ func (msg *CastRewardTransSignMessage) GenHash() common.Hash {
 	return msg.ReqHash
 }
 
+// CreateGroupPingMessage is the ping request message before group-create routine
 type CreateGroupPingMessage struct {
 	BaseSignedMessage
 	FromGroupID groupsig.ID
@@ -315,6 +311,7 @@ func (msg *CreateGroupPingMessage) GenHash() common.Hash {
 	return base.Data2CommonHash(buf)
 }
 
+// CreateGroupPongMessage is the response message to the ping requester
 type CreateGroupPongMessage struct {
 	BaseSignedMessage
 	PingID string
@@ -328,6 +325,7 @@ func (msg *CreateGroupPongMessage) GenHash() common.Hash {
 	return base.Data2CommonHash(tb)
 }
 
+// ReqSharePieceMessage requests share piece to one member of the group
 type ReqSharePieceMessage struct {
 	BaseSignedMessage
 	GHash common.Hash
@@ -337,31 +335,33 @@ func (msg *ReqSharePieceMessage) GenHash() common.Hash {
 	return msg.GHash
 }
 
-//向所有组内成员发送秘密片段消息（不同成员不同）
+// ResponseSharePieceMessage responses share piece to the requester
 type ResponseSharePieceMessage struct {
-	GHash common.Hash //组初始化共识（ConsensusGroupInitSummary）的哈希
-	Share SharePiece  //消息明文（由传输层用接收者公钥对消息进行加密和解密）
+	GHash common.Hash // Group initialization consensus (ConsensusGroupInitSummary) hash
+	Share SharePiece  // Message plaintext (encrypted and decrypted by the transport layer with the recipient public key)
 	BaseSignedMessage
 }
 
 func (msg *ResponseSharePieceMessage) GenHash() common.Hash {
 	buf := msg.GHash.Bytes()
-	//buf = append(buf, msg.GHash.Bytes()...)
 	buf = append(buf, msg.Share.Pub.Serialize()...)
 	buf = append(buf, msg.Share.Share.Serialize()...)
 	return base.Data2CommonHash(buf)
 }
 
+// deprecated
 type BlockSignAggrMessage struct {
 	Hash   common.Hash
 	Sign   groupsig.Signature
 	Random groupsig.Signature
 }
 
+// ReqProposalBlock requests the block body when the verification consensus is finished by the group members
 type ReqProposalBlock struct {
 	Hash common.Hash
 }
 
+// ResponseProposalBlock responses the corresponding block body to the requester
 type ResponseProposalBlock struct {
 	Hash         common.Hash
 	Transactions []*types.Transaction

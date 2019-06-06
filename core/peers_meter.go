@@ -16,9 +16,10 @@
 package core
 
 import (
-	"github.com/hashicorp/golang-lru"
-	"github.com/taschain/taschain/common"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/taschain/taschain/common"
 )
 
 const (
@@ -26,13 +27,13 @@ const (
 	maxReqBlockCount    = 16
 )
 
-var PeerManager *peerManager
+var peerManagerImpl *peerManager
 
 type peerMeter struct {
 	id            string
 	timeoutMeter  int
 	lastHeard     time.Time
-	reqBlockCount int //每次请求块的最大数量
+	reqBlockCount int // Maximum number of blocks per request
 }
 
 func (m *peerMeter) isEvil() bool {
@@ -68,8 +69,7 @@ func (m *peerMeter) updateLastHeard() {
 }
 
 type peerManager struct {
-	//peerMeters map[string]*peerMeter
-	peerMeters *lru.Cache
+	peerMeters *lru.Cache //peerMeters map[string]*peerMeter
 	topInfos   *lru.Cache
 }
 
@@ -78,8 +78,7 @@ func initPeerManager() {
 		peerMeters: common.MustNewLRUCache(100),
 		topInfos:   common.MustNewLRUCache(200),
 	}
-	//go badPeerMeter.loop()
-	PeerManager = &badPeerMeter
+	peerManagerImpl = &badPeerMeter
 }
 
 func (bpm *peerManager) getOrAddPeer(id string) *peerMeter {
@@ -136,6 +135,6 @@ func (bpm *peerManager) updateReqBlockCnt(id string, increase bool) {
 	pm.updateReqCnt(increase)
 }
 
-func (bpm *peerManager) addPeerTopInfo(id string, top *TopBlockInfo) {
+func (bpm *peerManager) addPeerTopInfo(id string, top *topBlockInfo) {
 
 }

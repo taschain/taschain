@@ -1,7 +1,25 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
 	"fmt"
+	"math/big"
+	"sort"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
@@ -9,15 +27,7 @@ import (
 	"github.com/taschain/taschain/consensus/mediator"
 	"github.com/taschain/taschain/core"
 	"github.com/taschain/taschain/middleware/types"
-	"math/big"
-	"sort"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2019/1/11 下午1:39
-**  Description:
- */
 
 type SysWorkSummary struct {
 	BeginHeight         uint64                `json:"begin_height"`
@@ -127,11 +137,6 @@ func (s *GroupVerifySummary) fillGroupInfo(g *types.Group, top uint64) {
 	s.DissmissHeight = g.Header.DismissHeight
 	s.Dissmissed = s.DissmissHeight <= top
 }
-
-//func (api *GtasAPI) DebugContextSummary() (*Result, error) {
-//	s := mediator.Proc.BlockContextSummary()
-//	return successResult(s)
-//}
 
 func getAllGroup() map[string]*types.Group {
 	iterator := mediator.Proc.GroupChain.NewIterator()
@@ -259,7 +264,7 @@ func (api *GtasAPI) DebugGetTxs(limit int) (*Result, error) {
 
 	hashs := make([]string, 0)
 	for _, tx := range txs {
-		hashs = append(hashs, tx.Hash.String())
+		hashs = append(hashs, tx.Hash.Hex())
 		if len(hashs) >= limit {
 			break
 		}

@@ -18,14 +18,16 @@ package groupsig
 import (
 	"fmt"
 	"math/big"
+
 	//"math/rand"
 	"bytes"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/base"
 	"strconv"
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/base"
 )
 
 type Expect struct {
@@ -317,8 +319,14 @@ func testID(t *testing.T) {
 		buf := id1.Serialize()
 		fmt.Printf("id Serialize, len=%v, data=%v.\n", len(buf), buf)
 	}
+
 	str := id1.GetHexString()
 	fmt.Printf("ID export, len=%v, data=%v.\n", len(str), str)
+	//test
+	str0 := id1.value.GetHexString()
+	fmt.Printf("str0 =%v\n", str0)
+
+	///test
 	{
 		var id2 ID
 		err := id2.SetHexString(id1.GetHexString()) //测试ID的十六进制导出和导入功能
@@ -363,9 +371,9 @@ func test(t *testing.T) {
 }
 
 func Test_GroupsigIDStringConvert(t *testing.T) {
-	str := "QmWJZdSV23by4xzYSz8SEmcfdo38N27WgxSefoy179pnoK"
+	str := "0xedb67046af822fd6a778f3a1ec01ad2253e5921d3c1014db958a952fdc1b98e2"
 	id := NewIDFromString(str)
-	s := id.String()
+	s := id.GetHexString()
 	fmt.Printf("id str:%s\n", s)
 	fmt.Printf("id str compare result:%t\n", str == s)
 }
@@ -388,16 +396,16 @@ func Test_Groupsig_Main1(t *testing.T) {
 func Test_Groupsig_ID_Deserialize(t *testing.T) {
 	//Init(1)
 	s := "abc"
-	id1 := DeserializeId([]byte(s))
+	id1 := DeserializeID([]byte(s))
 	id2 := NewIDFromString(s)
 	t.Log(id1.GetHexString(), id2.GetHexString(), id1.IsEqual(*id2))
 
 	t.Log([]byte(s))
 	t.Log(id1.Serialize(), id2.Serialize())
-	t.Log(id1.String(), id2.String())
+	t.Log(id1.GetHexString(), id2.GetHexString())
 
 	b := id2.Serialize()
-	id3 := DeserializeId(b)
+	id3 := DeserializeID(b)
 	t.Log(id3.GetHexString())
 }
 
@@ -649,8 +657,8 @@ func TestSignature_MarshalJSON(t *testing.T) {
 
 func TestAddress(t *testing.T) {
 	addr := common.HexToAddress("0x0bf03e69b31aa1caa45e79dd8d7f8031bfe81722d435149ffa2d0b66b9e9b6b7")
-	id := DeserializeId(addr.Bytes())
-	t.Log(id.GetHexString(), len(id.GetHexString()), addr.GetHexString() == id.GetHexString())
+	id := DeserializeID(addr.Bytes())
+	t.Log(id.GetHexString(), len(id.GetHexString()), addr.Hex() == id.GetHexString())
 	t.Log(id.Serialize(), addr.Bytes(), bytes.Equal(id.Serialize(), addr.Bytes()))
 
 	id2 := ID{}

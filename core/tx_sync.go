@@ -1,9 +1,27 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/hashicorp/golang-lru"
+	"sync"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/ticker"
@@ -11,16 +29,7 @@ import (
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/storage/tasdb"
 	"github.com/taschain/taschain/taslog"
-	"github.com/taschain/taschain/utility"
-	"sync"
-	"time"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2019/3/20 下午5:02
-**  Description:
- */
 
 const (
 	txNofifyInterval   = 5
@@ -55,6 +64,13 @@ func buildTxSimpleIndexer() *txSimpleIndexer {
 		db:    db,
 	}
 }
+
+func (indexer *txSimpleIndexer) close() {
+	if indexer.db != nil {
+		indexer.db.Close()
+	}
+}
+
 func (indexer *txSimpleIndexer) cacheLen() int {
 	return indexer.cache.Len()
 }
@@ -64,7 +80,7 @@ func (indexer *txSimpleIndexer) add(tx *types.Transaction) {
 }
 func (indexer *txSimpleIndexer) remove(tx *types.Transaction) {
 	indexer.cache.Remove(simpleTxKey(tx.Hash))
-	indexer.db.Delete(utility.UInt64ToByte(simpleTxKey(tx.Hash)))
+	indexer.db.Delete(common.UInt64ToByte(simpleTxKey(tx.Hash)))
 }
 func (indexer *txSimpleIndexer) get(k uint64) *types.Transaction {
 	var txHash common.Hash
@@ -73,7 +89,7 @@ func (indexer *txSimpleIndexer) get(k uint64) *types.Transaction {
 		txHash = v.(common.Hash)
 		exist = true
 	} else {
-		bs, err := indexer.db.Get(utility.UInt64ToByte(k))
+		bs, err := indexer.db.Get(common.UInt64ToByte(k))
 		if err == nil {
 			txHash = common.BytesToHash(bs)
 			exist = true
@@ -89,7 +105,7 @@ func (indexer *txSimpleIndexer) has(key uint64) bool {
 	if indexer.cache.Contains(key) {
 		return true
 	}
-	ok, _ := indexer.db.Has(utility.UInt64ToByte(key))
+	ok, _ := indexer.db.Has(common.UInt64ToByte(key))
 	return ok
 }
 
@@ -102,7 +118,7 @@ func (indexer *txSimpleIndexer) persistOldest() (int, error) {
 		if v != nil {
 			cnt++
 			removes = append(removes, k.(uint64))
-			batch.Put(utility.UInt64ToByte(k.(uint64)), v.(common.Hash).Bytes())
+			batch.Put(common.UInt64ToByte(k.(uint64)), v.(common.Hash).Bytes())
 		}
 		if cnt >= txIndexPersistPerTime {
 			break
@@ -118,7 +134,7 @@ func (indexer *txSimpleIndexer) persistOldest() (int, error) {
 }
 
 type txSyncer struct {
-	pool          *TxPool
+	pool          *txPool
 	chain         *FullBlockChain
 	rctNotifiy    *lru.Cache
 	indexer       *txSimpleIndexer
@@ -179,7 +195,7 @@ func (ptk *peerTxsKeys) forEach(f func(k uint64) bool) {
 	}
 }
 
-func initTxSyncer(chain *FullBlockChain, pool *TxPool) {
+func initTxSyncer(chain *FullBlockChain, pool *txPool) {
 	s := &txSyncer{
 		rctNotifiy:    common.MustNewLRUCache(1000),
 		indexer:       buildTxSimpleIndexer(),
@@ -232,13 +248,16 @@ func (ts *txSyncer) clearJob() {
 	}
 	ts.pool.bonPool.forEach(func(tx *types.Transaction) bool {
 		bhash := common.BytesToHash(tx.Data)
-		//链上已经该块的分红交易，或该块不在链上，需要删除相应的分红交易
+		// The bonus transaction of the block already exists on the chain, or the block is not
+		// on the chain, and the corresponding bonus transaction needs to be deleted.
 		reason := ""
 		remove := false
 		if ts.pool.bonPool.hasBonus(tx.Data) {
 			remove = true
 			reason = "tx exist"
-		} else if !ts.chain.hasBlock(bhash) { //块不在链上，有可能是此高度已经过了，也有可能是未来的高度，此处无法区分出来
+		} else if !ts.chain.hasBlock(bhash) {
+			// The block is not on the chain. It may be that this height has passed, or it maybe
+			// the height of the future. It cannot be distinguished here.
 			remove = true
 			reason = "block not exist"
 		}
@@ -246,7 +265,7 @@ func (ts *txSyncer) clearJob() {
 		if remove {
 			rm := ts.pool.bonPool.removeByBlockHash(bhash)
 			ts.indexer.remove(tx)
-			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.String(), rm)
+			ts.logger.Debugf("remove from bonus pool because %v: blockHash %v, size %v", reason, bhash.Hex(), rm)
 		}
 		return true
 	})
@@ -301,7 +320,7 @@ func (ts *txSyncer) sendSimpleTxKeys(txs []*types.Transaction) {
 
 		bodyBuf := bytes.NewBuffer([]byte{})
 		for _, k := range txKeys {
-			bodyBuf.Write(utility.UInt64ToByte(k))
+			bodyBuf.Write(common.UInt64ToByte(k))
 		}
 
 		ts.logger.Debugf("notify transactions len:%d", len(txs))
@@ -334,7 +353,7 @@ func (ts *txSyncer) onTxNotify(msg notify.Message) {
 		if n != 8 {
 			break
 		}
-		keys = append(keys, utility.ByteToUInt64(buf))
+		keys = append(keys, common.ByteToUInt64(buf))
 	}
 
 	candidateKeys := ts.getOrAddCandidateKeys(nm.Source())
@@ -352,13 +371,13 @@ func (ts *txSyncer) onTxNotify(msg notify.Message) {
 }
 
 func (ts *txSyncer) reqTxsRoutine() bool {
-	if BlockSyncer == nil || BlockSyncer.isSyncing() {
+	if blockSync == nil || blockSync.isSyncing() {
 		ts.logger.Debugf("block syncing, won't req txs")
 		return false
 	}
 	ts.logger.Debugf("req txs routine, candidate size %v", ts.candidateKeys.Len())
 	reqMap := make(map[uint64]byte)
-	//去重
+	// Remove the same
 	for _, v := range ts.candidateKeys.Keys() {
 		ptk := ts.getOrAddCandidateKeys(v.(string))
 		if ptk == nil {
@@ -375,7 +394,7 @@ func (ts *txSyncer) reqTxsRoutine() bool {
 		})
 		ptk.removeKeys(rms)
 	}
-	//请求
+	// Request transaction
 	for _, v := range ts.candidateKeys.Keys() {
 		ptk := ts.getOrAddCandidateKeys(v.(string))
 		if ptk == nil {
@@ -401,7 +420,7 @@ func (ts *txSyncer) requestTxs(id string, keys []uint64) {
 
 	bodyBuf := bytes.NewBuffer([]byte{})
 	for _, k := range keys {
-		bodyBuf.Write(utility.UInt64ToByte(k))
+		bodyBuf.Write(common.UInt64ToByte(k))
 	}
 
 	message := network.Message{Code: network.TxSyncReq, Body: bodyBuf.Bytes()}
@@ -419,7 +438,7 @@ func (ts *txSyncer) onTxReq(msg notify.Message) {
 		if n != 8 {
 			break
 		}
-		keys = append(keys, utility.ByteToUInt64(buf))
+		keys = append(keys, common.ByteToUInt64(buf))
 	}
 
 	ts.logger.Debugf("Rcv tx req from %v, size %v", nm.Source(), len(keys))
@@ -442,6 +461,12 @@ func (ts *txSyncer) onTxReq(msg notify.Message) {
 	ts.logger.Debugf("send transactions to %v size %v", nm.Source(), len(txs))
 	message := network.Message{Code: network.TxSyncResponse, Body: body}
 	network.GetNetInstance().Send(nm.Source(), message)
+}
+
+func (ts *txSyncer) Close() {
+	if ts.indexer != nil {
+		ts.indexer.close()
+	}
 }
 
 func (ts *txSyncer) onTxResponse(msg notify.Message) {

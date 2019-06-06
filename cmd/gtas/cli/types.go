@@ -16,14 +16,15 @@
 package cli
 
 import (
+	"math/big"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/middleware/types"
-	"math/big"
-	"time"
 )
 
-// Result rpc请求成功返回的可变参数部分
+// Result is rpc request successfully returns the variable parameter
 type Result struct {
 	Message string      `json:"message"`
 	Status  int         `json:"status"`
@@ -34,13 +35,13 @@ func (r *Result) IsSuccess() bool {
 	return r.Status == 0
 }
 
-// ErrorResult rpc请求错误返回的可变参数部分
+// ErrorResult is rpc request error returned variable parameter
 type ErrorResult struct {
 	Message string `json:"message"`
 	Code    int    `json:"code"`
 }
 
-// RPCReqObj 完整的rpc请求体
+// RPCReqObj is complete rpc request body
 type RPCReqObj struct {
 	Method  string        `json:"method"`
 	Params  []interface{} `json:"params"`
@@ -48,7 +49,7 @@ type RPCReqObj struct {
 	ID      uint          `json:"id"`
 }
 
-// RPCResObj 完整的rpc返回体
+// RPCResObj is complete rpc response body
 type RPCResObj struct {
 	Jsonrpc string       `json:"jsonrpc"`
 	ID      uint         `json:"id"`
@@ -56,7 +57,7 @@ type RPCResObj struct {
 	Error   *ErrorResult `json:"error,omitempty"`
 }
 
-// 缓冲池交易列表中的transactions
+// Transactions in the buffer pool transaction list
 type Transactions struct {
 	Hash      string `json:"hash"`
 	Source    string `json:"source"`
@@ -160,9 +161,7 @@ type Block struct {
 
 type BlockDetail struct {
 	Block
-	GenBonusTx *BonusTransaction `json:"gen_bonus_tx"`
-	//Signature groupsig.Signature `json:"signature"`
-	//Random 	groupsig.Signature `json:"random"`
+	GenBonusTx   *BonusTransaction    `json:"gen_bonus_tx"`
 	Trans        []Transaction        `json:"trans"`
 	BodyBonusTxs []BonusTransaction   `json:"body_bonus_txs"`
 	MinerBonus   []*MinerBonusBalance `json:"miner_bonus"`
@@ -192,9 +191,9 @@ type Group struct {
 
 type MinerBonusBalance struct {
 	ID            groupsig.ID `json:"id"`
-	Proposal      bool        `json:"proposal"`      //是否有提案
-	PackBonusTx   int         `json:"pack_bonus_tx"` //打包分红交易个数
-	VerifyBlock   int         `json:"verify_block"`  //验证块数
+	Proposal      bool        `json:"proposal"`      // Is there a proposal
+	PackBonusTx   int         `json:"pack_bonus_tx"` // The counts of packed bonus transaction
+	VerifyBlock   int         `json:"verify_block"`  // Number of blocks verified
 	PreBalance    *big.Int    `json:"pre_balance"`
 	CurrBalance   *big.Int    `json:"curr_balance"`
 	ExpectBalance *big.Int    `json:"expect_balance"`
@@ -234,39 +233,6 @@ type Dashboard struct {
 	NodeInfo    *NodeInfo  `json:"node_info"`
 	Conns       []ConnInfo `json:"conns"`
 }
-
-//
-//type BonusInfo struct {
-//	BlockHeight uint64      `json:"block_height"`
-//	BlockHash   common.Hash `json:"block_hash"`
-//	BonusTxHash common.Hash `json:"bonus_tx_hash"`
-//	GroupID     string      `json:"group_id"`
-//	CasterId    string      `json:"caster_id"`
-//	GroupIdW     string      `json:"group_id_w"`
-//	CasterIdW    string      `json:"caster_id_W"`
-//	MemberIds   []string    `json:"members"`
-//	BonusValue  uint64      `json:"bonus_value"`
-//}
-//
-//type BonusStatInfo struct {
-//	MemberId        string `json:"member_id"`
-//	MemberIdW        string `json:"member_id_w"`
-//	BonusNum        uint64 `json:"bonus_num"`
-//	TotalBonusValue uint64 `json:"total_bonus_value"`
-//}
-//
-//type CastBlockStatInfo struct {
-//	CasterId     string `json:"caster_id"`
-//	CasterIdW     string `json:"caster_id_w"`
-//	Stake        uint64 `json:"stake"`
-//	CastBlockNum uint64 `json:"cast_block_num"`
-//}
-//
-//type CastBlockAndBonusResult struct {
-//	BonusInfoAtHeight  BonusInfo           `json:"bonus_info_at_height"`
-//	BonusStatInfos     []BonusStatInfo     `json:"bonuses"`
-//	CastBlockStatInfos []CastBlockStatInfo `json:"cast_blocks"`
-//}
 
 type ExplorerAccount struct {
 	Balance   *big.Int               `json:"balance"`

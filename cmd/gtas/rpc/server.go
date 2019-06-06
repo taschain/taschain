@@ -30,12 +30,15 @@ import (
 
 const MetadataAPI = "rpc"
 
+// CodecOption specifies which type of messages a codec supports.
+//
+// Deprecated: this option is no longer honored by Server.
 type CodecOption int
 
 const (
 	OptionMethodInvocation CodecOption = 1 << iota
 
-	OptionSubscriptions = 1 << iota // support pub sub
+	OptionSubscriptions = 1 << iota // Support pub sub
 )
 
 func NewServer() *Server {
@@ -81,7 +84,7 @@ func (s *Server) RegisterName(name string, rcvr interface{}) error {
 
 	methods, subscriptions := suitableCallbacks(rcvrVal, svc.typ)
 
-	// already a previous service register under given sname, merge methods/subscriptions
+	// Already a previous service register under given sname, merge methods/subscriptions
 	if regsvc, present := s.services[name]; present {
 		if len(methods) == 0 && len(subscriptions) == 0 {
 			return fmt.Errorf("Service %T doesn't have any suitable methods/subscriptions to expose", rcvr)
@@ -140,7 +143,7 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 		if err != nil {
 
 			if err.Error() != "EOF" {
-				common.DefaultLogger.Debug(fmt.Sprintf("read error %v\n", err))
+				common.DefaultLogger.Errorf(fmt.Sprintf("read error %v\n", err))
 				codec.Write(codec.CreateErrorResponse(nil, err))
 			}
 
@@ -194,6 +197,9 @@ func (s *Server) ServeSingleRequest(codec ServerCodec, options CodecOption) {
 	s.serveRequest(codec, true, options)
 }
 
+// Stop stops reading new requests, waits for stopPendingRequestTimeout to allow pending
+// requests to finish, then closes all codecs which will cancel pending requests and
+// subscriptions.
 func (s *Server) Stop() {
 	if atomic.CompareAndSwapInt32(&s.run, 1, 0) {
 		common.DefaultLogger.Debug("RPC Server shutdown initiatied")
@@ -207,7 +213,7 @@ func (s *Server) Stop() {
 }
 
 func (s *Server) createSubscription(ctx context.Context, c ServerCodec, req *serverRequest) (ID, error) {
-	// subscription have as first argument the context following optional arguments
+	// Subscription have as first argument the context following optional arguments
 	args := []reflect.Value{req.callb.rcvr, reflect.ValueOf(ctx)}
 	args = append(args, req.args...)
 	reply := req.callb.method.Func.Call(args)
@@ -224,10 +230,10 @@ func (s *Server) handle(ctx context.Context, codec ServerCodec, req *serverReque
 		return codec.CreateErrorResponse(&req.id, req.err), nil
 	}
 
-	if req.isUnsubscribe { // cancel subscription, first param must be the subscription id
+	if req.isUnsubscribe { // Cancel subscription, first param must be the subscription id
 		if len(req.args) >= 1 && req.args[0].Kind() == reflect.String {
 			notifier, supported := NotifierFromContext(ctx)
-			if !supported { // interface doesn't support subscriptions (e.g. http)
+			if !supported { // Interface doesn't support subscriptions (e.g. http)
 				return codec.CreateErrorResponse(&req.id, &callbackError{ErrNotificationsUnsupported.Error()}), nil
 			}
 

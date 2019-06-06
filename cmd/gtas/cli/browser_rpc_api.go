@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
@@ -10,8 +25,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-// 区块链浏览器
-// 账号信息查询
+// ExplorerAccount is used in the blockchain browser to query account information
 func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 
 	accoundDb := core.BlockChainImpl.LatestStateDB()
@@ -25,7 +39,7 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	account := ExplorerAccount{}
 	account.Balance = accoundDb.GetBalance(address)
 	account.Nonce = accoundDb.GetNonce(address)
-	account.CodeHash = accoundDb.GetCodeHash(address).String()
+	account.CodeHash = accoundDb.GetCodeHash(address).Hex()
 	account.Code = string(accoundDb.GetCode(address)[:])
 	account.Type = 0
 	if len(account.Code) > 0 {
@@ -43,8 +57,7 @@ func (api *GtasAPI) ExplorerAccount(hash string) (*Result, error) {
 	return successResult(account)
 }
 
-//区块链浏览器
-//查询块详情
+// ExplorerBlockDetail is used in the blockchain browser to query block details
 func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	chain := core.BlockChainImpl
 	b := chain.QueryBlockCeil(height)
@@ -77,8 +90,8 @@ func (api *GtasAPI) ExplorerBlockDetail(height uint64) (*Result, error) {
 	return successResult(bd)
 }
 
-//区块链浏览器
-//查询组信息
+// ExplorerGroupsAfter is used in the blockchain browser to
+// query groups after the specified height
 func (api *GtasAPI) ExplorerGroupsAfter(height uint64) (*Result, error) {
 	groups := core.GroupChainImpl.GetGroupsAfterHeight(height, common.MaxInt64)
 
@@ -114,6 +127,7 @@ func explorerConvertGroup(g *types.Group) map[string]interface{} {
 	return gmap
 }
 
+// ExplorerBlockBonus export bonus transaction by block height
 func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	chain := core.BlockChainImpl
 	b := chain.QueryBlockCeil(height)
@@ -142,7 +156,7 @@ func (api *GtasAPI) ExplorerBlockBonus(height uint64) (*Result, error) {
 	return successResult(ret)
 }
 
-//监控平台调用块同步
+// MonitorBlocks monitoring platform calls block sync
 func (api *GtasAPI) MonitorBlocks(begin, end uint64) (*Result, error) {
 	chain := core.BlockChainImpl
 	if begin > end {
@@ -198,7 +212,7 @@ func (api *GtasAPI) MonitorNodeInfo() (*Result, error) {
 	ni.GroupHeight = gh
 	if ni.MortGages != nil {
 		for _, mg := range ni.MortGages {
-			if mg.Type == "重节点" {
+			if mg.Type == "proposal role" {
 				ni.VrfThreshold = mediator.Proc.GetVrfThreshold(common.TAS2RA(mg.Stake))
 				break
 			}

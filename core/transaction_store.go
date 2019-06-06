@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
@@ -6,17 +21,11 @@ import (
 	"github.com/vmihailenco/msgpack"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/13 下午1:41
-**  Description:
- */
-
-func (pool *TxPool) saveReceipt(txHash common.Hash, dataBytes []byte) error {
-	return pool.receiptdb.AddKv(pool.batch, txHash.Bytes(), dataBytes)
+func (pool *txPool) saveReceipt(txHash common.Hash, dataBytes []byte) error {
+	return pool.receiptDb.AddKv(pool.batch, txHash.Bytes(), dataBytes)
 }
 
-func (pool *TxPool) SaveReceipts(bhash common.Hash, receipts types.Receipts) error {
+func (pool *txPool) saveReceipts(bhash common.Hash, receipts types.Receipts) error {
 	if nil == receipts || 0 == len(receipts) {
 		return nil
 	}
@@ -32,7 +41,7 @@ func (pool *TxPool) SaveReceipts(bhash common.Hash, receipts types.Receipts) err
 	return nil
 }
 
-func (pool *TxPool) DeleteReceipts(txs []common.Hash) error {
+func (pool *txPool) deleteReceipts(txs []common.Hash) error {
 	if nil == txs || 0 == len(txs) {
 		return nil
 	}
@@ -46,7 +55,8 @@ func (pool *TxPool) DeleteReceipts(txs []common.Hash) error {
 	return nil
 }
 
-func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
+// GetTransactionStatus returns the execute result status by hash
+func (pool *txPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	executedTx := pool.loadReceipt(hash)
 	if executedTx == nil {
 		return 0, ErrNil
@@ -54,8 +64,8 @@ func (pool *TxPool) GetTransactionStatus(hash common.Hash) (uint, error) {
 	return executedTx.Status, nil
 }
 
-func (pool *TxPool) loadReceipt(hash common.Hash) *types.Receipt {
-	txBytes, _ := pool.receiptdb.Get(hash.Bytes())
+func (pool *txPool) loadReceipt(hash common.Hash) *types.Receipt {
+	txBytes, _ := pool.receiptDb.Get(hash.Bytes())
 	if txBytes == nil {
 		return nil
 	}
@@ -68,12 +78,13 @@ func (pool *TxPool) loadReceipt(hash common.Hash) *types.Receipt {
 	return &rs
 }
 
-func (pool *TxPool) hasReceipt(hash common.Hash) bool {
-	ok, _ := pool.receiptdb.Has(hash.Bytes())
+func (pool *txPool) hasReceipt(hash common.Hash) bool {
+	ok, _ := pool.receiptDb.Has(hash.Bytes())
 	return ok
 }
 
-func (pool *TxPool) GetReceipt(hash common.Hash) *types.Receipt {
+// GetReceipt returns the transaction's recipe by hash
+func (pool *txPool) GetReceipt(hash common.Hash) *types.Receipt {
 	rs := pool.loadReceipt(hash)
 	if rs == nil {
 		return nil

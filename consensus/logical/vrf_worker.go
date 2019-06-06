@@ -1,23 +1,34 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
 	"errors"
 	"fmt"
+	"math"
+	"math/big"
+	"sync/atomic"
+
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
-	"math"
-	"math/big"
-	"sync/atomic"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/12 上午11:46
-**  Description:
- */
-
+// defines the status of vrfWorker
 const (
 	prove    int32 = 0
 	proposed       = 1
@@ -34,12 +45,14 @@ func init() {
 	rat1 = new(big.Rat).SetInt64(1)
 }
 
+// vrfWorker do some vrf calculations during block proposal to check if the specified miner
+// satisfied the propose-condition
 type vrfWorker struct {
 	//read only
-	miner      *model.SelfMinerDO
-	baseBH     *types.BlockHeader
-	castHeight uint64
-	expire     time.TimeStamp
+	miner      *model.SelfMinerDO // Miner info
+	baseBH     *types.BlockHeader // The block the proposal process based on
+	castHeight uint64             // The height of the block to be proposed
+	expire     time.TimeStamp     // The worker process deadline
 	//writable
 	status int32
 	ts     time.TimeService
@@ -74,6 +87,8 @@ func vrfM(random []byte, h uint64) []byte {
 	return data
 }
 
+// Prove generates VRFProve and corresponding qn for block proposal with given total stake
+// which is read from chain
 func (vrf *vrfWorker) Prove(totalStake uint64) (base.VRFProve, uint64, error) {
 	pi, err := base.VRFGenerateProve(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.m())
 	if err != nil {
@@ -101,32 +116,23 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 	br := new(big.Rat).SetInt(new(big.Int).SetBytes(value))
 	pr := br.Quo(br, max256)
 
-	//brTStake := new(big.Rat).SetFloat64(float64(totalStake))
 	vs := vrfThreshold(stake, totalStake)
 
-	s1, _ := pr.Float64()
-	s2, _ := vs.Float64()
-	blog := newBizLog("vrfSatisfy")
-
 	ok = pr.Cmp(vs) < 0
-	//计算qn
+	// Calculate qn
 	if vs.Cmp(rat1) > 0 {
 		vs.Set(rat1)
 	}
 
 	step := vs.Quo(vs, new(big.Rat).SetInt64(int64(model.Param.MaxQN)))
 
-	st, _ := step.Float64()
-
 	r, _ := pr.Quo(pr, step).Float64()
 	qn = uint64(math.Floor(r) + 1)
 
-	blog.log("minerstake %v, totalstake %v, proveValue %v, stake %v, step %v, qn %v", stake, totalStake, s1, s2, st, qn)
-
 	return
-	//return true
 }
 
+// vrfVerifyBlock verifies if the vrf prove of the given block is legal
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
 	pi := base.VRFProve(bh.ProveValue)
 	ok, err := base.VRFVerify(miner.VrfPK, pi, vrfM(preBH.Random, bh.Height-preBH.Height))

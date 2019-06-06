@@ -1,3 +1,18 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
@@ -8,12 +23,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/11 下午3:24
-**  Description:
- */
-
+// MinerPoolReader provides some functions for access to the miner pool
 type MinerPoolReader struct {
 	minerPool       *core.MinerManager
 	blog            *bizLog
@@ -41,7 +51,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		AbortHeight: miner.AbortHeight,
 	}
 	if !md.ID.IsValid() {
-		stdLogger.Debugf("invalid id %v, %v", miner.ID, md.ID.GetHexString())
+		stdLogger.Errorf("invalid id %v, %v", miner.ID, md.ID.GetHexString())
 		panic("id not valid")
 	}
 	return md
@@ -50,7 +60,6 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 func (access *MinerPoolReader) getLightMiner(id groupsig.ID) *model.MinerDO {
 	miner := access.minerPool.GetMinerByID(id.Serialize(), types.MinerTypeLight, nil)
 	if miner == nil {
-		//access.blog.log("getMinerById error id %v", id.ShortS())
 		return nil
 	}
 	return convert2MinerDO(miner)
@@ -59,7 +68,6 @@ func (access *MinerPoolReader) getLightMiner(id groupsig.ID) *model.MinerDO {
 func (access *MinerPoolReader) getProposeMiner(id groupsig.ID) *model.MinerDO {
 	miner := access.minerPool.GetMinerByID(id.Serialize(), types.MinerTypeHeavy, nil)
 	if miner == nil {
-		//access.blog.log("getMinerById error id %v", id.ShortS())
 		return nil
 	}
 	return convert2MinerDO(miner)
@@ -82,9 +90,8 @@ func (access *MinerPoolReader) getAllMinerDOByType(ntype byte, h uint64) []*mode
 func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO {
 	miners := access.getAllMinerDOByType(types.MinerTypeLight, h)
 	rets := make([]model.MinerDO, 0)
-	access.blog.log("all light nodes size %v", len(miners))
+	access.blog.debug("all light nodes size %v", len(miners))
 	for _, md := range miners {
-		//access.blog.log("%v %v %v %v", md.ID.ShortS(), md.ApplyHeight, md.NType, md.CanJoinGroupAt(h))
 		if md.CanJoinGroupAt(h) {
 			rets = append(rets, *md)
 		}
@@ -99,9 +106,4 @@ func (access *MinerPoolReader) getTotalStake(h uint64, cache bool) uint64 {
 	st := access.minerPool.GetTotalStake(h)
 	access.totalStakeCache = st
 	return st
-	//return 30
 }
-
-//func (access *MinerPoolReader) genesisMiner(miners []*types.Miner)  {
-//    access.minerPool.AddGenesesMiner(miners)
-//}

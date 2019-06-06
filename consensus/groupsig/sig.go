@@ -18,28 +18,18 @@ package groupsig
 import (
 	"bytes"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/base"
-	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 	"log"
 	"math/big"
 	"sort"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/base"
+	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 )
 
-// types
-
-// Signature --
 type Signature struct {
 	value bncurve.G1
 }
-
-//func (sig Signature) UnmarshalJSON(b []byte) error {
-//	return sig.SetHexString(string(b))
-//}
-//
-//func (sig Signature) MarshalJSON() ([]byte, error) {
-//	return []byte(sig.GetHexString()), nil
-//}
 
 func (sig *Signature) IsNil() bool {
 	return sig.value.IsNil()
@@ -60,29 +50,25 @@ func (sig *Signature) Mul(bi *big.Int) error {
 	return nil
 }
 
-//比较两个签名是否相同
+// IsEqual compare two signatures for the same
 func (sig Signature) IsEqual(rhs Signature) bool {
-	//fmt.Println("IsEqual rhs:", rhs.value.Marshal())
-	//fmt.Println("IsEqual sig:", sig.value.Marshal())
 
 	return bytes.Equal(sig.value.Marshal(), rhs.value.Marshal())
-	//return sig.value.IsEqual(&rhs.value)
 }
 
-//MAP(地址->签名)
+// SignatureAMap is an address to signature mapping
 type SignatureAMap map[common.Address]Signature
 type SignatureIMap map[string]Signature
-
-// Conversion
 
 func (sig Signature) GetHash() common.Hash {
 	buf := sig.Serialize()
 	return base.Data2CommonHash(buf)
 }
 
-//由签名生成随机数
+// GetRand generate a random number from the signature
 func (sig Signature) GetRand() base.Rand {
-	//先取得签名的字节切片（序列化），然后以字节切片为基生成随机数
+	// Get the signed byte slice (serialization) first, then generate a
+	// random number based on the byte slice
 	return base.RandFromBytes(sig.Serialize())
 }
 
@@ -92,7 +78,7 @@ func DeserializeSign(b []byte) *Signature {
 	return sig
 }
 
-//由字节切片初始化签名
+// Deserialize initialize signature by byte slice
 func (sig *Signature) Deserialize(b []byte) error {
 	if len(b) == 0 {
 		return fmt.Errorf("signature Deserialized failed")
@@ -101,7 +87,7 @@ func (sig *Signature) Deserialize(b []byte) error {
 	return nil
 }
 
-//把签名转换为字节切片
+// Serialize convert the signature to a byte slice
 func (sig Signature) Serialize() []byte {
 	if sig.IsNil() {
 		return []byte{}
@@ -118,7 +104,7 @@ func (sig Signature) IsValid() bool {
 	return sig.value.IsValid()
 }
 
-//把签名转换为十六进制字符串 ToDoCheck
+// GetHexString convert the signature to a hex string
 func (sig Signature) GetHexString() string {
 	return PREFIX + common.Bytes2Hex(sig.value.Marshal())
 }
@@ -128,7 +114,7 @@ func (sig Signature) ShortS() string {
 	return common.ShortHex12(str)
 }
 
-//由十六进制字符串初始化签名 ToDoCheck
+// SetHexString initialize signature by hex string
 func (sig *Signature) SetHexString(s string) error {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return fmt.Errorf("arg failed")
@@ -143,14 +129,16 @@ func (sig *Signature) SetHexString(s string) error {
 	return nil
 }
 
-//签名函数。用私钥对明文（哈希）进行签名，返回签名对象
+// Sign is a signature function. Sign the plaintext (hash) with
+// the private key and return the signature object
 func Sign(sec Seckey, msg []byte) (sig Signature) {
 	bg := HashToG1(string(msg))
 	sig.value.ScalarMult(bg, sec.GetBigInt())
 	return sig
 }
 
-//验证函数。验证某个签名是否来自公钥对应的私钥。 ToDoCheck
+// VerifySig is a verify the function. Verify that a signature is
+// from the private key corresponding to the public key
 func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
 	if sig.IsNil() || !sig.IsValid() {
 		return false
@@ -163,32 +151,37 @@ func VerifySig(pub Pubkey, msg []byte, sig Signature) bool {
 	}
 	bQ := bncurve.GetG2Base()
 	p1 := bncurve.Pair(&sig.value, bQ)
-	//fmt.Println("p1:", p1.String())
 
 	Hm := HashToG1(string(msg))
 	p2 := bncurve.Pair(Hm, &pub.value)
-	//fmt.Println("p2:", p2.String())
 
 	return bncurve.PairIsEuqal(p1, p2)
 }
 
-//分片合并验证函数。先把公钥切片合并，然后验证该签名是否来自公钥对应的私钥。
+// VerifyAggregateSig is a fragmentation merge verification function.
+// First merge the public key slices and verify that the signature is
+// from the private key corresponding to the public key.
 func VerifyAggregateSig(pubs []Pubkey, msg []byte, asig Signature) bool {
-	pub := AggregatePubkeys(pubs) //用公钥切片合并出组公钥（全部公钥切片而不只是k个）
+	// Combine the public key with the public key slice (all public key slices instead of just k)
+	pub := AggregatePubkeys(pubs)
 	if pub == nil {
 		return false
 	}
-	return VerifySig(*pub, msg, asig) //调用验证函数
+	// Call validation function
+	return VerifySig(*pub, msg, asig)
 }
 
-//批量验证函数。
+// BatchVerify is a bulk verification function。
 func BatchVerify(pubs []Pubkey, msg []byte, sigs []Signature) bool {
-	//把签名切片合并成一个，把公钥签名合并成一个，然后调用签名验证函数。
+	// Combine the signature slices into one, merge the public key
+	// signatures into one, and then call the signature verification function.
 	return VerifyAggregateSig(pubs, msg, AggregateSigs(sigs))
 }
 
-// AggregateXXX函数族是把全部切片相加，而不是k个相加。
-//签名聚合函数。
+// AggregateSigs is a signature aggregate function
+//
+// Attention:The AggregateXXX family of functions adds all
+// the slices, not the k additions.
 func AggregateSigs(sigs []Signature) (sig Signature) {
 	n := len(sigs)
 	sig = Signature{}
@@ -203,37 +196,50 @@ func AggregateSigs(sigs []Signature) (sig Signature) {
 	return sig
 }
 
-//用签名切片和id切片恢复出master签名（通过拉格朗日插值法）
-//RecoverXXX族函数的切片数量都固定是k（门限值）
+// RecoverSignature restore the master signature with signature slice
+// and id slice (via Lagrangian interpolation)
+//
+// Attention : The number of slices of the RecoverXXX family function is fixed at k (threshold value).
 func RecoverSignature(sigs []Signature, ids []ID) *Signature {
-	//secret := big.NewInt(0) //组私钥
-	k := len(sigs) //取得输出切片的大小，即门限值k
+	// Get the size of the output slice, ie the threshold k
+	k := len(sigs)
 	xs := make([]*big.Int, len(ids))
 	for i := 0; i < len(xs); i++ {
-		xs[i] = ids[i].GetBigInt() //把所有的id转化为big.Int，放到xs切片
+		// Convert all ids to big.Int and put them in xs slices
+		xs[i] = ids[i].GetBigInt()
 	}
+
 	// need len(ids) = k > 0
 	sig := &Signature{}
 	newSig := &Signature{}
-	for i := 0; i < k; i++ { //输入元素遍历
+	// Range input element
+	for i := 0; i < k; i++ {
 		// compute delta_i depending on ids only
-		//为什么前面delta/num/den初始值是1，最后一个diff初始值是0？
+		// (Why is the initial delta/num/den initial value of 1, and the last diff initial value is 0?)
 		var delta, num, den, diff *big.Int = big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(0)
-		for j := 0; j < k; j++ { //ID遍历
-			if j != i { //不是自己
-				num.Mul(num, xs[j])      //num值先乘上当前ID
-				num.Mod(num, curveOrder) //然后对曲线域求模
-				diff.Sub(xs[j], xs[i])   //diff=当前节点（内循环）-基节点（外循环）
-				den.Mul(den, diff)       //den=den*diff
-				den.Mod(den, curveOrder) //den对曲线域求模
+		// Range ID
+		for j := 0; j < k; j++ {
+			if j != i {
+
+				// Num value is multiplied by the current ID
+				num.Mul(num, xs[j])
+				// Then model the curve domain
+				num.Mod(num, curveOrder)
+				// Diff=current node (internal loop)-base node (outer loop)
+				diff.Sub(xs[j], xs[i])
+				// Den=den*diff
+				den.Mul(den, diff)
+				// Den modeling the curve domain
+				den.Mod(den, curveOrder)
 			}
 		}
-		// delta = num / den
-		den.ModInverse(den, curveOrder) //模逆
+		// Delta = num / den
+		// Modular inverse
+		den.ModInverse(den, curveOrder)
 		delta.Mul(num, den)
 		delta.Mod(delta, curveOrder)
 
-		//最终需要的值是delta
+		// The final value needed is delta
 		newSig.value.Set(&sigs[i].value)
 		newSig.Mul(delta)
 
@@ -266,7 +272,8 @@ func randK(m SignatureIMap, k int) SignatureIMap {
 	return ret
 }
 
-//签名恢复函数，m为map(ID->签名)，k为门限值
+// RecoverSignatureByMapI is signature recovery function, m is map (
+// ID-> signature), k is the threshold
 func RecoverSignatureByMapI(m SignatureIMap, k int) *Signature {
 	if k < len(m) {
 		m = randK(m, k)
@@ -274,41 +281,52 @@ func RecoverSignatureByMapI(m SignatureIMap, k int) *Signature {
 	ids := make([]ID, k)
 	sigs := make([]Signature, k)
 	i := 0
-	for sID, si := range m { //map遍历
+
+	// Range map
+	for sID, si := range m {
 		var id ID
 		id.SetHexString(sID)
-		ids[i] = id  //组成员ID值
-		sigs[i] = si //组成员签名
+		// Group member ID value
+		ids[i] = id
+		// Group member signature
+		sigs[i] = si
 		i++
 		if i >= k {
 			break
 		}
 	}
-	return RecoverSignature(sigs, ids) //调用签名恢复函数
+
+	// Call signature recovery function
+	return RecoverSignature(sigs, ids)
 }
 
-//签名恢复函数，m为map(地址->签名)，k为门限值
+// RecoverSignatureByMapA is signature recovery function,
+// m is map (address -> signature), k is the threshold
 func RecoverSignatureByMapA(m SignatureAMap, k int) *Signature {
 	ids := make([]ID, k)
 	sigs := make([]Signature, k)
 	i := 0
-	for a, s := range m { //map遍历
-		id := NewIDFromAddress(a) //取得地址对应的ID
+	// Range map
+	for a, s := range m {
+		// Get the ID corresponding to the address
+		id := NewIDFromAddress(a)
 		if id == nil {
 			log.Printf("RecoverSignatureByMap bad address %s\n", a)
 			return nil
 		}
-		ids[i] = *id //组成员ID值
-		sigs[i] = s  //组成员签名
+		// Group member ID value
+		ids[i] = *id
+		// Group member signature
+		sigs[i] = s
 		i++
 		if i >= k {
 			break
 		}
 	}
-	return RecoverSignature(sigs, ids) //调用签名恢复函数
+	// Call signature recovery function
+	return RecoverSignature(sigs, ids)
 }
 
-// Recover --
 func (sig *Signature) Recover(signVec []Signature, idVec []ID) error {
 
 	return nil

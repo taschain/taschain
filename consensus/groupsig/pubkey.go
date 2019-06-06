@@ -17,46 +17,52 @@ package groupsig
 
 import (
 	"fmt"
+
 	"github.com/taschain/taschain/common"
+
 	//"fmt"
 	"bytes"
+	"log"
+
 	"github.com/taschain/taschain/consensus/groupsig/bncurve"
 	"golang.org/x/crypto/sha3"
-	"log"
 )
 
-//用户公钥
+// Pubkey is the user's public key, based BN Curve
 type Pubkey struct {
 	value bncurve.G2
 }
 
 type PubkeyMap map[string]Pubkey
 
+//Check the public key is empty
 func (pub Pubkey) IsEmpty() bool {
 	return pub.value.IsEmpty()
 }
 
-//判断两个公钥是否相同
+// IsEqual judge two public key are equal
 func (pub Pubkey) IsEqual(rhs Pubkey) bool {
 	return bytes.Equal(pub.value.Marshal(), rhs.value.Marshal())
 }
 
-//由字节切片初始化私钥  ToDoCheck
+// Deserialize initializes the private key by byte slice
 func (pub *Pubkey) Deserialize(b []byte) error {
 	_, error := pub.value.Unmarshal(b)
 	return error
 }
 
-//把公钥转换成字节切片（小端模式？）
+// Serialize convert the public key into byte slices
 func (pub Pubkey) Serialize() []byte {
 	return pub.value.Marshal()
 }
 
+// MarshalJSON marshal the public key
 func (pub Pubkey) MarshalJSON() ([]byte, error) {
 	str := "\"" + pub.GetHexString() + "\""
 	return []byte(str), nil
 }
 
+// UnmarshalJSON unmarshal the public key
 func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	str := string(data[:])
 	if len(str) < 2 {
@@ -66,56 +72,46 @@ func (pub *Pubkey) UnmarshalJSON(data []byte) error {
 	return pub.SetHexString(str)
 }
 
-////把公钥转换成big.Int  ToDoCheck
-//func (pub Pubkey) GetBigInt() *big.Int {
-//	//x := new(big.Int)
-//	//x.SetString(pub.value.GetHexString(), 16)
-//	//return x
-//
-//	return nil
-//}
-
+//Check the public key is valid
 func (pub Pubkey) IsValid() bool {
 	return !pub.IsEmpty()
-	//bi := pub.GetBigInt()
-	//return bi.Cmp(big.NewInt(0)) != 0
 }
 
-//由公钥生成TAS地址
+// GetAddress generate address from the public key
 func (pub Pubkey) GetAddress() common.Address {
-	h := sha3.Sum256(pub.Serialize())  //取得公钥的SHA3 256位哈希
-	return common.BytesToAddress(h[:]) //由256位哈希生成TAS160位地址
+	// Get the SHA3 256-bit hash of the public key
+	h := sha3.Sum256(pub.Serialize())
+	// Tas160-bit addresses are generated from a 256-bit hash
+	return common.BytesToAddress(h[:])
 }
 
-//把公钥转换成十六进制字符串，不包含0x前缀   ToDoCheck
+// GetHexString converts the public key to a hexadecimal string without the 0x prefix
 func (pub Pubkey) GetHexString() string {
 	return PREFIX + common.Bytes2Hex(pub.value.Marshal())
 }
 
+//Export the public key into a short hex string
 func (pub *Pubkey) ShortS() string {
-	str := pub.GetHexString()
-	return common.ShortHex12(str)
+	return common.ShortHex12(pub.GetHexString())
 }
 
-//由十六进制字符串初始化公钥  ToDoCheck
+// SetHexString initializes the public key from the hexadecimal string
 func (pub *Pubkey) SetHexString(s string) error {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return fmt.Errorf("arg failed")
 	}
-	buf := s[len(PREFIX):]
-
-	pub.value.Unmarshal(common.Hex2Bytes(buf))
-	return nil
+	_, err := pub.value.Unmarshal(common.FromHex(s))
+	return err
 }
 
-//由私钥构建公钥
+// NewPubkeyFromSeckey generate the public key from the private key
 func NewPubkeyFromSeckey(sec Seckey) *Pubkey {
 	pub := new(Pubkey)
 	pub.value.ScalarBaseMult(sec.value.GetBigInt())
 	return pub
 }
 
-//构建一个安全性要求不高的公钥
+// TrivialPubkey build a public key that is not very secure
 func TrivialPubkey() *Pubkey {
 	return NewPubkeyFromSeckey(*TrivialSeckey())
 }
@@ -131,7 +127,7 @@ func (pub *Pubkey) Add(rhs *Pubkey) error {
 	return nil
 }
 
-//公钥聚合函数
+// AggregatePubkeys is a public key aggregation function
 func AggregatePubkeys(pubs []Pubkey) *Pubkey {
 	if len(pubs) == 0 {
 		log.Printf("AggregatePubkeys no pubs")
@@ -139,28 +135,20 @@ func AggregatePubkeys(pubs []Pubkey) *Pubkey {
 	}
 
 	pub := new(Pubkey)
-	//pub.value.Unmarshal(pubs[0].value.Marshal())
 	pub.value.Set(&pubs[0].value)
 
-	//pub.value = pubs[0].value
-	//for i := 0; i < len(pubs); i++ {
-	//log.Println("", i)
-	//log.Println("pub:", pubs[i].Serialize())
-	//}
-
-	//log.Println("len:", len(pubs))
 	for i := 1; i < len(pubs); i++ {
 		pub.Add(&pubs[i])
 	}
 
-	//log.Println("aggregatePK:", pub.Serialize())
-
 	return pub
 }
 
-//公钥分片生成函数，用多项式替换生成特定于某个ID的公钥分片
-//mpub : master公钥切片
-//id : 获得该分片的id
+// SharePubkey is a public key shard generation function, using polynomial
+// substitution to generate public key shards specific to an ID
+//
+// mpub : master public key slice
+// id : get the id of the shard
 func SharePubkey(mpub []Pubkey, id ID) *Pubkey {
 	pub := &Pubkey{}
 	// degree of polynomial, need k >= 1, i.e. len(msec) >= 2
@@ -169,8 +157,11 @@ func SharePubkey(mpub []Pubkey, id ID) *Pubkey {
 	// evaluate polynomial f(x) with coefficients c0, ..., ck
 	pub.Deserialize(mpub[k].Serialize())
 
-	x := id.GetBigInt()           //取得id的big.Int值
-	for j := k - 1; j >= 0; j-- { //从master key切片的尾部-1往前遍历
+	// Get the big.Int value of the id
+	x := id.GetBigInt()
+
+	// Range from the tail -1 of the master key slice
+	for j := k - 1; j >= 0; j-- {
 		pub.value.ScalarMult(&pub.value, x)
 		pub.value.Add(&pub.value, &mpub[j].value)
 	}
@@ -178,12 +169,12 @@ func SharePubkey(mpub []Pubkey, id ID) *Pubkey {
 	return pub
 }
 
-//以i作为ID，调用公钥分片生成函数
+// SharePubkeyByInt call the public key shard generation function with i as ID
 func SharePubkeyByInt(mpub []Pubkey, i int) *Pubkey {
 	return SharePubkey(mpub, *NewIDFromInt(i))
 }
 
-//以id+1作为ID，调用公钥分片生成函数
+// SharePubkeyByInt call the public key shard generation function with i+1 as ID
 func SharePubkeyByMembershipNumber(mpub []Pubkey, id int) *Pubkey {
 	return SharePubkey(mpub, *NewIDFromInt(id + 1))
 }

@@ -1,16 +1,32 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package main
 
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"path/filepath"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/account"
 	"github.com/taschain/taschain/storage/tasdb"
 	"github.com/taschain/taschain/tvm"
-	"math/big"
-	"os"
-	"path/filepath"
 )
 
 type Transaction struct {
@@ -20,11 +36,11 @@ type Transaction struct {
 func (Transaction) GetGasLimit() uint64 { return 500000 }
 func (Transaction) GetValue() uint64    { return 0 }
 func (Transaction) GetSource() *common.Address {
-	address := common.StringToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
+	address := common.HexToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 	return &address
 }
 func (Transaction) GetTarget() *common.Address {
-	address := common.StringToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
+	address := common.HexToAddress("0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103")
 	return &address
 }
 func (Transaction) GetData() []byte      { return nil }
@@ -90,7 +106,7 @@ func (t *TvmCli) init() {
 		t.settings = common.NewConfINIManager(currentPath + "/settings.ini")
 		state, _ := account.NewAccountDB(common.Hash{}, t.database)
 		for i := 0; i < len(DefaultAccounts); i++ {
-			accountAddress := common.StringToAddress(DefaultAccounts[i])
+			accountAddress := common.HexToAddress(DefaultAccounts[i])
 			state.SetBalance(accountAddress, big.NewInt(200))
 		}
 		hash, error := state.Commit(false)
@@ -98,9 +114,10 @@ func (t *TvmCli) init() {
 		if error != nil {
 			fmt.Println(error)
 			return
+		} else {
+			t.settings.SetString("root", "StateHash", hash.Hex())
+			fmt.Println(hash.Hex())
 		}
-		t.settings.SetString("root", "StateHash", hash.String())
-		fmt.Println(hash.String())
 	}
 }
 
@@ -112,7 +129,7 @@ func (t *TvmCli) Deploy(contractName string, contractCode string) string {
 
 	nonce := state.GetNonce(*transaction.GetSource())
 	contractAddress := common.BytesToAddress(common.Sha256(common.BytesCombine(transaction.GetSource()[:], common.Uint64ToByte(nonce))))
-	fmt.Println("contractAddress: ", contractAddress.String())
+	fmt.Println("contractAddress: ", contractAddress.Hex())
 	state.SetNonce(*transaction.GetSource(), nonce+1)
 
 	contract := tvm.Contract{
@@ -139,9 +156,9 @@ func (t *TvmCli) Deploy(contractName string, contractCode string) string {
 	if error != nil {
 		fmt.Println(error)
 	}
-	t.settings.SetString("root", "StateHash", hash.String())
-	fmt.Println(hash.String())
-	return contractAddress.String()
+	t.settings.SetString("root", "StateHash", hash.Hex())
+	fmt.Println(hash.Hex())
+	return contractAddress.Hex()
 }
 
 func (t *TvmCli) Call(contractAddress string, abiJSON string) {
@@ -164,7 +181,6 @@ func (t *TvmCli) Call(contractAddress string, abiJSON string) {
 	executeResult := controller.ExecuteAbiEval(&sender, contract, abiJSON)
 	fmt.Println("gas: ", 500000-controller.VM.Gas())
 
-	//TODO 需不需要快照
 	if executeResult == nil {
 		fmt.Println("ExecuteAbiEval error")
 		return
@@ -179,8 +195,8 @@ func (t *TvmCli) Call(contractAddress string, abiJSON string) {
 	if error != nil {
 		fmt.Println(error)
 	}
-	t.settings.SetString("root", "StateHash", hash.String())
-	fmt.Println(hash.String())
+	t.settings.SetString("root", "StateHash", hash.Hex())
+	fmt.Println(hash.Hex())
 }
 
 func (t *TvmCli) ExportAbi(contractName string, contractCode string) {
@@ -189,9 +205,9 @@ func (t *TvmCli) ExportAbi(contractName string, contractCode string) {
 		//Code: contractCode,
 		//ContractAddress: &contractAddress,
 	}
-	vm := tvm.NewTvm(nil, &contract, "../py")
+	vm := tvm.NewTVM(nil, &contract, "../py")
 	defer func() {
-		vm.DelTvm()
+		vm.DelTVM()
 	}()
 	str := `
 class Register(object):
@@ -223,9 +239,9 @@ import builtins
 builtins.register = Register()
 `
 
-	errorCode, errorMsg := vm.ExecutedScriptVMSucceed(str)
+	errorCode, errorMsg := vm.ExecuteScriptVMSucceed(str)
 	if errorCode == types.Success {
-		result := vm.ExecutedScriptKindFile(contractCode)
+		result := vm.ExecuteScriptKindFile(contractCode)
 		fmt.Println(result.Abi)
 	} else {
 		fmt.Println(errorMsg)

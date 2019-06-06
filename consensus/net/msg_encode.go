@@ -1,17 +1,26 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package net
 
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/taschain/taschain/consensus/model"
-	"github.com/taschain/taschain/middleware/pb"
+	tas_middleware_pb "github.com/taschain/taschain/middleware/pb"
 	"github.com/taschain/taschain/middleware/types"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2019/2/19 下午2:43
-**  Description:
- */
 
 func marshalGroupInfo(gInfo *model.ConsensusGroupInitInfo) *tas_middleware_pb.ConsensusGroupInitInfo {
 	mems := make([][]byte, gInfo.MemberSize())
@@ -88,7 +97,9 @@ func marshalConsensusSignPubKeyReqMessage(m *model.ConsensusSignPubkeyReqMessage
 	return proto.Marshal(&message)
 }
 
-//--------------------------------------------组铸币--------------------------------------------------------------------
+/*
+Group coinage
+*/
 
 func marshalConsensusVerifyMessage(m *model.ConsensusVerifyMessage) ([]byte, error) {
 	message := &tas_middleware_pb.ConsensusVerifyMessage{
@@ -108,7 +119,6 @@ func marshalConsensusBlockMessage(m *model.ConsensusBlockMessage) ([]byte, error
 	return proto.Marshal(&message)
 }
 
-//----------------------------------------------------------------------------------------------------------------------
 func consensusGroupInitSummaryToPb(m *model.ConsensusGroupInitSummary) *tas_middleware_pb.ConsensusGroupInitSummary {
 	message := tas_middleware_pb.ConsensusGroupInitSummary{
 		Header:    types.GroupToPbHeader(m.GHeader),
@@ -126,24 +136,6 @@ func sharePieceToPb(s *model.SharePiece) *tas_middleware_pb.SharePiece {
 	share := tas_middleware_pb.SharePiece{Seckey: s.Share.Serialize(), Pubkey: s.Pub.Serialize()}
 	return &share
 }
-
-//func staticGroupInfoToPb(s *model.StaticGroupSummary) *tas_middleware_pb.StaticGroupSummary {
-//	groupId := s.GroupID.Serialize()
-//	groupPk := s.GroupPK.Serialize()
-//
-//	gis := consensusGroupInitSummaryToPb(&s.GIS)
-//
-//	groupInfo := tas_middleware_pb.StaticGroupSummary{GroupID: groupId, GroupPK: groupPk, Gis: gis}
-//	return &groupInfo
-//}
-//
-//func pubKeyInfoToPb(p *model.PubKeyInfo) *tas_middleware_pb.PubKeyInfo {
-//	id := p.ID.Serialize()
-//	pk := p.PK.Serialize()
-//
-//	pkInfo := tas_middleware_pb.PubKeyInfo{ID: id, PublicKey: pk}
-//	return &pkInfo
-//}
 
 func marshalConsensusCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage) ([]byte, error) {
 	gi := marshalGroupInfo(&msg.GInfo)

@@ -1,20 +1,29 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package core
 
 import (
 	"bytes"
 	"fmt"
+	"io"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/utility"
 	"github.com/vmihailenco/msgpack"
-	"io"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2019/3/20 上午11:32
-**  Description:
- */
 
 const codecVersion = 1
 
@@ -33,12 +42,11 @@ func unmarshalTx(data []byte) (*types.Transaction, error) {
 
 func encodeBlockTransactions(b *types.Block) ([]byte, error) {
 	dataBuf := bytes.NewBuffer([]byte{})
-	//先写版本号
-	dataBuf.Write(utility.UInt16ToByte(uint16(codecVersion)))
-	//先写交易数量
-	dataBuf.Write(utility.UInt16ToByte(uint16(len(b.Transactions))))
-	//再写每个交易长度
-	//最后写交易数据
+	// Write the version number
+	dataBuf.Write(common.UInt16ToByte(uint16(codecVersion)))
+	// Write the count of transactions
+	dataBuf.Write(common.UInt16ToByte(uint16(len(b.Transactions))))
+	// Write each transaction length and transaction data
 	if len(b.Transactions) > 0 {
 		txBuf := bytes.NewBuffer([]byte{})
 		for _, tx := range b.Transactions {
@@ -46,11 +54,12 @@ func encodeBlockTransactions(b *types.Block) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-
-			dataBuf.Write(utility.UInt16ToByte(uint16(len(txBytes))))
+			// Write each transaction length
+			dataBuf.Write(common.UInt16ToByte(uint16(len(txBytes))))
 			txBuf.Write(txBytes)
 
 		}
+		// Finally write transaction data
 		dataBuf.Write(txBuf.Bytes())
 	}
 
@@ -68,7 +77,7 @@ func decodeBlockTransactions(data []byte) ([]*types.Transaction, error) {
 	if _, err := io.ReadFull(dataReader, twoBytes); err != nil {
 		return nil, err
 	}
-	version := utility.ByteToUInt16(twoBytes)
+	version := common.ByteToUInt16(twoBytes)
 	if version != codecVersion {
 		return nil, fmt.Errorf("version error")
 	}
@@ -76,7 +85,7 @@ func decodeBlockTransactions(data []byte) ([]*types.Transaction, error) {
 	if _, err := io.ReadFull(dataReader, twoBytes); err != nil {
 		return nil, err
 	}
-	txNum := utility.ByteToUInt16(twoBytes)
+	txNum := common.ByteToUInt16(twoBytes)
 	if txNum == 0 {
 		return txs, nil
 	}
@@ -88,7 +97,7 @@ func decodeBlockTransactions(data []byte) ([]*types.Transaction, error) {
 	}
 
 	for i := 0; i < int(txNum); i++ {
-		txLen := utility.ByteToUInt16(lenBytes[2*i : 2*(i+1)])
+		txLen := common.ByteToUInt16(lenBytes[2*i : 2*(i+1)])
 		txBytes := make([]byte, txLen)
 		_, err := io.ReadFull(dataReader, txBytes)
 		if err != nil {
@@ -113,7 +122,7 @@ func decodeTransaction(idx int, txHash common.Hash, data []byte) (*types.Transac
 	if _, err := io.ReadFull(dataReader, twoBytes); err != nil {
 		return nil, err
 	}
-	version := utility.ByteToUInt16(twoBytes)
+	version := common.ByteToUInt16(twoBytes)
 	if version != codecVersion {
 		return nil, fmt.Errorf("version error")
 	}
@@ -121,7 +130,7 @@ func decodeTransaction(idx int, txHash common.Hash, data []byte) (*types.Transac
 	if _, err := io.ReadFull(dataReader, twoBytes); err != nil {
 		return nil, err
 	}
-	txNum := utility.ByteToUInt16(twoBytes)
+	txNum := common.ByteToUInt16(twoBytes)
 	if txNum == 0 {
 		return nil, fmt.Errorf("txNum is zero")
 	}
@@ -133,7 +142,7 @@ func decodeTransaction(idx int, txHash common.Hash, data []byte) (*types.Transac
 	}
 
 	for i := 0; i < int(txNum); i++ {
-		txLen := utility.ByteToUInt16(lenBytes[2*i : 2*(i+1)])
+		txLen := common.ByteToUInt16(lenBytes[2*i : 2*(i+1)])
 		txBytes := make([]byte, txLen)
 		_, err := io.ReadFull(dataReader, txBytes)
 		if err != nil {

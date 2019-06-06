@@ -21,16 +21,17 @@ import (
 	"testing"
 
 	"bytes"
+
 	"golang.org/x/crypto/sha3"
 )
 
 func TestPrivateKey(test *testing.T) {
 	fmt.Printf("\nbegin TestPrivateKey...\n")
 	sk := GenerateKey("")
-	str := sk.GetHexString()
+	str := sk.Hex()
 	fmt.Printf("sec key export, len=%v, data=%v.\n", len(str), str)
-	new_sk := HexStringToSecKey(str)
-	new_str := new_sk.GetHexString()
+	new_sk := HexToSecKey(str)
+	new_str := new_sk.Hex()
 	fmt.Printf("import sec key and export again, len=%v, data=%v.\n", len(new_str), new_str)
 	fmt.Printf("end TestPrivateKey.\n")
 }
@@ -41,18 +42,18 @@ func TestPublickKey(test *testing.T) {
 	pk := sk.GetPubKey()
 	//buf := pub_k.toBytes()
 	//fmt.Printf("byte buf len of public key = %v.\n", len(buf))
-	str := pk.GetHexString()
+	str := pk.Hex()
 	fmt.Printf("pub key export, len=%v, data=%v.\n", len(str), str)
-	new_pk := HexStringToPubKey(str)
-	new_str := new_pk.GetHexString()
+	new_pk := HexToPubKey(str)
+	new_str := new_pk.Hex()
 	fmt.Printf("import pub key and export again, len=%v, data=%v.\n", len(new_str), new_str)
 
 	fmt.Printf("\nbegin test address...\n")
 	a := pk.GetAddress()
-	str = a.GetHexString()
+	str = a.Hex()
 	fmt.Printf("address export, len=%v, data=%v.\n", len(str), str)
-	new_a := HexStringToAddress(str)
-	new_str = new_a.GetHexString()
+	new_a := HexToAddress(str)
+	new_str = new_a.Hex()
 	fmt.Printf("import address and export again, len=%v, data=%v.\n", len(new_str), new_str)
 
 	fmt.Printf("end TestPublicKey.\n")
@@ -66,7 +67,7 @@ func TestSign(test *testing.T) {
 	pri_k := GenerateKey("")
 	pub_k := pri_k.GetPubKey()
 
-	pub_buf := pub_k.ToBytes() //测试公钥到字节切片的转换
+	pub_buf := pub_k.Bytes()
 	pub_k = *BytesToPublicKey(pub_buf)
 
 	sha3_si := pri_k.Sign(sha3_hash[:])
@@ -85,8 +86,8 @@ func TestEncryptDecrypt(t *testing.T) {
 	sk1 := GenerateKey("")
 	pk1 := sk1.GetPubKey()
 
-	t.Log(sk1.GetHexString())
-	t.Log(pk1.GetHexString())
+	t.Log(sk1.Hex())
+	t.Log(pk1.Hex())
 
 	sk2 := GenerateKey("")
 
@@ -126,21 +127,16 @@ func TestSignBytes(test *testing.T) {
 	pri_k := GenerateKey("")
 
 	sha3_hash := sha3.Sum256(buf)
-	sign := pri_k.Sign(sha3_hash[:]) //私钥签名
+	sign := pri_k.Sign(sha3_hash[:])
 
-	//测试签名十六进制转换
-	h := sign.GetHexString() //签名十六进制表示
+	h := sign.Hex()
 	fmt.Println(h)
-
-	//si := HexStringToSign(h) //从十六进制恢复出签名
-	//fmt.Println(si.Bytes())  //签名打印
-	//fmt.Println(sign.Bytes())
 
 	sign_bytes := sign.Bytes()
 	sign_r := BytesToSign(sign_bytes)
-	fmt.Println(sign_r.GetHexString())
-	if h != sign_r.GetHexString() {
-		fmt.Println("sign dismatch!", h, sign_r.GetHexString())
+	fmt.Println(sign_r.Hex())
+	if h != sign_r.Hex() {
+		fmt.Println("sign dismatch!", h, sign_r.Hex())
 	}
 
 }
@@ -156,8 +152,8 @@ func TestRecoverPubkey(test *testing.T) {
 
 	pk, err := sign.RecoverPubkey(sha3_hash[:])
 	if err == nil {
-		if !bytes.Equal(pk.ToBytes(), sk.GetPubKey().ToBytes()) {
-			fmt.Printf("original pk = %v\n", sk.GetPubKey().ToBytes())
+		if !bytes.Equal(pk.Bytes(), sk.GetPubKey().Bytes()) {
+			fmt.Printf("original pk = %v\n", sk.GetPubKey().Bytes())
 			fmt.Printf("recover pk = %v\n", pk)
 		}
 	}
@@ -176,7 +172,7 @@ func BenchmarkSign(b *testing.B) {
 	sha3_hash := sha3.Sum256(msg)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sk.Sign(sha3_hash[:]) //私钥签名
+		sk.Sign(sha3_hash[:])
 	}
 }
 
@@ -207,28 +203,28 @@ func TestAccount(test *testing.T) {
 	privateKey := GenerateKey("")
 	pubkey := privateKey.GetPubKey()
 	address := pubkey.GetAddress()
-	fmt.Printf("sk:%s\n", privateKey.GetHexString())
-	fmt.Printf("address:%s\n", address.GetHexString())
+	fmt.Printf("sk:%s\n", privateKey.Hex())
+	fmt.Printf("address:%s\n", address.Hex())
 }
 
 func TestGenerateKey(t *testing.T) {
 	s := "1111345111111111111111111111111111111111"
 	sk := GenerateKey(s)
-	t.Logf(sk.GetHexString())
+	t.Logf(sk.Hex())
 
 	sk2 := GenerateKey(s)
-	t.Logf(sk2.GetHexString())
+	t.Logf(sk2.Hex())
 
 	sk3 := GenerateKey(s)
-	t.Logf(sk3.GetHexString())
+	t.Logf(sk3.Hex())
 }
 
 func TestSignSeckey(t *testing.T) {
-	seck := HexStringToSecKey("0x0477cc7bad86a3c6e4a37ed7dd29820d2ed7cba4b1acef7e00b2b0824eed90590c1a6d5c8d4c09a9b3efcb867a1e9eed3991c95a6b958cbd3a1544d2153cb4a6e40061a70ab47c4bed82877ebd399e696cc079f87943e4b95b78fb8b62bfe74cf6")
+	seck := HexToSecKey("0x0477cc7bad86a3c6e4a37ed7dd29820d2ed7cba4b1acef7e00b2b0824eed90590c1a6d5c8d4c09a9b3efcb867a1e9eed3991c95a6b958cbd3a1544d2153cb4a6e40061a70ab47c4bed82877ebd399e696cc079f87943e4b95b78fb8b62bfe74cf6")
 	if seck == nil {
 		t.Fatal("seck key error")
 	}
 
 	sign := seck.Sign(HexToHash("0x123").Bytes())
-	t.Logf(sign.GetHexString())
+	t.Logf(sign.Hex())
 }

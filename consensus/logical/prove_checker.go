@@ -1,8 +1,24 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
 	"bytes"
-	"github.com/hashicorp/golang-lru"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
@@ -10,15 +26,9 @@ import (
 	"github.com/taschain/taschain/core"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2019/3/28 下午1:20
-**  Description:
- */
-
 type proveChecker struct {
-	proposalVrfHashs *lru.Cache //最近提案过的vrf prve hash
-	proveRootCaches  *lru.Cache //全量账本校验缓存
+	proposalVrfHashs *lru.Cache // Recently proposed vrf prove hash
+	proveRootCaches  *lru.Cache // Full account verification cache
 	chain            core.BlockChain
 }
 
@@ -57,10 +67,10 @@ func (p *proveChecker) genVerifyHash(b []byte, id groupsig.ID) common.Hash {
 	return h
 }
 
-//对该id进行区块抽样
+// sampleBlockHeight performs block sampling on the id
 func (p *proveChecker) sampleBlockHeight(heightLimit uint64, rand []byte, id groupsig.ID) uint64 {
-	//随机抽取10块前的块，确保不抽取到分叉上的块
-	//
+	// Randomly extract the blocks before 10 blocks to ensure that
+	// the blocks on the forks are not extracted.
 	if heightLimit > 2*model.Param.Epoch {
 		heightLimit -= 2 * model.Param.Epoch
 	}
@@ -83,12 +93,6 @@ func (p *proveChecker) genProveHashs(heightLimit uint64, rand []byte, ids []grou
 	}
 	proves = hashs
 
-	//buf := bytes.Buffer{}
-	//for _, hash := range hashs {
-	//	buf.Write(hash.Bytes())
-	//}
-	//root = base.Data2CommonHash(buf.Bytes())
-	//buf.Reset()
 	return
 }
 

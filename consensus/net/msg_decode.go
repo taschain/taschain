@@ -1,21 +1,31 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package net
 
 import (
+	"time"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
-	"github.com/taschain/taschain/middleware/pb"
+	tas_middleware_pb "github.com/taschain/taschain/middleware/pb"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/network"
-	"time"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2019/2/19 下午2:39
-**  Description:
- */
 
 func baseMessage(sign *tas_middleware_pb.SignData) *model.BaseSignedMessage {
 	return &model.BaseSignedMessage{SI: *pbToSignData(sign)}
@@ -136,7 +146,10 @@ func unMarshalConsensusSignPKReqMessage(b []byte) (*model.ConsensusSignPubkeyReq
 	return message, nil
 }
 
-//--------------------------------------------组铸币--------------------------------------------------------------------
+/*
+Group coinage
+*/
+
 func unMarshalConsensusCurrentMessage(b []byte) (*model.ConsensusCurrentMessage, error) {
 	m := new(tas_middleware_pb.ConsensusCurrentMessage)
 	e := proto.Unmarshal(b, m)
@@ -252,40 +265,6 @@ func pbToSharePiece(s *tas_middleware_pb.SharePiece) *model.SharePiece {
 	sp := model.SharePiece{Share: share, Pub: pub}
 	return &sp
 }
-
-//
-//func pbToStaticGroup(s *tas_middleware_pb.StaticGroupSummary) *model.StaticGroupSummary {
-//	var groupId groupsig.ID
-//	groupId.Deserialize(s.GroupID)
-//
-//	var groupPk groupsig.Pubkey
-//	groupPk.Deserialize(s.GroupPK)
-//
-//	gis := pbToConsensusGroupInitSummary(s.Gis)
-//
-//	groupInfo := model.StaticGroupSummary{GroupID: groupId, GroupPK: groupPk, GIS: *gis}
-//	return &groupInfo
-//}
-//
-//func pbToPubKeyInfo(p *tas_middleware_pb.PubKeyInfo) *model.PubKeyInfo {
-//	var id groupsig.ID
-//	var pk groupsig.Pubkey
-//
-//	e1 := id.Deserialize(p.ID)
-//	if e1 != nil {
-//		logger.Errorf("[handler]groupsig.ID Deserialize error:%s", e1.Error())
-//		return nil
-//	}
-//
-//	e2 := pk.Deserialize(p.PublicKey)
-//	if e2 != nil {
-//		logger.Errorf("[handler]groupsig.Pubkey Deserialize error:%s", e2.Error())
-//		return nil
-//	}
-//
-//	pkInfo := model.NewPubKeyInfo(id, pk)
-//	return &pkInfo
-//}
 
 func unMarshalConsensusCreateGroupRawMessage(b []byte) (*model.ConsensusCreateGroupRawMessage, error) {
 	message := new(tas_middleware_pb.ConsensusCreateGroupRawMessage)

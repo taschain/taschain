@@ -19,12 +19,13 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/golang-lru"
+	"sync"
+
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/tasdb"
-	"sync"
 )
 
 const groupStatusKey = "gcurrent"
@@ -41,16 +42,14 @@ type GroupChainConfig struct {
 	groupHeight string
 }
 
+// GroupChain manages the group chain imports, reverts, chain reorganisations.
 type GroupChain struct {
 	config *GroupChainConfig
 
-	// key id, value group
-	// key number, value id
-	groups       *tasdb.PrefixedDatabase
-	groupsHeight *tasdb.PrefixedDatabase
+	groups       *tasdb.PrefixedDatabase // Key is group id, and the value is the group
+	groupsHeight *tasdb.PrefixedDatabase // Key is groupsHeight, and the value is the group id
 
-	// 读写锁
-	lock sync.RWMutex
+	lock sync.RWMutex // Read-write lock
 
 	lastGroup      *types.Group
 	genesisMembers []string
@@ -64,19 +63,23 @@ type GroupIterator struct {
 	current *types.Group
 }
 
+// Current returns current group
 func (iterator *GroupIterator) Current() *types.Group {
 	return iterator.current
 }
 
+// MovePre sets pre group as current group and returns it
 func (iterator *GroupIterator) MovePre() *types.Group {
 	iterator.current = GroupChainImpl.GetGroupByID(iterator.current.Header.PreGroup)
 	return iterator.current
 }
 
+// NewIterator returns a new group iterator with chain's last group as current group
 func (chain *GroupChain) NewIterator() *GroupIterator {
 	return &GroupIterator{current: chain.lastGroup}
 }
 
+// LastGroup returns chain's last group
 func (chain *GroupChain) LastGroup() *types.Group {
 	return chain.lastGroup
 }
@@ -106,7 +109,6 @@ func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.Consen
 		config:          getGroupChainConfig(),
 		consensusHelper: consensusHelper,
 		topGroups:       common.MustNewLRUCache(10),
-		//preCache: new(sync.Map),
 	}
 
 	var err error
@@ -150,12 +152,15 @@ func build(chain *GroupChain, genesisInfo *types.GenesisInfo) {
 	chain.genesisMembers = mems
 }
 
+// Height returns chain's group height
 func (chain *GroupChain) Height() uint64 {
 	if chain.lastGroup == nil {
 		return 0
 	}
 	return chain.lastGroup.GroupHeight
 }
+
+// Close the group level db file
 func (chain *GroupChain) Close() {
 	chain.groups.Close()
 }
@@ -175,16 +180,18 @@ func (chain *GroupChain) GetGroupByID(id []byte) *types.Group {
 	return chain.getGroupByID(id)
 }
 
+// AddGroup adds a group block to the group chain. It will make sure the group data is verified and the group's pre
+// group is current group chain's last group and the groups's parent group is existing in the group chain. Then it will
+// commit the group into the chain and send out notification
 func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 	defer func() {
 		Logger.Debugf("add group id=%v, groupHeight=%v, err=%v", common.ToHex(group.ID), group.GroupHeight, err)
 	}()
 	if chain.hasGroup(group.ID) {
-		//notify.BUS.Publish(notify.GroupAddSucc, &notify.GroupMessage{Group: group,})
 		return errGroupExist
 	}
 
-	//CheckGroup会调用groupchain的接口，需要在加锁前调用
+	// CheckGroup will call the group chain interface, which needs to be called before locking.
 	ok, err := chain.consensusHelper.CheckGroup(group)
 	if !ok {
 		if err == common.ErrCreateBlockNil {
@@ -221,7 +228,7 @@ func (chain *GroupChain) AddGroup(group *types.Group) (err error) {
 	return nil
 }
 
-func (chain *GroupChain) GenesisMember() map[string]byte {
+func (chain *GroupChain) genesisMember() map[string]byte {
 	mems := make(map[string]byte)
 	for _, mem := range chain.genesisMembers {
 		mems[mem] = 1
@@ -229,18 +236,20 @@ func (chain *GroupChain) GenesisMember() map[string]byte {
 	return mems
 }
 
+// WhetherMemberInActiveGroup checks whether the id belongs any active group
 func (chain *GroupChain) WhetherMemberInActiveGroup(id []byte, currentHeight uint64) bool {
 	iter := chain.NewIterator()
 	for g := iter.Current(); g != nil; g = iter.MovePre() {
-		//解散，后面的组，除了创世组外也都解散了
+
+		// Dissolve groups before current height other than the genesis group
 		if g.Header.DismissedAt(currentHeight) {
-			//直接跳到创世组检查
+			// Check directly in the genesis group
 			genisGroup := chain.getGroupByHeight(0)
 			if genisGroup.MemberExist(id) {
 				return true
 			}
 			break
-		} else { //有效组
+		} else { // The group is effective
 			if g.MemberExist(id) {
 				return true
 			}

@@ -1,18 +1,35 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+// Package model defines core data structures  used in the consensus process
 package model
 
 import (
 	"bytes"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/middleware/types"
-	"time"
 )
 
-//矿工ID信息
+// GroupMinerID is miner ID information
 type GroupMinerID struct {
-	Gid groupsig.ID //组ID
-	UID groupsig.ID //成员ID
+	Gid groupsig.ID // Group ID
+	UID groupsig.ID // Member ID
 }
 
 func NewGroupMinerID(gid groupsig.ID, uid groupsig.ID) *GroupMinerID {
@@ -26,18 +43,19 @@ func (id GroupMinerID) IsValid() bool {
 	return id.Gid.IsValid() && id.UID.IsValid()
 }
 
-//数据签名结构
+// SignData is data signature structure
 type SignData struct {
-	Version    int32
-	DataHash   common.Hash        //哈希值
-	DataSign   groupsig.Signature //签名
-	SignMember groupsig.ID        //用户ID或组ID，看消息类型
+	Version    int32              // Protocol version
+	DataHash   common.Hash        // Hash value which is the signed message
+	DataSign   groupsig.Signature // The signature
+	SignMember groupsig.ID        // User ID who does the signing work
 }
 
 func (sd SignData) IsEqual(rhs SignData) bool {
 	return sd.DataHash == rhs.DataHash && sd.SignMember.IsEqual(rhs.SignMember) && sd.DataSign.IsEqual(rhs.DataSign)
 }
 
+// GenSignData generate SignData
 func GenSignData(h common.Hash, id groupsig.ID, sk groupsig.Seckey) SignData {
 	return SignData{
 		DataHash:   h,
@@ -47,23 +65,11 @@ func GenSignData(h common.Hash, id groupsig.ID, sk groupsig.Seckey) SignData {
 	}
 }
 
-/*
-func GenSignDataEx(msg []byte, id groupsig.ID, sk groupsig.Seckey) SignData {
-	var sd SignData
-	if len(msg) <= common.HashLength {
-		copy(sd.DataHash[:], msg[:])
-		sd.DataSign = groupsig.Sign(sk, msg)
-		sd.SignMember = id
-	}
-	return sd
-}
-*/
-
 func (sd SignData) GetID() groupsig.ID {
 	return sd.SignMember
 }
 
-//用sk生成签名
+// GenSign generate signature with sk
 func (sd *SignData) GenSign(sk groupsig.Seckey) bool {
 	b := sk.IsValid()
 	if b {
@@ -72,17 +78,17 @@ func (sd *SignData) GenSign(sk groupsig.Seckey) bool {
 	return b
 }
 
-//用pk验证签名，验证通过返回true，否则false。
+// VerifySign verify the signature with pk, verify that it returns true, otherwise false.
 func (sd SignData) VerifySign(pk groupsig.Pubkey) bool {
 	return groupsig.VerifySig(pk, sd.DataHash.Bytes(), sd.DataSign)
 }
 
-//是否已有签名数据
+// HasSign means is there already signature data?
 func (sd SignData) HasSign() bool {
 	return sd.DataSign.IsValid() && sd.SignMember.IsValid()
 }
 
-//id->公钥对
+// PubKeyInfo means Id->public key pair
 type PubKeyInfo struct {
 	ID groupsig.ID
 	PK groupsig.Pubkey
@@ -103,7 +109,7 @@ func (p PubKeyInfo) GetID() groupsig.ID {
 	return p.ID
 }
 
-//id->私钥对
+// SecKeyInfo means Id->private key pair
 type SecKeyInfo struct {
 	ID groupsig.ID
 	SK groupsig.Seckey
@@ -124,10 +130,10 @@ func (s SecKeyInfo) GetID() groupsig.ID {
 	return s.ID
 }
 
-//组内秘密分享消息结构
+// SharePiece is group secret sharing message structure
 type SharePiece struct {
-	Share groupsig.Seckey //秘密共享
-	Pub   groupsig.Pubkey //矿工（组私密）公钥
+	Share groupsig.Seckey // Secret sharing
+	Pub   groupsig.Pubkey // Miner (group private) public key
 }
 
 func (piece SharePiece) IsValid() bool {
@@ -138,22 +144,22 @@ func (piece SharePiece) IsEqual(rhs SharePiece) bool {
 	return piece.Share.IsEqual(rhs.Share) && piece.Pub.IsEqual(rhs.Pub)
 }
 
-//map(id->秘密分享)
+// SharePieceMap is (id to secret share piece) mapping
 type SharePieceMap map[string]SharePiece
 
-//成为当前铸块组共识摘要
+// CastGroupSummary is group consensus summary that will become the current castor group
 type CastGroupSummary struct {
-	PreHash     common.Hash //上一块哈希
-	PreTime     time.Time   //上一块完成时间
-	BlockHeight uint64      //当前铸块高度
-	GroupID     groupsig.ID //当前组ID
+	PreHash     common.Hash // Previous hash
+	PreTime     time.Time   // Last piece completion time
+	BlockHeight uint64      // Current block height
+	GroupID     groupsig.ID // Current group ID
 	Castor      groupsig.ID
 	CastorPos   int32
 }
 
-//组初始化共识摘要
+// ConsensusGroupInitSummary is group initialization consensus summary
 type ConsensusGroupInitSummary struct {
-	Signature groupsig.Signature //父亲组签名
+	Signature groupsig.Signature // Parent group signature
 	GHeader   *types.GroupHeader
 }
 
@@ -210,23 +216,6 @@ func (gi *ConsensusGroupInitInfo) MemberSize() int {
 func (gi *ConsensusGroupInitInfo) GroupHash() common.Hash {
 	return gi.GI.GetHash()
 }
-
-//type StaticGroupSummary struct {
-//	GroupID  groupsig.ID               //组ID(可以由组公钥生成)
-//	GroupPK  groupsig.Pubkey           //组公钥
-//	//Members  []PubKeyInfo              //组内成员的静态信息(严格按照链上次序，全网一致，不然影响组铸块)。to do : 组成员的公钥是否有必要保存在这里？
-//	//GIS 	ConsensusGroupInitSummary
-//	GHash 	common.Hash
-//}
-//
-//func (sgs *StaticGroupSummary) GenHash() common.Hash {
-//	buf := sgs.GroupID.Serialize()
-//	buf = append(buf, sgs.GroupPK.Serialize()...)
-//
-//	buf = append(buf, sgs.GHash.Bytes()...)
-//	hash := base.Data2CommonHash(buf)
-//	return hash
-//}
 
 type BlockProposalDetail struct {
 	BH     *types.BlockHeader

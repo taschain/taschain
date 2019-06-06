@@ -18,20 +18,21 @@ package common
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
-	"github.com/taschain/taschain/common/ecies"
-	"github.com/taschain/taschain/common/secp256k1"
 	"io"
 	"math/big"
 	"strings"
+
+	"github.com/taschain/taschain/common/ecies"
+	"github.com/taschain/taschain/common/secp256k1"
 )
 
+// PrivateKey data struct
 type PrivateKey struct {
 	PrivKey ecdsa.PrivateKey
 }
 
-//私钥签名函数
+// Sign returns the message signature using the private key
 func (pk PrivateKey) Sign(hash []byte) Sign {
 	var sign Sign
 
@@ -52,7 +53,7 @@ func (pk PrivateKey) Sign(hash []byte) Sign {
 	return sign
 }
 
-//私钥生成函数
+// GenerateKey creates a Private key by the specified string
 func GenerateKey(s string) PrivateKey {
 	var r io.Reader
 	if len(s) > 0 {
@@ -70,45 +71,40 @@ func GenerateKey(s string) PrivateKey {
 	return pk
 }
 
-//由私钥萃取公钥函数
+// GetPubKey returns the public key mapped to the private key
 func (pk *PrivateKey) GetPubKey() PublicKey {
 	var pubk PublicKey
 	pubk.PubKey = pk.PrivKey.PublicKey
 	return pubk
 }
 
-//导出函数
-func (pk *PrivateKey) GetHexString() string {
-	buf := pk.ToBytes()
-	str := PREFIX + hex.EncodeToString(buf)
-	return str
+// Hex converts the private key to a hex string
+func (pk *PrivateKey) Hex() string {
+	return ToHex(pk.Bytes())
 }
 
-//导入函数
-func HexStringToSecKey(s string) (sk *PrivateKey) {
+// HexToSecKey returns a private key with the hex string imported.
+func HexToSecKey(s string) (sk *PrivateKey) {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return
 	}
-	buf, _ := hex.DecodeString(s[len(PREFIX):])
-	sk = BytesToSecKey(buf)
+	sk = BytesToSecKey(FromHex(s))
 	return
 }
 
-func (pk *PrivateKey) ToBytes() []byte {
-	//fmt.Printf("begin seckey ToBytes...\n")
+// Bytes converts the private key to a byte array
+func (pk *PrivateKey) Bytes() []byte {
 	buf := make([]byte, SecKeyLength)
-	copy(buf[:PubKeyLength], pk.GetPubKey().ToBytes())
-	d := pk.PrivKey.D.Bytes() //D序列化
+	copy(buf[:PubKeyLength], pk.GetPubKey().Bytes())
+	d := pk.PrivKey.D.Bytes()
 	if len(d) > 32 {
 		panic("privateKey data length error: D length is more than 32!")
 	}
 	copy(buf[SecKeyLength-len(d):SecKeyLength], d)
-
-	//fmt.Printf("sec key tobytes, len=%v, data=%v.\n", len(buf), buf)
-	//fmt.Printf("end seckey ToBytes.\n")
 	return buf
 }
 
+// BytesToSecKey returns a private key with the byte array imported
 func BytesToSecKey(data []byte) (sk *PrivateKey) {
 	//fmt.Printf("begin bytesToSecKey, len=%v, data=%v.\n", len(data), data)
 	if len(data) < SecKeyLength {
@@ -125,7 +121,7 @@ func BytesToSecKey(data []byte) (sk *PrivateKey) {
 	return nil
 }
 
-//私钥解密消息
+// Decrypt returns the plain message
 func (pk *PrivateKey) Decrypt(rand io.Reader, ct []byte) (m []byte, err error) {
 	prv := ecies.ImportECDSA(&pk.PrivKey)
 	return prv.Decrypt(rand, ct, nil, nil)

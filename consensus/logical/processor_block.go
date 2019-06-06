@@ -23,14 +23,9 @@ import (
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
 	"sync"
-	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/5/16 下午7:44
-**  Description:
- */
+// FutureMessageHolder store some messages non-processable currently and may be processed in the future
 type FutureMessageHolder struct {
 	messages sync.Map
 }
@@ -79,41 +74,12 @@ func (holder *FutureMessageHolder) size() int {
 	return cnt
 }
 
-//func (p *Processor) addFutureBlockMsg(msg *model.ConsensusBlockMessage) {
-//	b := msg.Block
-//	log.Printf("future block receive cached! h=%v, hash=%v\n", b.Header.Height, b.Header.Hash.ShortS())
-//
-//	p.futureBlockMsgs.addMessage(b.Header.PreHash, msg)
-//}
-//
-//func (p *Processor) getFutureBlockMsgs(hash common.Hash) []*model.ConsensusBlockMessage {
-//	if vs := p.futureBlockMsgs.getMessages(hash); vs != nil {
-//		ret := make([]*model.ConsensusBlockMessage, len(vs))
-//		for idx, m := range vs {
-//			ret[idx] = m.(*model.ConsensusBlockMessage)
-//		}
-//		return ret
-//	}
-//	return nil
-//}
-//
-//func (p *Processor) removeFutureBlockMsgs(hash common.Hash) {
-//	p.futureBlockMsgs.remove(hash)
-//}
-
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
-	//begin := time.Now()
-	//defer func() {
-	//	log.Printf("doAddOnChain begin at %v, cost %v\n", begin.String(), time.Since(begin).String())
-	//}()
 	bh := block.Header
 
 	rlog := newRtLog("doAddOnChain")
-	//blog.log("start, height=%v, hash=%v", bh.Height, bh.Hash.ShortS())
 	result = int8(p.MainChain.AddBlockOnChain("", block))
 
-	//log.Printf("AddBlockOnChain header %v \n", p.blockPreview(bh))
-	//log.Printf("QueryTopBlock header %v \n", p.blockPreview(p.MainChain.QueryTopBlock()))
 	rlog.log("height=%v, hash=%v, result=%v.", bh.Height, bh.Hash.ShortS(), result)
 	castor := groupsig.DeserializeID(bh.Castor)
 	tlog := newHashTraceLog("doAddOnChain", bh.Hash, castor)
@@ -133,12 +99,6 @@ func (p *Processor) blockOnChain(h common.Hash) bool {
 }
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	begin := time.Now()
-	defer func() {
-		if time.Since(begin).Seconds() > 0.5 {
-			slowLogger.Warnf("slowQueryBlockHeaderByHash: cost %v, hash=%v", time.Since(begin).String(), hash.ShortS())
-		}
-	}()
 	b := p.MainChain.QueryBlockHeaderByHash(hash)
 	return b
 }
@@ -170,15 +130,16 @@ func (p *Processor) blockPreview(bh *types.BlockHeader) string {
 }
 
 func (p *Processor) prepareForCast(sgi *StaticGroupInfo) {
-	//组建组网络
+	// Establish a group network
 	p.NetServer.BuildGroupNet(sgi.GroupID.GetHexString(), sgi.GetMembers())
 }
 
+// VerifyBlock check if the block is legal, it will take the pre-block into consideration
 func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (ok bool, err error) {
 	tlog := newMsgTraceLog("VerifyBlock", bh.Hash.ShortS(), "")
 	defer func() {
 		tlog.log("preHash=%v, height=%v, result=%v %v", bh.PreHash.ShortS(), bh.Height, ok, err)
-		newBizLog("VerifyBlock").log("hash=%v, preHash=%v, height=%v, result=%v %v", bh.Hash.ShortS(), bh.PreHash.ShortS(), bh.Height, ok, err)
+		newBizLog("VerifyBlock").info("hash=%v, preHash=%v, height=%v, result=%v %v", bh.Hash.ShortS(), bh.PreHash.ShortS(), bh.Height, ok, err)
 	}()
 	if bh.Hash != bh.GenHash() {
 		err = fmt.Errorf("block hash error")
@@ -211,6 +172,7 @@ func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader)
 	return
 }
 
+// VerifyBlockHeader mainly check the group signature of the block
 func (p *Processor) VerifyBlockHeader(bh *types.BlockHeader) (ok bool, err error) {
 	if bh.Hash != bh.GenHash() {
 		err = fmt.Errorf("block hash error")
@@ -229,15 +191,11 @@ func (p *Processor) VerifyBlockHeader(bh *types.BlockHeader) (ok bool, err error
 	return
 }
 
+// VerifyGroup check whether the give group is legal
 func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 	if len(g.Signature) == 0 {
 		return false, fmt.Errorf("sign is empty")
 	}
-	//top := p.MainChain.Height()
-	//if top > g.Header.WorkHeight {
-	//	err = fmt.Errorf("group too late for work, workheight %v, top %v", g.Header.WorkHeight, top)
-	//	return
-	//}
 	mems := make([]groupsig.ID, len(g.Members))
 	for idx, mem := range g.Members {
 		mems[idx] = groupsig.DeserializeID(mem)
@@ -250,7 +208,7 @@ func (p *Processor) VerifyGroup(g *types.Group) (ok bool, err error) {
 		Mems: mems,
 	}
 
-	//检验头和签名
+	// Check head and signature
 	if _, ok, err := p.groupManager.checkGroupInfo(gInfo); ok {
 		gpk := groupsig.DeserializePubkeyBytes(g.PubKey)
 		gid := groupsig.NewIDFromPubkey(gpk).Serialize()

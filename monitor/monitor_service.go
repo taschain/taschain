@@ -1,21 +1,31 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package monitor
 
 import (
 	"fmt"
-	"github.com/gohouse/gorose"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/groupsig"
 	"log"
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-/*
-**  Creator: pxf
-**  Date: 2019/2/13 下午4:58
-**  Description:
- */
+	"github.com/gohouse/gorose"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/groupsig"
+)
 
 type MonitorService struct {
 	enable   bool
@@ -81,18 +91,18 @@ func InitLogService(nodeID string) {
 		enable:   true,
 		resStat:  initNodeResStat(),
 	}
-	rHost := common.GlobalConf.GetString("gtas", "log_db_host", "120.78.127.246")
-	rPort := common.GlobalConf.GetInt("gtas", "log_db_port", 3806)
-	rDB := common.GlobalConf.GetString("gtas", "log_db_db", "taschain2")
-	rUser := common.GlobalConf.GetString("gtas", "log_db_user", "root")
-	rPass := common.GlobalConf.GetString("gtas", "log_db_password", "TASchain1003")
+	rHost := common.GlobalConf.GetString("gtas", "log_db_host", "")
+	rPort := common.GlobalConf.GetInt("gtas", "log_db_port", 0)
+	rDB := common.GlobalConf.GetString("gtas", "log_db_db", "")
+	rUser := common.GlobalConf.GetString("gtas", "log_db_user", "")
+	rPass := common.GlobalConf.GetString("gtas", "log_db_password", "")
 	Instance.cfg = &gorose.DbConfigSingle{
-		Driver:          "mysql",                                                                                         // 驱动: mysql/sqlite/oracle/mssql/postgres
-		EnableQueryLog:  false,                                                                                           // 是否开启sql日志
-		SetMaxOpenConns: 0,                                                                                               // (连接池)最大打开的连接数，默认值为0表示不限制
-		SetMaxIdleConns: 0,                                                                                               // (连接池)闲置的连接数
-		Prefix:          "",                                                                                              // 表前缀
-		Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // 数据库链接username:password@protocol(address)/dbname?param=value
+		Driver:          "mysql",                                                                                         // Drive: mysql/sqlite/oracle/mssql/postgres
+		EnableQueryLog:  false,                                                                                           // Whether to open SQL log
+		SetMaxOpenConns: 0,                                                                                               // (Connection pool) the maximum number of open connections, the default value of 0 means no limit
+		SetMaxIdleConns: 0,                                                                                               // (Connection pool) number of idle connections
+		Prefix:          "",                                                                                              // Prefix
+		Dsn:             fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=true", rUser, rPass, rHost, rPort, rDB), // Database link -> username:password@protocol(address)/dbname?param=value
 	}
 
 	Instance.insertMinerID()
@@ -247,8 +257,6 @@ func (ms *MonitorService) UpdateNodeInfo(ni *NodeInfo) {
 			if affet <= 0 {
 				sess.Table("nodes").Data(dm).Insert()
 			}
-		} else {
-			//fmt.Printf("update nodes fail, sql=%v, err=%v\n", sess.LastSql, err)
 		}
 	}
 }

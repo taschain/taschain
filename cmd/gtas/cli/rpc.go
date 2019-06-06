@@ -16,21 +16,15 @@
 package cli
 
 import (
-	"github.com/taschain/taschain/cmd/gtas/rpc"
 	"net"
 
-	"fmt"
-	"github.com/taschain/taschain/common"
-	"strings"
-)
+	"github.com/taschain/taschain/cmd/gtas/rpc"
 
-// 分红价值统计
-//var BonusValueStatMap = make(map[uint64]map[string]uint64, 50)
-//
-//// 分红次数统计
-//var BonusNumStatMap = make(map[uint64]map[string]uint64, 50)
-//
-//var CastBlockStatMap = make(map[uint64]map[string]uint64, 50)
+	"fmt"
+	"strings"
+
+	"github.com/taschain/taschain/common"
+)
 
 // startHTTP initializes and starts the HTTP RPC endpoint.
 func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string, vhosts []string) error {
@@ -61,13 +55,12 @@ func startHTTP(endpoint string, apis []rpc.API, modules []string, cors []string,
 		return err
 	}
 	go rpc.NewHTTPServer(cors, vhosts, handler).Serve(listener)
-	//go rpc.NewWSServer(cors, handler).Serve(listener)
 	return nil
 }
 
 var GtasAPIImpl *GtasAPI
 
-// StartRPC RPC 功能
+// StartRPC RPC function
 func StartRPC(host string, port uint) error {
 	var err error
 	GtasAPIImpl = &GtasAPI{}
@@ -77,11 +70,11 @@ func StartRPC(host string, port uint) error {
 	for plus := 0; plus < 40; plus++ {
 		err = startHTTP(fmt.Sprintf("%s:%d", host, port+uint(plus)), apis, []string{}, []string{}, []string{})
 		if err == nil {
-			common.DefaultLogger.Infof("RPC serving on http://%s:%d\n", host, port+uint(plus))
+			common.DefaultLogger.Errorf("RPC serving on http://%s:%d\n", host, port+uint(plus))
 			return nil
 		}
 		if strings.Contains(err.Error(), "address already in use") {
-			common.DefaultLogger.Infof("address: %s:%d already in use\n", host, port+uint(plus))
+			common.DefaultLogger.Errorf("address: %s:%d already in use\n", host, port+uint(plus))
 			continue
 		}
 		return err

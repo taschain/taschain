@@ -17,12 +17,13 @@ package core
 
 import (
 	"bytes"
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/account"
 	"github.com/taschain/taschain/storage/serialize"
 	"github.com/taschain/taschain/storage/trie"
-	"math/big"
 )
 
 var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba5609572636719f054247d8103", "0xcad6d60fa8f6330f293f4f57893db78cf660e80d6a41718c7ad75e76795000d4",
@@ -31,12 +32,14 @@ var testTxAccount = []string{"0xc2f067dba80c53cfdd956f86a61dd3aaf5abbba560957263
 	"0x5d9b2132ec1d2011f488648a8dc24f9b29ca40933ca89d8d19367280dff59a03", "0x5afb7e2617f1dd729ea3557096021e2f4eaa1a9c8fe48d8132b1f6cf13338a8f",
 	"0x30c049d276610da3355f6c11de8623ec6b40fd2a73bb5d647df2ae83c30244bc", "0xa2b7bc555ca535745a7a9c55f9face88fc286a8b316352afc457ffafb40a7478"}
 
+// IsTestTransaction is used for performance testing. We will not check the nonce if a transaction is sent from
+// a testing account.
 func IsTestTransaction(tx *types.Transaction) bool {
 	if tx == nil || tx.Source == nil {
 		return false
 	}
 
-	source := tx.Source.GetHexString()
+	source := tx.Source.Hex()
 	for _, testAccount := range testTxAccount {
 		if source == testAccount {
 			return true
@@ -51,11 +54,7 @@ func calcTxTree(txs []*types.Transaction) common.Hash {
 	}
 
 	buf := new(bytes.Buffer)
-	//for i := 0; i < len(tx); i++ {
-	//	encode, _ := msgpack.Marshal(tx[i])
-	//	serialize.Encode(buf, encode)
-	//	buf.Write(tx)
-	//}
+
 	for _, tx := range txs {
 		buf.Write(tx.Hash.Bytes())
 	}
@@ -86,8 +85,8 @@ func setupGenesisStateDB(stateDB *account.AccountDB, genesisInfo *types.GenesisI
 	tenThousandTasBi := big.NewInt(0).SetUint64(common.TAS2RA(10000))
 
 	//管理员账户
-	stateDB.SetBalance(common.HexStringToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"), big.NewInt(0).SetUint64(common.TAS2RA(100000000)))
-	stateDB.SetBalance(common.HexStringToAddress("0xb055a3ffdc9eeb0c5cf0c1f14507a40bdcbff98c03286b47b673c02d2efe727e"), big.NewInt(0).SetUint64(common.TAS2RA(100000000)))
+	stateDB.SetBalance(common.HexToAddress("0xf77fa9ca98c46d534bd3d40c3488ed7a85c314db0fd1e79c6ccc75d79bd680bd"), big.NewInt(0).SetUint64(common.TAS2RA(100000000)))
+	stateDB.SetBalance(common.HexToAddress("0xb055a3ffdc9eeb0c5cf0c1f14507a40bdcbff98c03286b47b673c02d2efe727e"), big.NewInt(0).SetUint64(common.TAS2RA(100000000)))
 
 	//创世账户
 	for _, mem := range genesisInfo.Group.Members {
@@ -97,6 +96,6 @@ func setupGenesisStateDB(stateDB *account.AccountDB, genesisInfo *types.GenesisI
 
 	// 交易脚本账户
 	for _, acc := range testTxAccount {
-		stateDB.SetBalance(common.HexStringToAddress(acc), tenThousandTasBi)
+		stateDB.SetBalance(common.HexToAddress(acc), tenThousandTasBi)
 	}
 }

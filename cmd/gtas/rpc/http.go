@@ -29,9 +29,10 @@ import (
 	"sync"
 	"time"
 
+	"strings"
+
 	"github.com/rs/cors"
 	"github.com/taschain/taschain/asset"
-	"strings"
 )
 
 const (
@@ -41,6 +42,7 @@ const (
 
 var nullAddr, _ = net.ResolveTCPAddr("tcp", "127.0.0.1:0")
 
+// HttpConn is treated specially by Client
 type httpConn struct {
 	client    *http.Client
 	req       *http.Request
@@ -48,7 +50,6 @@ type httpConn struct {
 	closed    chan struct{}
 }
 
-// httpConn is treated specially by Client.
 func (hc *httpConn) LocalAddr() net.Addr              { return nullAddr }
 func (hc *httpConn) RemoteAddr() net.Addr             { return nullAddr }
 func (hc *httpConn) SetReadDeadline(time.Time) error  { return nil }
@@ -150,7 +151,7 @@ func (t *httpReadWriteNopCloser) Close() error {
 func NewHTTPServer(cors []string, vhosts []string, srv *Server) *http.Server {
 	// Wrap the CORS-handler within a host-handler
 	handler := newCorsHandler(srv, cors)
-	//handler = newVHostHandler(vhosts, handler)
+	// handler = newVHostHandler(vhosts, handler)
 	return &http.Server{Handler: handler}
 }
 

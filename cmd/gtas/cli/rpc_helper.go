@@ -1,19 +1,29 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
 	"fmt"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/mediator"
 	"github.com/taschain/taschain/core"
 	"github.com/taschain/taschain/middleware/types"
 )
-
-/*
-**  Creator: pxf
-**  Date: 2018/10/16 下午3:05
-**  Description:
- */
 
 func convertTransaction(tx *types.Transaction) *Transaction {
 	trans := &Transaction{
@@ -49,8 +59,7 @@ func convertBlockHeader(b *types.Block) *Block {
 		StateRoot:   bh.StateTree,
 		TxRoot:      bh.TxTree,
 		ReceiptRoot: bh.ReceiptTree,
-		//ProveRoot:   bh.ProveRoot,
-		Random: common.ToHex(bh.Random),
+		Random:      common.ToHex(bh.Random),
 	}
 	return block
 }
@@ -59,8 +68,10 @@ func convertBonusTransaction(tx *types.Transaction) *BonusTransaction {
 	if tx.Type != types.TransactionTypeBonus {
 		return nil
 	}
-	gid, ids, bhash, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
-
+	gid, ids, bhash, value, err := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
+	if err != nil {
+		return nil
+	}
 	targets := make([]groupsig.ID, len(ids))
 	for i, id := range ids {
 		targets[i] = groupsig.DeserializeID(id)
@@ -101,8 +112,6 @@ func sendTransaction(trans *types.Transaction) error {
 	if trans.Sign == nil {
 		return fmt.Errorf("transaction sign is empty")
 	}
-
-	//common.DefaultLogger.Debugf(trans.Sign.GetHexString(), pk.GetHexString(), source.GetHexString(), trans.Hash.String())
 
 	if ok, err := core.BlockChainImpl.GetTransactionPool().AddTransaction(trans); err != nil || !ok {
 		common.DefaultLogger.Errorf("AddTransaction not ok or error:%s", err.Error())

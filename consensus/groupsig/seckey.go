@@ -17,48 +17,46 @@ package groupsig
 
 import (
 	"fmt"
+	"log"
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig/bncurve"
-	"log"
-	"math/big"
 )
 
 // Curve and Field order
-var curveOrder = bncurve.Order //曲线整数域
+var curveOrder = bncurve.Order // Curve integer field
 var fieldOrder = bncurve.P
 var bitLength = curveOrder.BitLen()
 
 // Seckey -- represented by a big.Int modulo curveOrder
-//私钥对象，表现为一个大整数在曲线域上的求模？
 type Seckey struct {
 	value BnInt
 }
 
-//比较两个私钥是否相等
+// IsEqual compares whether two private keys are equal
 func (sec Seckey) IsEqual(rhs Seckey) bool {
 	return sec.value.IsEqual(&rhs.value)
 }
 
-//MAP(地址->私钥)
+// SeckeyMap is a mapping of an address to a private key
 type SeckeyMap map[common.Address]Seckey
 
-// SeckeyMapInt -- a map from addresses to Seckey
-//map(地址->私钥)
+// SeckeyMapInt is a map from addresses to Seckey
 type SeckeyMapInt map[int]Seckey
 
 type SeckeyMapID map[string]Seckey
 
-//把私钥转换成字节切片（小端模式）
+// Serialize converts the private key into byte slices (Little-Endian)
 func (sec Seckey) Serialize() []byte {
 	return sec.value.Serialize()
 }
 
-//把私钥转换成big.Int
+// GetBigInt convert the private key to big.int
 func (sec Seckey) GetBigInt() (s *big.Int) {
 	s = new(big.Int)
 	s.Set(sec.value.GetBigInt())
-	//s.SetString(sec.getHex(), 16)
 	return s
 }
 
@@ -67,12 +65,12 @@ func (sec Seckey) IsValid() bool {
 	return bi.Cmp(big.NewInt(0)) != 0
 }
 
-//返回十六进制字符串表示，不带前缀
+// getHex returns a hexadecimal string representation without a prefix
 func (sec Seckey) getHex() string {
 	return sec.value.GetHexString()
 }
 
-//返回十六进制字符串表示，带前缀
+// GetHexString returns a hexadecimal string representation with a prefix
 func (sec Seckey) GetHexString() string {
 	return sec.getHex()
 }
@@ -82,9 +80,8 @@ func (sec *Seckey) ShortS() string {
 	return common.ShortHex12(str)
 }
 
-//由字节切片初始化私钥
+// Deserialize initializes the private key by byte slice
 func (sec *Seckey) Deserialize(b []byte) error {
-	//to do : 对字节切片做检查
 	return sec.value.Deserialize(b)
 }
 
@@ -102,27 +99,22 @@ func (sec *Seckey) UnmarshalJSON(data []byte) error {
 	return sec.SetHexString(str)
 }
 
-//由字节切片（小端模式）初始化私钥
+// SetLittleEndian initializes the private key by byte slice (Little-Endian)
 func (sec *Seckey) SetLittleEndian(b []byte) error {
 	return sec.value.Deserialize(b[:32])
 }
 
-//由不带前缀的十六进制字符串转换
+// setHex converts from an unprefixed hexadecimal string
 func (sec *Seckey) setHex(s string) error {
 	return sec.value.SetHexString(s)
 }
 
-//由带前缀的十六进制字符串转换
+// SetHexString converts from a prefixed hexadecimal string
 func (sec *Seckey) SetHexString(s string) error {
-	////fmt.Printf("begin SecKey.SetHexString...\n")
-	//if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
-	//	return fmt.Errorf("arg failed")
-	//}
-	//buf := s[len(PREFIX):]
 	return sec.setHex(s)
 }
 
-//由字节切片（小端模式）构建私钥
+// NewSeckeyFromLittleEndian build private key by a byte slice(Little-Endian)
 func NewSeckeyFromLittleEndian(b []byte) *Seckey {
 	sec := new(Seckey)
 	err := sec.SetLittleEndian(b)
@@ -135,17 +127,20 @@ func NewSeckeyFromLittleEndian(b []byte) *Seckey {
 	return sec
 }
 
-//由随机数构建私钥
+// NewSeckeyFromRand construct private keys from random Numbers
 func NewSeckeyFromRand(seed base.Rand) *Seckey {
-	//把随机数转换成字节切片（小端模式）后构建私钥
+	// After converting random Numbers into byte slices (Little-Endian),
+	// the private key is constructed
 	return NewSeckeyFromLittleEndian(seed.Bytes())
 }
 
-//由大整数构建私钥
+// NewSeckeyFromBigInt builds the private key from a large integer
 func NewSeckeyFromBigInt(b *big.Int) *Seckey {
 	nb := &big.Int{}
 	nb.Set(b)
-	b.Mod(nb, curveOrder) //大整数在曲线域上求模
+
+	// Large integers are modulating in the curve domain
+	b.Mod(nb, curveOrder)
 
 	sec := new(Seckey)
 	sec.value.SetBigInt(b)
@@ -153,30 +148,32 @@ func NewSeckeyFromBigInt(b *big.Int) *Seckey {
 	return sec
 }
 
-//由int64构建私钥
+// NewSeckeyFromInt64 build the private key from int64
 func NewSeckeyFromInt64(i int64) *Seckey {
 	return NewSeckeyFromBigInt(big.NewInt(i))
 }
 
-//由int32构建私钥
+// NewSeckeyFromInt build the private key from int32
 func NewSeckeyFromInt(i int) *Seckey {
 	return NewSeckeyFromBigInt(big.NewInt(int64(i)))
 }
 
-//构建一个安全性要求不高的私钥
+// TrivialSeckey build a private key with low security requirements
 func TrivialSeckey() *Seckey {
-	return NewSeckeyFromInt64(1) //以1作为跳频
+	// Take 1 as frequency hopping
+	return NewSeckeyFromInt64(1)
 }
 
-//私钥聚合函数
+// AggregateSeckeys is a private key aggregation function
 func AggregateSeckeys(secs []Seckey) *Seckey {
-	if len(secs) == 0 { //没有私钥要聚合
+	// No private keys to aggregate
+	if len(secs) == 0 {
 		log.Printf("AggregateSeckeys no secs")
 		return nil
 	}
-	sec := new(Seckey) //创建一个新的私钥
+	// create a new private key
+	sec := new(Seckey)
 	sec.value.SetBigInt(secs[0].value.GetBigInt())
-	//sec.value = secs[0].value        //以第一个私钥作为基
 	for i := 1; i < len(secs); i++ {
 		sec.value.Add(&secs[i].value)
 	}
@@ -187,33 +184,46 @@ func AggregateSeckeys(secs []Seckey) *Seckey {
 	return sec
 }
 
-//用多项式替换生成特定于某个ID的签名私钥分片
-//msec : master私钥切片
-//id : 获得该分片的id
+// ShareSeckey let polynomial replacement to generate a signature
+// private key fragment specific to an ID
+//
+// msec : master private key slice
+// id : get the id of the shard
 func ShareSeckey(msec []Seckey, id ID) *Seckey {
 	secret := big.NewInt(0)
 	k := len(msec) - 1
 
-	// evaluate polynomial f(x) with coefficients c0, ..., ck
-	secret.Set(msec[k].GetBigInt()) //最后一个master key的big.Int值放到secret
-	x := id.GetBigInt()             //取得id的big.Int值
+	// Evaluate polynomial f(x) with coefficients c0, ..., ck
+	//
+	// The big.Int value of the last master key is placed in the secret
+	secret.Set(msec[k].GetBigInt())
+	// Get the big.Int value of the id
+	x := id.GetBigInt()
 	newB := &big.Int{}
 
-	for j := k - 1; j >= 0; j-- { //从master key切片的尾部-1往前遍历
+	// Range from the tail -1 of the master key slice
+	for j := k - 1; j >= 0; j-- {
 		newB.Set(secret)
-		secret.Mul(newB, x) //乘上id的big.Int值，每一遍都需要乘，所以是指数？
+		// Multiply the big.Int value of the id, and each time you need to multiply
+		secret.Mul(newB, x)
 
 		newB.Set(secret)
-		secret.Add(newB, msec[j].GetBigInt()) //加法
+
+		// Addition
+		secret.Add(newB, msec[j].GetBigInt())
 
 		newB.Set(secret)
-		secret.Mod(newB, curveOrder) //曲线域求模
+
+		// Curve domain modeling
+		secret.Mod(newB, curveOrder)
 	}
 
-	return NewSeckeyFromBigInt(secret) //生成签名私钥
+	// Generate signature private key
+	return NewSeckeyFromBigInt(secret)
 }
 
-//由master私钥切片和TAS地址生成针对该地址的签名私钥分片
+// ShareSeckeyByAddr generating a private key fragment for the address
+// by the master private key slice and the TAS address
 func ShareSeckeyByAddr(msec []Seckey, addr common.Address) *Seckey {
 	id := NewIDFromAddress(addr)
 	if id == nil {
@@ -223,83 +233,112 @@ func ShareSeckeyByAddr(msec []Seckey, addr common.Address) *Seckey {
 	return ShareSeckey(msec, *id)
 }
 
-//由master私钥切片和整数i生成签名私钥分片
+// ShareSeckeyByInt generate signature private key fragmentation by master
+// private key slice and integer i
 func ShareSeckeyByInt(msec []Seckey, i int) *Seckey {
 	return ShareSeckey(msec, *NewIDFromInt64(int64(i)))
 }
 
-//由master私钥切片和整数id，生成id+1者的签名私钥分片
+// ShareSeckeyByMembershipNumber generate the private key fragment of the
+// id+1 by the master private key slice and the integer id
 func ShareSeckeyByMembershipNumber(msec []Seckey, id int) *Seckey {
 	return ShareSeckey(msec, *NewIDFromInt64(int64(id + 1)))
 }
 
-//用（签名）私钥分片切片和id切片恢复出master私钥（通过拉格朗日插值法）
-//私钥切片和ID切片的数量固定为门限值k
+// RecoverSeckey restore the master private key with the (signature) private
+// key slice slice and id slice (via Lagrangian interpolation)
+//
+// The number of private key slices and ID slices is fixed to the threshold k
 func RecoverSeckey(secs []Seckey, ids []ID) *Seckey {
-	secret := big.NewInt(0) //组私钥
-	k := len(secs)          //取得输出切片的大小，即门限值k
-	//fmt.Println("k:", k)
+	// Group private key
+	secret := big.NewInt(0)
+
+	// Get the size of the output slice, ie the threshold k
+	k := len(secs)
 	xs := make([]*big.Int, len(ids))
 	for i := 0; i < len(xs); i++ {
-		xs[i] = ids[i].GetBigInt() //把所有的id转化为big.Int，放到xs切片
+		// Convert all ids to big.Int and put them in xs slices
+		xs[i] = ids[i].GetBigInt()
 	}
-	// need len(ids) = k > 0
-	for i := 0; i < k; i++ { //输入元素遍历
-		// compute delta_i depending on ids only
-		//为什么前面delta/num/den初始值是1，最后一个diff初始值是0？
+	// Need len(ids) = k > 0
+	// Input element traversal
+	for i := 0; i < k; i++ {
+		// Compute delta_i depending on ids only
+		// (Why is the initial delta/num/den initial value of 1, and the last diff initial value is 0?)
 		var delta, num, den, diff *big.Int = big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(0)
-		for j := 0; j < k; j++ { //ID遍历
-			if j != i { //不是自己
-				num.Mul(num, xs[j])      //num值先乘上当前ID
-				num.Mod(num, curveOrder) //然后对曲线域求模
-				diff.Sub(xs[j], xs[i])   //diff=当前节点（内循环）-基节点（外循环）
-				den.Mul(den, diff)       //den=den*diff
-				den.Mod(den, curveOrder) //den对曲线域求模
+
+		// Range ID
+		for j := 0; j < k; j++ {
+			if j != i {
+
+				// Num value is multiplied by the current ID
+				num.Mul(num, xs[j])
+				// Then model the curve domain
+				num.Mod(num, curveOrder)
+				// Diff=current node (internal loop)-base node (outer loop)
+				diff.Sub(xs[j], xs[i])
+				// Den=den*diff
+				den.Mul(den, diff)
+				// Den modeling the curve domain
+				den.Mod(den, curveOrder)
 			}
 		}
-		// delta = num / den
-		den.ModInverse(den, curveOrder) //模逆
+		// Delta = num / den
+		// Modular inverse
+		den.ModInverse(den, curveOrder)
 		delta.Mul(num, den)
 		delta.Mod(delta, curveOrder)
-		//最终需要的值是delta
+		// The final value needed is delta
 		// apply delta to secs[i]
-		delta.Mul(delta, secs[i].GetBigInt()) //delta=delta*当前节点私钥的big.Int
+		// delta=(delta* big.Int of the private key of the current node)
+		delta.Mul(delta, secs[i].GetBigInt())
 		// skip reducing delta modulo curveOrder here
-		secret.Add(secret, delta)      //把delta加到组私钥（big.Int形式）
-		secret.Mod(secret, curveOrder) //组私钥对曲线域求模（big.Int形式）
+		// Add delta to the group private key (big.Int form)
+		secret.Add(secret, delta)
+		// Group private key modulo curve domain (big.Int form)
+		secret.Mod(secret, curveOrder)
 	}
 
 	return NewSeckeyFromBigInt(secret)
 }
 
-//私钥恢复函数，m为map(地址->私钥)，k为门限值
+// RecoverSeckeyByMap is a private key recovery function, m is map (
+// address -> private key), k is the threshold
 func RecoverSeckeyByMap(m SeckeyMap, k int) *Seckey {
 	ids := make([]ID, k)
 	secs := make([]Seckey, k)
 	i := 0
-	for a, s := range m { //map遍历
-		id := NewIDFromAddress(a) //提取地址对应的id
+	// Range mao
+	for a, s := range m {
+		// Extract the id corresponding to the address
+		id := NewIDFromAddress(a)
 		if id == nil {
 			log.Printf("RecoverSeckeyByMap bad Address %s\n", a)
 			return nil
 		}
-		ids[i] = *id //组成员ID
-		secs[i] = s  //组成员签名私钥
+		// Group member ID
+		ids[i] = *id
+		// Group member private key
+		secs[i] = s
 		i++
-		if i >= k { //取到门限值
+		// Take the threshold
+		if i >= k {
 			break
 		}
 	}
-	return RecoverSeckey(secs, ids) //调用私钥恢复函数
+	// Call private key recovery function
+	return RecoverSeckey(secs, ids)
 }
 
-// RecoverSeckeyByMapInt --
-//从签名私钥分片map中取k个（门限值）恢复出组私钥
+// RecoverSeckeyByMapInt retrieve the group private key by taking k (
+// threshold value) from the signature private key fragment map
 func RecoverSeckeyByMapInt(m SeckeyMapInt, k int) *Seckey {
-	ids := make([]ID, k)      //k个ID
-	secs := make([]Seckey, k) //k个签名私钥分片
+	// k ID
+	ids := make([]ID, k)
+	// k signature private key fragmentation
+	secs := make([]Seckey, k)
 	i := 0
-	//取map里的前k个签名私钥生成恢复基
+	// Take the first k signature private keys in the map to generate the recovery base
 	for a, s := range m {
 		ids[i] = *NewIDFromInt64(int64(a))
 		secs[i] = s
@@ -308,21 +347,17 @@ func RecoverSeckeyByMapInt(m SeckeyMapInt, k int) *Seckey {
 			break
 		}
 	}
-	//恢复出组私钥
+	// Restore the group private key
 	return RecoverSeckey(secs, ids)
 }
 
-// Set --
 func (sec *Seckey) Set(msk []Seckey, id *ID) error {
-	// #nosec
 	s := ShareSeckey(msk, *id)
 	sec.Deserialize(s.Serialize())
 	return nil
 }
 
-// Recover --
 func (sec *Seckey) Recover(secVec []Seckey, idVec []ID) error {
-	// #nosec
 	s := RecoverSeckey(secVec, idVec)
 	sec.Deserialize(s.Serialize())
 

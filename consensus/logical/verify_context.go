@@ -17,69 +17,75 @@ package logical
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/time"
 	"github.com/taschain/taschain/middleware/types"
 	"gopkg.in/fatih/set.v0"
-	"sync"
-	"sync/atomic"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/5/29 上午10:19
-**  Description:
- */
-
+// status enum of the verification consensus
 const (
-	svWorking  = iota //正在铸块,等待分片
-	svSuccess         //块签名已聚合
-	svNotified        //块已通知提案者
-	svTimeout         //组铸块超时
+	// svWorking indicates waiting for shards
+	svWorking = iota
+	// svSuccess indicates block added on chain successfully
+	svSuccess
+	// svNotified means block body requested from proposer already
+	svNotified
+	// svTimeout means the block consensus timeout
+	svTimeout
 )
 
 const (
-	pieceNormal    = 1 //收到一个分片，接收正常
-	pieceThreshold = 2 //收到一个分片且达到阈值，组签名成功
-	pieceFail      = -1
+	// pieceNormal means received a normal piece
+	pieceNormal = 1
+
+	// pieceThreshold means received a piece and reached the threshold,
+	pieceThreshold = 2
+
+	// pieceFail meas piece denied
+	pieceFail = -1
 )
 
+// VerifyContext stores the context of verification consensus of each height.
+// It is unique to each height which means replacement will take place when two different instance
+// created for only one height
 type VerifyContext struct {
-	prevBH           *types.BlockHeader
-	castHeight       uint64
-	signedMaxWeight  atomic.Value //**types.BlockWeight
-	signedBlockHashs set.Interface
-	expireTime       time.TimeStamp //铸块超时时间
+	prevBH           *types.BlockHeader // Pre-block header the height based on
+	castHeight       uint64             // The height the context related to
+	signedMaxWeight  atomic.Value       // type of *types.BlockWeight, stores max weight block info current node signed
+	signedBlockHashs set.Interface      // block hash set the current node signed, used for duplicated signed judgement
+	expireTime       time.TimeStamp     // block consensus deadline
 	createTime       time.TimeStamp
-	consensusStatus  int32 //铸块状态
-	slots            map[common.Hash]*SlotContext
-	proposers        map[string]common.Hash
-	successSlot      *SlotContext
-	//castedQNs []int64 //自己铸过的qn
-	group     *StaticGroupInfo
-	signedNum int32 //签名数量
-	verifyNum int32 //验证签名数量
-	aggrNum   int32 //聚合出组签名数量
-	lock      sync.RWMutex
-	ts        time.TimeService
+	consensusStatus  int32                        // consensus status
+	slots            map[common.Hash]*SlotContext // verification context of each block proposal related to the context, called slot
+	proposers        map[string]common.Hash       // Record the block hash corresponding to each proposer, Used to limit a proposer to work only once at that height
+
+	successSlot *SlotContext     // The slot that has make the consensus finished
+	group       *StaticGroupInfo // Corresponding verify-group info
+	signedNum   int32            // Numbers of signed blocks
+	verifyNum   int32            // Numbers of verified signatures
+	aggrNum     int32            // Numbers of blocks that group-sign recovered
+	lock        sync.RWMutex
+	ts          time.TimeService
 }
 
 func newVerifyContext(group *StaticGroupInfo, castHeight uint64, expire time.TimeStamp, preBH *types.BlockHeader) *VerifyContext {
 	ctx := &VerifyContext{
-		prevBH:          preBH,
-		castHeight:      castHeight,
-		group:           group,
-		expireTime:      expire,
-		consensusStatus: svWorking,
-		//signedMaxWeight: 	*types.NewBlockWeight(),
+		prevBH:           preBH,
+		castHeight:       castHeight,
+		group:            group,
+		expireTime:       expire,
+		consensusStatus:  svWorking,
 		slots:            make(map[common.Hash]*SlotContext),
 		ts:               time.TSInstance,
 		createTime:       time.TSInstance.Now(),
 		proposers:        make(map[string]common.Hash),
 		signedBlockHashs: set.New(set.ThreadSafe),
-		//castedQNs:       make([]int64, 0),
 	}
 	return ctx
 }
@@ -92,10 +98,6 @@ func (vc *VerifyContext) isWorking() bool {
 func (vc *VerifyContext) castSuccess() bool {
 	return atomic.LoadInt32(&vc.consensusStatus) == svSuccess
 }
-
-//func (vc *VerifyContext) broadCasted() bool {
-//	return atomic.LoadInt32(&vc.consensusStatus) == svSuccess
-//}
 
 func (vc *VerifyContext) isNotified() bool {
 	return atomic.LoadInt32(&vc.consensusStatus) == svNotified
@@ -115,16 +117,12 @@ func (vc *VerifyContext) markNotified() {
 	atomic.StoreInt32(&vc.consensusStatus, svNotified)
 }
 
-//func (vc *VerifyContext) markBroadcast() bool {
-//	return atomic.CompareAndSwapInt32(&vc.consensusStatus, svBlocked, svSuccess)
-//}
-
-//铸块是否过期
+// castExpire means whether the ingot has expired
 func (vc *VerifyContext) castExpire() bool {
 	return vc.ts.NowAfter(vc.expireTime)
 }
 
-//分红交易签名是否过期
+// castRewardSignExpire means whether the reward transaction signature expires
 func (vc *VerifyContext) castRewardSignExpire() bool {
 	return vc.ts.NowAfter(vc.expireTime.Add(int64(30 * model.Param.MaxGroupCastTime)))
 }
@@ -168,6 +166,7 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 		err = fmt.Errorf("elapsed error %v", bh.Elapsed)
 		return
 	}
+	// Check time window
 	if vc.ts.Since(bh.CurTime) < -1 {
 		return fmt.Errorf("block too early: now %v, curtime %v", vc.ts.Now(), bh.CurTime)
 	}
@@ -175,34 +174,36 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 	if bh.Height > 1 && !vc.ts.NowAfter(begin) {
 		return fmt.Errorf("block too early: begin %v, now %v", begin, vc.ts.Now())
 	}
+
+	// Check group id
 	gid := groupsig.DeserializeID(bh.GroupID)
 	if !vc.group.GroupID.IsEqual(gid) {
 		return fmt.Errorf("groupId error:vc-%v, bh-%v", vc.group.GroupID.ShortS(), gid.ShortS())
 	}
 
-	//只签qn不小于已签出的最高块的块
+	// Only sign blocks with higher weights than that have been signed
 	if vc.hasSignedMoreWeightThan(bh) {
-		err = fmt.Errorf("已签过更高qn块%v,本块qn%v", vc.getSignedMaxWeight().String(), bh.TotalQN)
+		err = fmt.Errorf("have signed a higher qn block %v,This block qn %v", vc.getSignedMaxWeight().String(), bh.TotalQN)
 		return
 	}
 
 	if vc.castSuccess() {
-		err = fmt.Errorf("已出块")
+		err = fmt.Errorf("already blocked")
 		return
 	}
 	if vc.castExpire() {
 		vc.markTimeout()
-		err = fmt.Errorf("已超时" + vc.expireTime.String())
+		err = fmt.Errorf("timed out" + vc.expireTime.String())
 		return
 	}
 	slot := vc.GetSlotByHash(bh.Hash)
 	if slot != nil {
 		if slot.GetSlotStatus() >= slRecoverd {
-			err = fmt.Errorf("slot不接受piece，状态%v", slot.slotStatus)
+			err = fmt.Errorf("slot does not accept piece,slot status %v", slot.slotStatus)
 			return
 		}
 		if _, ok := slot.gSignGenerator.GetWitness(sender); ok {
-			err = fmt.Errorf("重复消息%v", sender.ShortS())
+			err = fmt.Errorf("duplicate message %v", sender.ShortS())
 			return
 		}
 	}
@@ -210,6 +211,7 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 	return
 }
 
+// GetSlotByHash return the slot related to the given block hash
 func (vc *VerifyContext) GetSlotByHash(hash common.Hash) *SlotContext {
 	vc.lock.RLock()
 	defer vc.lock.RUnlock()
@@ -217,6 +219,8 @@ func (vc *VerifyContext) GetSlotByHash(hash common.Hash) *SlotContext {
 	return vc.findSlot(hash)
 }
 
+// PrepareSlot returns the slotContext related to the given blockHeader.
+// Replacement will take place if the existing slots reaches the limit defined in the model.Param
 func (vc *VerifyContext) PrepareSlot(bh *types.BlockHeader) (*SlotContext, error) {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
@@ -255,35 +259,12 @@ func (vc *VerifyContext) PrepareSlot(bh *types.BlockHeader) (*SlotContext, error
 			return nil, fmt.Errorf("comming block weight less than min block weight")
 		}
 	}
-	//sc.init(bh)
 	vc.slots[bh.Hash] = sc
 	return sc, nil
 
 }
 
-//（网络接收）新到交易集通知
-//返回不再缺失交易的QN槽列表
-//func (vc *VerifyContext) AcceptTrans(slot *SlotContext, ths []common.Hash) int8 {
-//
-//	if !slot.IsValid() {
-//		return TRANS_INVALID_SLOT
-//	}
-//	accept := slot.AcceptTrans(ths)
-//	if !accept {
-//		return TRANS_DENY
-//	}
-//	if slot.HasTransLost() {
-//		return TRANS_ACCEPT_NOT_FULL
-//	}
-//	st := slot.GetSlotStatus()
-//
-//	if st == slRecoverd || st == slVerified {
-//		return TRANS_ACCEPT_FULL_THRESHOLD
-//	} else {
-//		return TRANS_ACCEPT_FULL_PIECE
-//	}
-//}
-
+// Clear release the slot
 func (vc *VerifyContext) Clear() {
 	vc.lock.Lock()
 	defer vc.lock.Unlock()
@@ -292,25 +273,27 @@ func (vc *VerifyContext) Clear() {
 	vc.successSlot = nil
 }
 
-//判断该context是否可以删除，主要考虑是否发送了分红交易
+// shouldRemove determine whether the context can be deleted,
+// mainly consider whether to send a bonus transaction
 func (vc *VerifyContext) shouldRemove(topHeight uint64) bool {
-	//交易签名超时, 可以删除
+	// Bonus transaction consensus timed out, can be deleted
 	if vc.castRewardSignExpire() {
 		return true
 	}
 
-	//自己广播的且已经发送过分红交易，可以删除
+	// Self-broadcast and already sent reward transaction, can be deleted
 	if vc.successSlot != nil && vc.successSlot.IsRewardSent() {
 		return true
 	}
 
-	//未出过块, 但高度已经低于200块, 可以删除
+	// No block, but has stayed more than 200 heights, can be deleted
 	if vc.castHeight+200 < topHeight {
 		return true
 	}
 	return false
 }
 
+// GetSlots gets all the slots
 func (vc *VerifyContext) GetSlots() []*SlotContext {
 	vc.lock.RLock()
 	defer vc.lock.RUnlock()
@@ -321,6 +304,7 @@ func (vc *VerifyContext) GetSlots() []*SlotContext {
 	return slots
 }
 
+// checkNotify check and returns the slotContext the maximum weight of block stored in
 func (vc *VerifyContext) checkNotify() *SlotContext {
 	blog := newBizLog("checkNotify")
 	if !vc.castSuccess() || vc.isNotified() {
@@ -351,7 +335,7 @@ func (vc *VerifyContext) checkNotify() *SlotContext {
 		}
 	}
 	if maxBwSlot != nil {
-		blog.log("select max qn=%v, hash=%v, height=%v, hash=%v, all qn=%v", maxBwSlot.BH.TotalQN, maxBwSlot.BH.Hash.ShortS(), maxBwSlot.BH.Height, maxBwSlot.BH.Hash.ShortS(), qns)
+		blog.debug("select max qn=%v, hash=%v, height=%v, hash=%v, all qn=%v", maxBwSlot.BH.TotalQN, maxBwSlot.BH.Hash.ShortS(), maxBwSlot.BH.Height, maxBwSlot.BH.Hash.ShortS(), qns)
 	}
 	return maxBwSlot
 }

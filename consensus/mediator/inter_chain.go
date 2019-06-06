@@ -13,55 +13,24 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package mediator provides some functions for use in other modules
 package mediator
 
 import (
 	"fmt"
+	"math"
+	"math/big"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/logical"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
-	"math"
-	"math/big"
 )
 
-///////////////////////////////////////////////////////////////////////////////
-/*
-//主链提供给共识模块的接口
-//根据哈希取得某个交易
-//h:交易的哈希; forced:如本地不存在是否要发送异步网络请求
-//int=0，返回合法的交易；=-1，交易异常；=1，本地不存在，已发送网络请求；=2，本地不存在
-type GetTransactionByHash func(h common.Hash, forced bool) (int, core.Transaction)
-
-//构建一个铸块（组内当前铸块人同步操作）
-//to do : 细化入参(铸块人，QN，盐)
-type CastingBlock func() (core.Block, error)
-
-//验证一个铸块（如本地缺少交易，则异步网络请求该交易）
-//返回:=0, 验证通过；=-1，验证失败；=1，缺少交易，已发送网络请求
-type VerifyCastingBlock func(bh core.BlockHeader) int
-
-//铸块成功，上链
-//返回:=0,上链成功；=-1，验证失败；=1,上链成功，上链过程中发现分叉并进行了权重链调整
-type AddBlockOnChain func(b core.Block) int
-
-//查询最高块
-type QueryTopBlock func() core.BlockHeader
-
-//根据指定哈希查询块，不存在则返回nil。
-type QueryBlockHeaderByHash func() *core.BlockHeader
-
-//根据指定高度查询块，不存在则返回nil。
-type QueryBlockByHeight func() *core.BlockHeader
-
-//加载组信息
-//to do :
-*/
-///////////////////////////////////////////////////////////////////////////////
-//共识模块提供给外部的数据
-
+// ConsensusHelperImpl implements ConsensusHelper interface.
+// It provides functions for chain use
 type ConsensusHelperImpl struct {
 	ID groupsig.ID
 }
@@ -70,18 +39,22 @@ func NewConsensusHelper(id groupsig.ID) types.ConsensusHelper {
 	return &ConsensusHelperImpl{ID: id}
 }
 
+// ProposalBonus returns bonus for packing one bonus transaction
 func (helper *ConsensusHelperImpl) ProposalBonus() *big.Int {
 	return new(big.Int).SetUint64(model.Param.ProposalBonus)
 }
 
+// PackBonus returns bonus for packing one bonus transaction
 func (helper *ConsensusHelperImpl) PackBonus() *big.Int {
 	return new(big.Int).SetUint64(model.Param.PackBonus)
 }
 
+// GenerateGenesisInfo generate genesis group and pk info of members
 func (helper *ConsensusHelperImpl) GenerateGenesisInfo() *types.GenesisInfo {
 	return logical.GenerateGenesis()
 }
 
+// VRFProve2Value convert the vrf prove to big int
 func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
 	if len(prove) == 0 {
 		return big.NewInt(0)
@@ -89,39 +62,49 @@ func (helper *ConsensusHelperImpl) VRFProve2Value(prove []byte) *big.Int {
 	return base.VRFProof2hash(base.VRFProve(prove)).Big()
 }
 
+// CalculateQN calculates the blockheader's qn
+// It needs to be equal to the blockheader's totalQN - preHeader's totalQN
 func (helper *ConsensusHelperImpl) CalculateQN(bh *types.BlockHeader) uint64 {
 	return Proc.CalcBlockHeaderQN(bh)
 }
 
+// CheckProveRoot check the prove root hash for weight node when add block on chain
 func (helper *ConsensusHelperImpl) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
-	//return Proc.CheckProveRoot(bh)
-	return true, nil //上链时不再校验，只在共识时校验（update：2019-04-23）
+	// No longer check when going up, only check at consensus
+	return true, nil
 }
 
+// VerifyNewBlock check the new block.
+// Mainly verify the cast legality and the group signature
 func (helper *ConsensusHelperImpl) VerifyNewBlock(bh *types.BlockHeader, preBH *types.BlockHeader) (bool, error) {
 	return Proc.VerifyBlock(bh, preBH)
 }
 
+// VerifyBlockHeader verify the blockheader: mainly verify the group signature
 func (helper *ConsensusHelperImpl) VerifyBlockHeader(bh *types.BlockHeader) (bool, error) {
 	return Proc.VerifyBlockHeader(bh)
 }
 
+// CheckGroup check group legality
 func (helper *ConsensusHelperImpl) CheckGroup(g *types.Group) (ok bool, err error) {
 	return Proc.VerifyGroup(g)
 }
 
+// VerifyBonusTransaction verify bonus transaction
 func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction) (ok bool, err error) {
 	signBytes := tx.Sign
 	if len(signBytes) < common.SignLength {
 		return false, fmt.Errorf("not enough bytes for bonus signature, sign =%v", signBytes)
 	}
-	groupID, _, _, _ := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
+	groupID, _, _, _, err := Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse bonus transaction, err =%s", err)
+	}
 	group := Proc.GroupChain.GetGroupByID(groupID)
 	if group == nil {
 		return false, common.ErrGroupNil
 	}
 	gpk := groupsig.DeserializePubkeyBytes(group.PubKey)
-	//AcceptRewardPiece Function store groupsig in common sign buff, here will recover the groupsig
 	gsign := groupsig.DeserializeSign(signBytes[0:33]) //size of groupsig == 33
 	if !groupsig.VerifySig(gpk, tx.Hash.Bytes(), *gsign) {
 		return false, fmt.Errorf("verify bonus sign fail, gsign=%v", gsign.GetHexString())
@@ -129,6 +112,7 @@ func (helper *ConsensusHelperImpl) VerifyBonusTransaction(tx *types.Transaction)
 	return true, nil
 }
 
+// EstimatePreHeight estimate pre block's height
 func (helper *ConsensusHelperImpl) EstimatePreHeight(bh *types.BlockHeader) uint64 {
 	height := bh.Height
 	if height == 1 {

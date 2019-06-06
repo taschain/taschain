@@ -18,12 +18,12 @@ package cli
 import "errors"
 
 var (
-	// ErrorBlockChainUninitialized 未初始化链
+	// ErrorBlockChainUninitialized means uninitialized blockchain
 	ErrorBlockChainUninitialized = errors.New("should init blockchain module first")
-	// ErrorP2PUninitialized 未初始化P2P模块。
+	// ErrorP2PUninitialized means uninitialized P2P module
 	ErrorP2PUninitialized = errors.New("should init P2P module first")
-	// ErrorGovUninitialized 未初始化共识模块。
+	// ErrorGovUninitialized means uninitialized consensus module
 	ErrorGovUninitialized = errors.New("should init Governance module first")
-	// ErrorWalletsUninitialized
+	// ErrorWalletsUninitialized means uninitialized wallet
 	ErrorWalletsUninitialized = errors.New("should load wallets from config")
 )

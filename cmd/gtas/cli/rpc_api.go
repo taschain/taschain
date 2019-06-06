@@ -1,9 +1,29 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package cli
 
 import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
+	"math/big"
+	"strconv"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/mediator"
@@ -13,18 +33,8 @@ import (
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/taslog"
 	"github.com/vmihailenco/msgpack"
-	"log"
-	"math"
-	"math/big"
-	"strconv"
-	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/30 下午4:34
-**  Description:
- */
 var BonusLogger taslog.Logger
 
 func successResult(data interface{}) (*Result, error) {
@@ -46,7 +56,7 @@ func failResult(err string) (*Result, error) {
 type GtasAPI struct {
 }
 
-// T 用户交易接口
+// Tx is user transaction interface
 func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 	var txRaw = new(txRawData)
 	if err := json.Unmarshal([]byte(txRawjson), txRaw); err != nil {
@@ -61,10 +71,10 @@ func (api *GtasAPI) Tx(txRawjson string) (*Result, error) {
 		return failResult(err.Error())
 	}
 
-	return successResult(trans.Hash.String())
+	return successResult(trans.Hash.Hex())
 }
 
-// Balance 查询余额接口
+// Balance is query balance interface
 func (api *GtasAPI) Balance(account string) (*Result, error) {
 	balance, err := walletManager.getBalance(account)
 	if err != nil {
@@ -76,7 +86,7 @@ func (api *GtasAPI) Balance(account string) (*Result, error) {
 	}, nil
 }
 
-// NewWallet 新建账户接口
+// NewWallet is create a new account interface
 func (api *GtasAPI) NewWallet() (*Result, error) {
 	privKey, addr := walletManager.newWallet()
 	data := make(map[string]string)
@@ -85,37 +95,30 @@ func (api *GtasAPI) NewWallet() (*Result, error) {
 	return successResult(data)
 }
 
-// GetWallets 获取当前节点的wallets
+// GetWallets get the wallets of the current node
 func (api *GtasAPI) GetWallets() (*Result, error) {
 	return successResult(walletManager)
 }
 
-// DeleteWallet 删除本地节点指定序号的地址
+// DeleteWallet delete the address of the specified serial number of the local node
 func (api *GtasAPI) DeleteWallet(key string) (*Result, error) {
 	walletManager.deleteWallet(key)
 	return successResult(walletManager)
 }
 
-// BlockHeight 块高查询
+// BlockHeight query block height
 func (api *GtasAPI) BlockHeight() (*Result, error) {
 	height := core.BlockChainImpl.QueryTopBlock().Height
 	return successResult(height)
 }
 
-// GroupHeight 组块高查询
+// GroupHeight query group height
 func (api *GtasAPI) GroupHeight() (*Result, error) {
 	height := core.GroupChainImpl.Height()
 	return successResult(height)
 }
 
-// Vote
-func (api *GtasAPI) Vote(from string, v *VoteConfig) (*Result, error) {
-	//config := v.ToGlobal()
-	//walletManager.newVote(from, config)
-	return successResult(nil)
-}
-
-// ConnectedNodes 查询已链接的node的信息
+// ConnectedNodes query the information of the linked node
 func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 
 	nodes := network.GetNetInstance().ConnInfo()
@@ -126,15 +129,15 @@ func (api *GtasAPI) ConnectedNodes() (*Result, error) {
 	return successResult(conns)
 }
 
-// TransPool 查询缓冲区的交易信息。
+// TransPool query buffer transaction information
 func (api *GtasAPI) TransPool() (*Result, error) {
 	transactions := core.BlockChainImpl.GetTransactionPool().GetReceived()
 	transList := make([]Transactions, 0, len(transactions))
 	for _, v := range transactions {
 		transList = append(transList, Transactions{
-			Hash:   v.Hash.String(),
-			Source: v.Source.GetHexString(),
-			Target: v.Target.GetHexString(),
+			Hash:   v.Hash.Hex(),
+			Source: v.Source.Hex(),
+			Target: v.Target.Hex(),
 			Value:  strconv.FormatInt(int64(v.Value), 10),
 		})
 	}
@@ -142,6 +145,7 @@ func (api *GtasAPI) TransPool() (*Result, error) {
 	return successResult(transList)
 }
 
+// get transaction by hash
 func (api *GtasAPI) GetTransaction(hash string) (*Result, error) {
 	transaction := core.BlockChainImpl.GetTransactionByHash(false, true, common.HexToHash(hash))
 	if transaction == nil {
@@ -248,7 +252,7 @@ func convertGroup(g *types.Group) map[string]interface{} {
 	gmap := make(map[string]interface{})
 	if g.ID != nil && len(g.ID) != 0 {
 		gmap["group_id"] = groupsig.DeserializeID(g.ID).GetHexString()
-		gmap["g_hash"] = g.Header.Hash.String()
+		gmap["g_hash"] = g.Header.Hash.Hex()
 	}
 	gmap["parent"] = groupsig.DeserializeID(g.Header.Parent).GetHexString()
 	gmap["pre"] = groupsig.DeserializeID(g.Header.PreGroup).GetHexString()
@@ -299,14 +303,14 @@ func (api *GtasAPI) GetWorkGroup(height uint64) (*Result, error) {
 	return successResult(ret)
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerApply(sign string, bpk string, vrfpk string, stake uint64, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
 
 	info := core.MinerManagerImpl.GetMinerByID(id, byte(mtype), nil)
 	if info != nil {
-		return failResult("已经申请过该类型矿工")
+		return failResult("you has applied for this type of miner")
 	}
 
 	//address := common.BytesToAddress(minerInfo.ID.Serialize())
@@ -348,10 +352,10 @@ func (api *GtasAPI) MinerQuery(mtype int32) (*Result, error) {
 	if err != nil {
 		return &Result{Message: err.Error(), Data: nil}, err
 	}
-	return &Result{Message: address.GetHexString(), Data: string(js)}, nil
+	return &Result{Message: address.Hex(), Data: string(js)}, nil
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
@@ -372,7 +376,7 @@ func (api *GtasAPI) MinerAbort(sign string, mtype int32) (*Result, error) {
 	return successResult(nil)
 }
 
-//deprecated
+// deprecated
 func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
 	id := IDFromSign(sign)
 	address := common.BytesToAddress(id)
@@ -393,7 +397,7 @@ func (api *GtasAPI) MinerRefund(sign string, mtype int32) (*Result, error) {
 	return &Result{Message: "success"}, nil
 }
 
-//铸块统计
+// CastStat cast block statistics
 func (api *GtasAPI) CastStat(begin uint64, end uint64) (*Result, error) {
 	proposerStat := make(map[string]int32)
 	groupStat := make(map[string]int32)
@@ -463,23 +467,23 @@ func (api *GtasAPI) NodeInfo() (*Result, error) {
 	}
 	ni.Balance = balance
 	if !p.Ready() {
-		ni.Status = "节点未准备就绪"
+		ni.Status = "node not ready"
 	} else {
-		ni.Status = "运行中"
+		ni.Status = "running"
 		morts := make([]MortGage, 0)
 		t := "--"
 		heavyInfo := core.MinerManagerImpl.GetMinerByID(p.GetMinerID().Serialize(), types.MinerTypeHeavy, nil)
 		if heavyInfo != nil {
 			morts = append(morts, *NewMortGageFromMiner(heavyInfo))
 			if heavyInfo.AbortHeight == 0 {
-				t = "重节点"
+				t = "proposal role"
 			}
 		}
 		lightInfo := core.MinerManagerImpl.GetMinerByID(p.GetMinerID().Serialize(), types.MinerTypeLight, nil)
 		if lightInfo != nil {
 			morts = append(morts, *NewMortGageFromMiner(lightInfo))
 			if lightInfo.AbortHeight == 0 {
-				t += " 轻节点"
+				t += " verify role"
 			}
 		}
 		ni.NType = t
@@ -599,14 +603,14 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 		if tx.Type == types.TransactionTypeBonus {
 			btx := *convertBonusTransaction(tx)
 			if st, err := mediator.Proc.MainChain.GetTransactionPool().GetTransactionStatus(tx.Hash); err != nil {
-				log.Printf("getTransactions statue error, hash %v, err %v", tx.Hash.Hex(), err)
-				btx.StatusReport = "获取状态错误" + err.Error()
+				common.DefaultLogger.Errorf("getTransactions statue error, hash %v, err %v", tx.Hash.Hex(), err)
+				btx.StatusReport = "get status error" + err.Error()
 			} else {
 				if st == types.ReceiptStatusSuccessful {
-					btx.StatusReport = "成功"
+					btx.StatusReport = "success"
 					btx.Success = true
 				} else {
-					btx.StatusReport = "失败"
+					btx.StatusReport = "fail"
 				}
 			}
 			bonusTxs = append(bonusTxs, btx)
@@ -652,14 +656,14 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 			mb.Proposal = true
 			mb.PackBonusTx = len(uniqueBonusBlockHash)
 			increase += model.Param.ProposalBonus + uint64(mb.PackBonusTx)*model.Param.PackBonus
-			mb.Explain = fmt.Sprintf("提案 打包分红交易%v个", mb.PackBonusTx)
+			mb.Explain = fmt.Sprintf("proposal, pack %v bouns-txs", mb.PackBonusTx)
 		}
 		if hs, ok := minerVerifyBlockHash[id]; ok {
 			for _, h := range hs {
 				increase += blockVerifyBonus[h]
 			}
 			mb.VerifyBlock = len(hs)
-			mb.Explain = fmt.Sprintf("%v 验证%v块", mb.Explain, mb.VerifyBlock)
+			mb.Explain = fmt.Sprintf("%v, verify %v blocks", mb.Explain, mb.VerifyBlock)
 		}
 		mb.ExpectBalance = new(big.Int).SetUint64(mb.PreBalance.Uint64() + increase)
 		mbs = append(mbs, mb)
@@ -689,12 +693,6 @@ func (api *GtasAPI) BlockReceipts(h string) (*Result, error) {
 	}
 
 	evictedReceipts := make([]*types.Receipt, 0)
-	//for _, tx := range bh.EvictedTxs {
-	//	wrapper := chain.GetTransactionPool().GetReceipt(tx)
-	//	if wrapper != nil {
-	//		evictedReceipts = append(evictedReceipts, wrapper)
-	//	}
-	//}
 	receipts := make([]*types.Receipt, len(b.Transactions))
 	for i, tx := range b.Transactions {
 		wrapper := chain.GetTransactionPool().GetReceipt(tx.Hash)

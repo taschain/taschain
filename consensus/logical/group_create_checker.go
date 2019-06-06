@@ -1,27 +1,38 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
 	"bytes"
+	"math"
+	"sync"
+
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
-	"math"
-	"sync"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/9/11 上午11:19
-**  Description:
- */
-
+// GroupCreateChecker is responsible for legality verification
 type GroupCreateChecker struct {
 	processor      *Processor
 	access         *MinerPoolReader
-	createdHeights [50]uint64 // 标识该建组高度是否已经创建过组了
+	createdHeights [50]uint64 // Identifies whether the group height has already been created
 	curr           int
-	lock           sync.RWMutex // CreateHeightGroups的互斥锁，防止重复写入
+	lock           sync.RWMutex // CreateHeightGroups mutex to prevent repeated writes
 }
 
 func newGroupCreateChecker(proc *Processor) *GroupCreateChecker {
@@ -53,7 +64,7 @@ func (gchecker *GroupCreateChecker) addHeightCreated(h uint64) {
 	gchecker.curr = (gchecker.curr + 1) % len(gchecker.createdHeights)
 }
 
-//只要选择一半人就行了。每个人的权重按顺序递减
+// selectKing just choose half of the people. Each person's weight is decremented in order
 func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *StaticGroupInfo) (kings []groupsig.ID, isKing bool) {
 	num := int(math.Ceil(float64(group.GetMemberCount() / 2)))
 	if num < 1 {
@@ -73,7 +84,7 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 		}
 	}
 
-	newBizLog("selectKing").log("king index=%v, ids=%v, isKing %v", selectIndexs, kings, isKing)
+	newBizLog("selectKing").info("king index=%v, ids=%v, isKing %v", selectIndexs, kings, isKing)
 	return
 }
 
@@ -92,6 +103,7 @@ func (gchecker *GroupCreateChecker) availableGroupsAt(h uint64) []*types.Group {
 	return gs
 }
 
+// selectCandidates randomly select a sufficient number of miners from the miners' pool as new group candidates
 func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (enough bool, cands []groupsig.ID) {
 	min := model.Param.CreateGroupMinCandidates()
 	blog := newBizLog("selectCandidates")
@@ -102,13 +114,13 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (
 	for idx, can := range allCandidates {
 		ids[idx] = can.ID.ShortS()
 	}
-	blog.log("=======allCandidates height %v, %v size %v", height, ids, len(allCandidates))
+	blog.debug("=======allCandidates height %v, %v size %v", height, ids, len(allCandidates))
 	if len(allCandidates) < min {
 		return
 	}
 	groups := gchecker.availableGroupsAt(theBH.Height)
 
-	blog.log("available groupsize %v", len(groups))
+	blog.debug("available groupsize %v", len(groups))
 
 	candidates := make([]model.MinerDO, 0)
 	for _, cand := range allCandidates {
@@ -129,7 +141,7 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (
 
 	selectNum := model.Param.CreateGroupMemberCount(num)
 	if selectNum <= 0 {
-		blog.log("not enough candidates, got %v", len(candidates))
+		blog.warn("not enough candidates, got %v", len(candidates))
 		return
 	}
 
@@ -145,6 +157,6 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (
 	for _, id := range result {
 		str += id.ShortS() + ","
 	}
-	blog.log("=============selectCandidates %v", str)
+	blog.info("=============selectCandidates %v", str)
 	return true, result
 }

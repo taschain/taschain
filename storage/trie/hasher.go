@@ -17,9 +17,10 @@
 package trie
 
 import (
-	"github.com/taschain/taschain/storage/sha3"
 	"hash"
 	"sync"
+
+	"github.com/taschain/taschain/storage/sha3"
 
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/storage/rlp"

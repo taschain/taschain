@@ -1,13 +1,28 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/taslog"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
@@ -20,7 +35,7 @@ func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
 	for _, msg := range futures {
 		tlog := newHashTraceLog(mtype, msg.BH.Hash, msg.SI.GetID())
 		tlog.logStart("size %v", len(futures))
-		ok, err := p.verifyCastMessage(mtype, msg, bh)
+		ok, err := p.verifyCastMessage(msg, bh)
 		tlog.logEnd("result=%v %v", ok, err)
 	}
 
@@ -35,12 +50,12 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 	mtype := "CMCRSR-Future"
 	for _, msg := range futures {
 		blog := newBizLog(mtype)
-		slog := taslog.NewSlowLog(mtype, 0.5)
-		send, err := p.signCastRewardReq(msg.(*model.CastRewardTransSignReqMessage), bh, slog)
-		blog.log("send %v, result %v", send, err)
+		send, err := p.signCastRewardReq(msg.(*model.CastRewardTransSignReqMessage), bh)
+		blog.debug("send %v, result %v", send, err)
 	}
 }
 
+// onBlockAddSuccess handle the event of block add-on-chain
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if !p.Ready() {
 		return
@@ -70,22 +85,23 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		vrf.markSuccess()
 	}
 
+	// start to check next proposal routine immediately
 	go p.checkSelfCastRoutine()
 
-	//p.triggerFutureBlockMsg(bh)
 	p.triggerFutureVerifyMsg(bh)
 	p.triggerFutureRewardSign(bh)
 	p.groupManager.CreateNextGroupRoutine()
 	p.blockContexts.removeProposed(bh.Hash)
 }
 
+// onGroupAddSuccess handles the event of group add-on-chain
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(*types.Group)
 	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeID(group.ID).GetHexString(), group.Header.WorkHeight)
 	if group.ID == nil || len(group.ID) == 0 {
 		return
 	}
-	sgi := NewSGIFromCoreGroup(group)
+	sgi := newSGIFromCoreGroup(group)
 	p.acceptGroup(sgi)
 
 	p.groupManager.onGroupAddSuccess(sgi)
@@ -95,9 +111,9 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	beginHeight := group.Header.WorkHeight
 	topHeight := p.MainChain.Height()
 
-	//当前块高已经超过生效高度了,组可能有点问题
+	// The current block height has exceeded the effective height, group may have a problem
 	if beginHeight > 0 && beginHeight <= topHeight {
-		stdLogger.Errorf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
+		stdLogger.Warnf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
 		pre := p.MainChain.QueryBlockHeaderFloor(beginHeight - 1)
 		if pre == nil {
 			panic(fmt.Sprintf("block nil at height %v", beginHeight-1))
@@ -108,12 +124,12 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 				break
 			}
 			if bh.PreHash != pre.Hash {
-				panic(fmt.Sprintf("pre error:bh %v, prehash %v, height %v, real pre hash %v height %v", bh.Hash.String(), bh.PreHash.String(), bh.Height, pre.Hash.String(), pre.Height))
+				panic(fmt.Sprintf("pre error:bh %v, prehash %v, height %v, real pre hash %v height %v", bh.Hash.Hex(), bh.PreHash.Hex(), bh.Height, pre.Hash.Hex(), pre.Height))
 			}
-			gid := p.CalcVerifyGroupFromChain(pre, bh.Height)
+			gid := p.calcVerifyGroupFromChain(pre, bh.Height)
 			if !bytes.Equal(gid.Serialize(), bh.GroupID) {
 				old := p.MainChain.QueryTopBlock()
-				stdLogger.Errorf("adjust top block: old %v %v %v, new %v %v %v", old.Hash.String(), old.PreHash.String(), old.Height, pre.Hash.String(), pre.PreHash.String(), pre.Height)
+				stdLogger.Errorf("adjust top block: old %v %v %v, new %v %v %v", old.Hash.Hex(), old.PreHash.Hex(), old.Height, pre.Hash.Hex(), pre.PreHash.Hex(), pre.Height)
 				p.MainChain.ResetTop(pre)
 				break
 			}
@@ -121,14 +137,4 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 			h = bh.Height + 1
 		}
 	}
-}
-
-func (p *Processor) onNewBlockReceive(message notify.Message) {
-	if !p.Ready() {
-		return
-	}
-	msg := &model.ConsensusBlockMessage{
-		Block: message.GetData().(types.Block),
-	}
-	p.OnMessageBlock(msg)
 }

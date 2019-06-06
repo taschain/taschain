@@ -1,20 +1,29 @@
-package groupsig
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//Added by FlyingSquirrel-Xu. 2018-08-24.
+package groupsig
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig/bncurve"
-	"math/big"
 )
 
 const PREFIX = "0x"
-
-// GetMaxOpUnitSize --
-//func GetMaxOpUnitSize() int {
-//	return 4
-//}
 
 func revertString(b string) string {
 	len := len(b)
@@ -39,24 +48,13 @@ func (bi *BnInt) IsEqual(b *BnInt) bool {
 	return 0 == bi.v.Cmp(&b.v)
 }
 
-// SetDecString --
 func (bi *BnInt) SetDecString(s string) error {
 	bi.v.SetString(s, 10)
 	return nil
 }
 
-//func (bi *BnInt) GetDecString () s string {
-//
-//}
-
 func (bi *BnInt) Add(b *BnInt) error {
-	b1 := &BnInt{}
-	b2 := &BnInt{}
-
-	b1.v.Set(&bi.v)
-	b2.v.Set(&b.v)
-
-	bi.v.Add(&b1.v, &b2.v)
+	bi.v.Add(&bi.v, &b.v)
 	return nil
 }
 
@@ -66,16 +64,12 @@ func (bi *BnInt) Sub(b *BnInt) error {
 }
 
 func (bi *BnInt) Mul(b *BnInt) error {
-	nb := &big.Int{}
-	nb.Set(&bi.v)
-	bi.v.Mul(nb, &b.v)
+	bi.v.Mul(&bi.v, &b.v)
 	return nil
 }
 
 func (bi *BnInt) Mod() error {
-	nb := &big.Int{}
-	nb.Set(&bi.v)
-	bi.v.Mod(nb, bncurve.Order)
+	bi.v.Mod(&bi.v, bncurve.Order)
 	return nil
 }
 
@@ -98,16 +92,13 @@ func (bi *BnInt) SetHexString(s string) error {
 	return nil
 }
 
-//BlsInt导出为big.Int
+// GetBigInt export BlsInt as big.Int
 func (bi *BnInt) GetBigInt() *big.Int {
-	x := new(big.Int)
-	x.Set(&bi.v)
-	return x
+	return new(big.Int).Set(&bi.v)
 }
 
 func (bi *BnInt) GetString() string {
-	bigInt := bi.GetBigInt()
-	b := bigInt.Bytes()
+	b := bi.GetBigInt().Bytes()
 	return string(b)
 }
 
@@ -134,34 +125,27 @@ func (bg *bnG2) Deserialize(b []byte) error {
 	return nil
 }
 
-//序列化
 func (bg *bnG2) Serialize() []byte {
 	return bg.v.Marshal()
 }
 
 func (bg *bnG2) Add(bh *bnG2) error {
-	a := &bnG2{}
-	b := &bnG2{}
-	a.Deserialize(bh.Serialize())
-	b.Deserialize(bh.Serialize())
-
-	bg.v.Add(&a.v, &b.v)
+	bg.v.Add(&bg.v, &bh.v)
 	return nil
 }
 
-// GetMasterSecretKey --
 func (sec *Seckey) GetMasterSecretKey(k int) (msk []Seckey) {
 	msk = make([]Seckey, k)
 	msk[0] = *sec
 
-	r := base.NewRand() //生成随机数
+	// Generating random number
+	r := base.NewRand()
 	for i := 1; i < k; i++ {
 		msk[i] = *NewSeckeyFromRand(r.Deri(1))
 	}
 	return msk
 }
 
-// GetMasterPublicKey --
 func GetMasterPublicKey(msk []Seckey) (mpk []Pubkey) {
 	n := len(msk)
 	mpk = make([]Pubkey, n)

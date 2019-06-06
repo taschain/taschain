@@ -1,13 +1,30 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package net
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/network"
 	"log"
 	"runtime/debug"
+
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/network"
 )
 
+// ConsensusHandler used for handling consensus-related messages from network
 type ConsensusHandler struct {
 	processor MessageProcessor
 }
@@ -16,7 +33,7 @@ var MessageHandler = new(ConsensusHandler)
 
 func (c *ConsensusHandler) Init(proc MessageProcessor) {
 	c.processor = proc
-	InitStateMachines()
+	initStateMachines()
 }
 
 func (c *ConsensusHandler) Processor() MessageProcessor {
@@ -27,6 +44,8 @@ func (c *ConsensusHandler) ready() bool {
 	return c.processor != nil && c.processor.Ready()
 }
 
+// Handle is the main entrance for handling messages.
+// It assigns different types of messages to different processor handlers for processing according to the code field
 func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 	code := msg.Code
 	body := msg.Body
@@ -51,22 +70,14 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 			return e
 		}
 
-		//belongGroup := m.GInfo.MemberExists(c.processor.GetMinerID())
-
-		//var machines *StateMachines
-		//if belongGroup {
-		//	machines = &GroupInsideMachines
-		//} else {
-		//	machines = &GroupOutsideMachines
-		//}
-		GroupInsideMachines.GetMachine(m.GInfo.GI.GetHash().Hex(), len(m.GInfo.Mems)).Transform(NewStateMsg(code, m, sourceID))
+		GroupInsideMachines.GetMachine(m.GInfo.GI.GetHash().Hex(), len(m.GInfo.Mems)).transform(newStateMsg(code, m, sourceID))
 	case network.KeyPieceMsg:
 		m, e := unMarshalConsensusSharePieceMessage(body)
 		if e != nil {
 			logger.Errorf("[handler]Discard ConsensusSharePieceMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).transform(newStateMsg(code, m, sourceID))
 		logger.Infof("SharepieceMsg receive from:%v, gHash:%v", sourceID, m.GHash.Hex())
 	case network.SignPubkeyMsg:
 		m, e := unMarshalConsensusSignPubKeyMessage(body)
@@ -74,7 +85,7 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 			logger.Errorf("[handler]Discard ConsensusSignPubKeyMessage because of unmarshal error:%s", e.Error())
 			return e
 		}
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).transform(newStateMsg(code, m, sourceID))
 		logger.Infof("SignPubKeyMsg receive from:%v, gHash:%v, groupId:%v", sourceID, m.GHash.Hex(), m.GroupID.GetHexString())
 	case network.GroupInitDoneMsg:
 		m, e := unMarshalConsensusGroupInitedMessage(body)
@@ -84,14 +95,7 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 		}
 		logger.Infof("Rcv GroupInitDoneMsg from:%s,gHash:%s, groupId:%v", sourceID, m.GHash.Hex(), m.GroupID.GetHexString())
 
-		//belongGroup := c.processor.ExistInGroup(m.GHash)
-		//var machines *StateMachines
-		//if belongGroup {
-		//	machines = &GroupInsideMachines
-		//} else {
-		//	machines = &GroupOutsideMachines
-		//}
-		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).Transform(NewStateMsg(code, m, sourceID))
+		GroupInsideMachines.GetMachine(m.GHash.Hex(), int(m.MemCnt)).transform(newStateMsg(code, m, sourceID))
 
 	case network.CurrentGroupCastMsg:
 
@@ -211,5 +215,3 @@ func (c *ConsensusHandler) Handle(sourceID string, msg network.Message) error {
 
 	return nil
 }
-
-//----------------------------------------------------------------------------------------------------------------------

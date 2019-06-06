@@ -1,37 +1,54 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
-	"github.com/hashicorp/golang-lru"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/groupsig"
-	"github.com/taschain/taschain/consensus/model"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/groupsig"
+	"github.com/taschain/taschain/consensus/model"
 )
 
 const (
 	InitNotfound = -2
 	InitFail     = -1
 	Initing      = 0
-	InitSuccess  = 1 //初始化成功, 组公钥生成
+	// InitSuccess initialization successful, group public key generation
+	InitSuccess = 1
 )
 
-//
-// 矿工节点处理器
+// InitedGroup is miner node processor
 type InitedGroup struct {
-	//sgi    StaticGroupInfo               //共识数据（基准）和组成员列表
-	gInfo *model.ConsensusGroupInitInfo
-	//mems   map[string]NewGroupMemberData //接收到的组成员共识结果（成员ID->组ID和组公钥）
+	gInfo        *model.ConsensusGroupInitInfo
 	receivedGPKs map[string]groupsig.Pubkey
 	lock         sync.RWMutex
 
 	threshold int
-	status    int32           //-1,组初始化失败（超时或无法达成共识，不可逆）；=0，组初始化中；=1，组初始化成功
-	gpk       groupsig.Pubkey //输出：生成的组公钥
+
+	status int32 // -1, Group initialization failed (timeout or unable to reach consensus, irreversible)
+	// 0,Group is initializing
+	// 1,Group initialization succeeded
+	gpk groupsig.Pubkey // output generated group public key
 }
 
-//创建一个初始化中的组
+// createInitedGroup create a group in initialization
 func createInitedGroup(gInfo *model.ConsensusGroupInitInfo) *InitedGroup {
 	threshold := model.Param.GetGroupK(len(gInfo.Mems))
 	return &InitedGroup{
@@ -63,7 +80,7 @@ func (ig *InitedGroup) receiveSize() int {
 	return len(ig.receivedGPKs)
 }
 
-func (ig *InitedGroup) hasRecived(id groupsig.ID) bool {
+func (ig *InitedGroup) hasReceived(id groupsig.ID) bool {
 	ig.lock.RLock()
 	defer ig.lock.RUnlock()
 
@@ -71,7 +88,7 @@ func (ig *InitedGroup) hasRecived(id groupsig.ID) bool {
 	return ok
 }
 
-//找出收到最多的相同值
+// convergence find out the most received values
 func (ig *InitedGroup) convergence() bool {
 	stdLogger.Debug("begin Convergence, K=%v\n", ig.threshold)
 
@@ -81,7 +98,7 @@ func (ig *InitedGroup) convergence() bool {
 	}
 	countMap := make(map[string]*countData, 0)
 
-	//统计出现次数
+	// Statistical occurrences
 	for _, v := range ig.receivedGPKs {
 		ps := v.GetHexString()
 		if k, ok := countMap[ps]; ok {
@@ -96,7 +113,7 @@ func (ig *InitedGroup) convergence() bool {
 		}
 	}
 
-	//查找最多的元素
+	// Find the most elements
 	var gpk groupsig.Pubkey
 	var maxCnt = common.MinInt64
 	for _, v := range countMap {
@@ -114,10 +131,10 @@ func (ig *InitedGroup) convergence() bool {
 	return false
 }
 
-//组生成器，父亲组节点或全网节点组外处理器（非组内初始化共识器）
+// NewGroupGenerator is group generator, parent group node or whole network node
+// group external processor (non-group initialization consensus)
 type NewGroupGenerator struct {
-	groups sync.Map //组ID（dummyID）->组创建共识 string -> *InitedGroup
-	//groups     map[string]*InitedGroup //组ID（dummyID）->组创建共识
+	groups sync.Map // Group ID(dummyID)-> Group creation consensus string -> *InitedGroup
 }
 
 func CreateNewGroupGenerator() *NewGroupGenerator {
@@ -149,43 +166,33 @@ func (ngg *NewGroupGenerator) forEach(f func(ig *InitedGroup) bool) {
 	})
 }
 
-//创建新组数据接收处理
-//gid：待初始化组的dummy id
-//uid：组成员的公开id（和组无关）
-//ngmd：组的初始化共识结果
-//返回：-1异常；0正常；1正常，且该组已达到阈值验证条件，可上链。
-//func (ngg *NewGroupGenerator) ReceiveData(msg *model.ConsensusGroupInitedMessage, threshold int) int32 {
-//	gHash := msg.GHash
-//	stdLogger.Debug("generator ReceiveData, gHash=%v...\n", gHash.ShortS())
-//	initedGroup := ngg.getInitedGroup(gHash)
-//
-//	if initedGroup == nil { //不存在该组
-//		g := createInitedGroup(threshold)
-//		initedGroup = ngg.addInitedGroup(g)
-//	}
-//
-//	return initedGroup.receive(msg.SI.GetID(), msg.GroupPK) //数据接收
-//	//
-//}
-
-///////////////////////////////////////////////////////////////////////////////
-
 const (
-	GisInit           int32 = iota //组处于原始状态（知道有哪些人是一组的，但是组公钥和组ID尚未生成）
-	GisSendSharePiece              //已发送sharepiece
-	GisSendSignPk                  //已发送自己的签名公钥
-	GisSendInited                  //组公钥和ID已生成，可以进行铸块
-	GisGroupInitDone               //组已初始化完成已上链
+	// GisInit means the group is in its original state (knowing who is a group,
+	// but the group public key and group ID have not yet been generated)
+	GisInit int32 = iota
+
+	// GisSendSharePiece Sent sharepiece
+	GisSendSharePiece
+
+	// GisSendSignPk sent my own signature public key
+	GisSendSignPk
+
+	// GisSendInited means group public key and ID have been generated, will casting
+	GisSendInited
+
+	// GisGroupInitDone means the group has been initialized and has been add on chain
+	GisGroupInitDone
 )
 
-//组共识上下文
-//判断一个消息是否合法，在外层验证
-//判断一个消息是否来自组内，由GroupContext验证
+// GroupContext is the group consensus context, and the verification determines
+// whether a message comes from within the group.
+//
+// Determine if a message is legal and verify in the outer layer
 type GroupContext struct {
 	createTime    time.Time
-	is            int32                         //组初始化状态
-	node          *GroupNode                    //组节点信息（用于初始化生成组公钥和签名私钥）
-	gInfo         *model.ConsensusGroupInitInfo //组初始化信息（由父亲组指定）
+	is            int32                         // Group initialization state
+	node          *GroupNode                    // Group node information (for initializing groups of public and signed private keys)
+	gInfo         *model.ConsensusGroupInitInfo // Group initialization information (specified by the parent group)
 	candidates    []groupsig.ID
 	sharePieceMap model.SharePieceMap
 	sendLog       bool
@@ -224,7 +231,8 @@ func (gc *GroupContext) generateMemberMask() (mask []byte) {
 	return
 }
 
-//从组初始化消息创建GroupContext结构
+// CreateGroupContextWithRawMessage creates a GroupContext structure from
+// a group initialization message
 func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, candidates []groupsig.ID, mi *model.SelfMinerDO) *GroupContext {
 	for k, v := range grm.GInfo.Mems {
 		if !v.IsValid() {
@@ -244,39 +252,16 @@ func CreateGroupContextWithRawMessage(grm *model.ConsensusGroupRawMessage, candi
 	return gc
 }
 
-//收到一片秘密分享消息
-//返回-1为异常，返回0为正常接收，返回1为已收到所有组成员的签名私钥
-//func (gc *GroupContext) SignPKMessage(spkm *model.ConsensusSignPubKeyMessage) int {
-//	result := gc.node.SetSignPKPiece(spkm)
-//	switch result {
-//	case 1:
-//	case 0:
-//	case -1:
-//		panic("GroupContext::SignPKMessage failed, SetSignPKPiece result -1.")
-//	}
-//	return result
-//}
-
-//收到一片秘密分享消息
-//返回-1为异常，返回0为正常接收，返回1为已聚合出组成员私钥（用于签名）
+// PieceMessage Received a secret sharing message
+//
+// Return -1 is abnormal, return 0 is normal, return 1 is the private key
+// of the aggregated group member (used for signing)
 func (gc *GroupContext) PieceMessage(id groupsig.ID, share *model.SharePiece) int {
-	/*可能父亲组消息还没到，先收到组成员的piece消息
-	if !gc.MemExist(spm.si.SignMember) { //非组内成员
-		return -1
-	}
-	*/
 	result := gc.node.SetInitPiece(id, share)
-	switch result {
-	case 1: //完成聚合（已生成组公钥和组成员签名私钥）
-		//由外层启动组外广播（to do : 升级到通知父亲组节点）
-	case 0: //正常接收
-	case -1:
-		//panic("GroupContext::PieceMessage failed, SetInitPiece result -1.")
-	}
 	return result
 }
 
-//生成发送给组内成员的秘密分享: si = F(IDi)
+// GenSharePieces generate secret sharing sent to members of the group: si = F(IDi)
 func (gc *GroupContext) GenSharePieces() model.SharePieceMap {
 	shares := make(model.SharePieceMap, 0)
 	secs := gc.node.GenSharePiece(gc.getMembers())
@@ -290,16 +275,15 @@ func (gc *GroupContext) GenSharePieces() model.SharePieceMap {
 	return shares
 }
 
-//（收到所有组内成员的秘密共享后）取得组信息
+// GetGroupInfo get group information(After receiving secret sharing of all members in the group)
 func (gc *GroupContext) GetGroupInfo() *JoinedGroup {
 	return gc.node.GenInnerGroup(gc.gInfo.GroupHash())
 }
 
-//未初始化完成的加入组
+// JoiningGroups is a joined group that has not been initialized
 type JoiningGroups struct {
 	//groups sync.Map
 	groups *lru.Cache
-	//groups map[string]*GroupContext //group dummy id->*GroupContext
 }
 
 func NewJoiningGroups() *JoiningGroups {
@@ -324,22 +308,16 @@ func (jgs *JoiningGroups) ConfirmGroupFromRaw(grm *model.ConsensusGroupRawMessag
 	return v
 }
 
-//gid : group dummy id
 func (jgs *JoiningGroups) GetGroup(gHash common.Hash) *GroupContext {
 	if v, ok := jgs.groups.Get(gHash.Hex()); ok {
 		return v.(*GroupContext)
 	}
-
-	//fmt.Println("gc is NULL, gid:", gid.GetHexString())
-
 	return nil
 }
 
 func (jgs *JoiningGroups) Clean(gHash common.Hash) {
 	gc := jgs.GetGroup(gHash)
 	if gc != nil && gc.StatusTransfrom(GisSendInited, GisGroupInitDone) {
-		//gc.gInfo = nil
-		//gc.node = nil
 	}
 }
 

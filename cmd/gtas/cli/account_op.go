@@ -1,30 +1,44 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+/*
+	Package cli provides client command line window
+*/
 package cli
 
 import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/model"
-	"github.com/taschain/taschain/storage/tasdb"
 	"os"
 	"sync"
 	"time"
-)
 
-/*
-**  Creator: pxf
-**  Date: 2018/12/20 下午3:21
-**  Description:
- */
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/consensus/model"
+	"github.com/taschain/taschain/storage/tasdb"
+)
 
 const accountUnLockTime = time.Second * 120
 
 var encryptPrivateKey *common.PrivateKey
 var encryptPublicKey *common.PublicKey
 
+//Generate public and private keys based on passwords
 func init() {
-	encryptPrivateKey = common.HexStringToSecKey("0x04b851c3551779125a588b2274cfa6d71604fe6ae1f0df82175bcd6e6c2b23d92a69d507023628b59c15355f3cbc0d8f74633618facd28632a0fb3e9cc8851536c4b3f1ea7c7fd3666ce8334301236c2437d9bed14e5a0793b51a9a6e7a4c46e70")
+	encryptPrivateKey = common.HexToSecKey("0x04b851c3551779125a588b2274cfa6d71604fe6ae1f0df82175bcd6e6c2b23d92a69d507023628b59c15355f3cbc0d8f74633618facd28632a0fb3e9cc8851536c4b3f1ea7c7fd3666ce8334301236c2437d9bed14e5a0793b51a9a6e7a4c46e70")
 	pk := encryptPrivateKey.GetPubKey()
 	encryptPublicKey = &pk
 }
@@ -42,8 +56,6 @@ type AccountManager struct {
 	unlockAccount *AccountInfo
 	mu            sync.Mutex
 }
-
-//var AccountOp accountOp
 
 type AccountInfo struct {
 	Account
@@ -93,7 +105,7 @@ func newAccountOp(ks string) (*AccountManager, error) {
 }
 
 func initAccountManager(keystore string, readyOnly bool) (accountOp, error) {
-	//内部批量部署时，指定自动创建账号（只需创建一次）
+	// Specify internal account creation when you deploy in bulk (just create it once)
 	if readyOnly && !dirExists(keystore) {
 		aop, err := newAccountOp(keystore)
 		if err != nil {
@@ -106,19 +118,6 @@ func initAccountManager(keystore string, readyOnly bool) (accountOp, error) {
 		}
 		return aop, nil
 	}
-
-	//tmp := keystore
-	//if readyOnly {
-	//	if !dirExists(keystore) {
-	//		os.Mkdir(keystore, os.ModePerm)
-	//	}
-	//	//要先将keystore目录拷贝一份，打开拷贝目录，否则gtas无法再打开该keystore
-	//	tmp = fmt.Sprintf("tmp%c%v", os.PathSeparator, keystore)
-	//	os.RemoveAll(tmp)
-	//	if err := utility.Copy(keystore, tmp); err != nil {
-	//		return nil, err
-	//	}
-	//}
 
 	aop, err := newAccountOp(keystore)
 	if err != nil {
@@ -211,15 +210,16 @@ func passwordSha(password string) string {
 	return common.ToHex(common.Sha256([]byte(password)))
 }
 
+// NewAccount create a new account by password
 func (am *AccountManager) NewAccount(password string, miner bool) *Result {
 	privateKey := common.GenerateKey("")
 	pubkey := privateKey.GetPubKey()
 	address := pubkey.GetAddress()
 
 	account := &Account{
-		Address:  address.GetHexString(),
-		Pk:       pubkey.GetHexString(),
-		Sk:       privateKey.GetHexString(),
+		Address:  address.Hex(),
+		Pk:       pubkey.Hex(),
+		Sk:       privateKey.Hex(),
 		Password: passwordSha(password),
 	}
 
@@ -238,9 +238,10 @@ func (am *AccountManager) NewAccount(password string, miner bool) *Result {
 		return opError(err)
 	}
 
-	return opSuccess(address.GetHexString())
+	return opSuccess(address.Hex())
 }
 
+// AccountList show account list
 func (am *AccountManager) AccountList() *Result {
 	iter := am.store.NewIterator()
 	addrs := make([]string, 0)
@@ -250,6 +251,7 @@ func (am *AccountManager) AccountList() *Result {
 	return opSuccess(addrs)
 }
 
+// Lock lock the account by address
 func (am *AccountManager) Lock(addr string) *Result {
 	aci, err := am.getAccountInfo(addr)
 	if err != nil {
@@ -259,6 +261,7 @@ func (am *AccountManager) Lock(addr string) *Result {
 	return opSuccess(nil)
 }
 
+// UnLock unlock the account by address and password
 func (am *AccountManager) UnLock(addr string, password string) *Result {
 	aci, err := am.getAccountInfo(addr)
 	if err != nil {
@@ -281,6 +284,7 @@ func (am *AccountManager) UnLock(addr string, password string) *Result {
 	return opSuccess(nil)
 }
 
+// AccountInfo show account info
 func (am *AccountManager) AccountInfo() *Result {
 	addr := am.currentUnLockedAddr()
 	if addr == "" {
@@ -297,6 +301,7 @@ func (am *AccountManager) AccountInfo() *Result {
 	return opSuccess(&aci.Account)
 }
 
+// DeleteAccount delete current unlocked account
 func (am *AccountManager) DeleteAccount() *Result {
 	addr := am.currentUnLockedAddr()
 	if addr == "" {

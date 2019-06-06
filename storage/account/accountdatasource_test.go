@@ -1,13 +1,27 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package account
 
 import (
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/storage/tasdb"
-	"github.com/taschain/taschain/storage/trie"
 	"strconv"
 	"testing"
 
-	"encoding/json"
+	"github.com/taschain/taschain/common"
+	"github.com/taschain/taschain/storage/tasdb"
+	"github.com/taschain/taschain/storage/trie"
 )
 
 func getString(trie *trie.Trie, k string) []byte {
@@ -43,34 +57,4 @@ func TestExpandTrie(t *testing.T) {
 			t.Errorf("wrong value: %v", vl)
 		}
 	}
-	data := encode(trie1)
-
-	newTrie := decode(data)
-	for i := 0; i < 100; i++ {
-		vl := string(getString(newTrie, strconv.Itoa(i)))
-		if vl != strconv.Itoa(i) {
-			t.Errorf("wrong value: %v", vl)
-		}
-	}
-
-}
-
-func decode(data []byte) *trie.Trie {
-	//buffer := bytes.NewBuffer(data)
-	//decoder := gob.NewDecoder(buffer)
-	var n trie.Trie
-	err := json.Unmarshal(data, &n)
-	if err != nil {
-		panic(err)
-	}
-	return &n
-}
-
-func encode(n Trie) []byte {
-	b, err := json.Marshal(n)
-
-	if err != nil {
-		panic(err)
-	}
-	return b
 }

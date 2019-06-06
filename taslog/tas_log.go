@@ -17,9 +17,10 @@ package taslog
 
 import (
 	"fmt"
-	"github.com/cihub/seelog"
 	"strings"
 	"sync"
+
+	"github.com/cihub/seelog"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -84,6 +85,14 @@ func GetLoggerByName(name string) Logger {
 	l := newLoggerByConfig(config)
 	register(getKey(name), l)
 	return l
+}
+
+func Flush(){
+		lock.Lock()
+		defer lock.Unlock()
+		for _, logger := range logManager {
+			logger.(seelog.LoggerInterface).Flush()
+		}
 }
 
 func getKey(s string) string {

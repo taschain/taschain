@@ -1,30 +1,37 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/11/21 上午10:06
-**  Description:
- */
-
+// pubkeyPool is the cache stores public keys of miners which is used for accelerated calculation
 type pubkeyPool struct {
-	pkCache *lru.Cache
-	//vrfPKCache *lru.Cache		//idHex -> vrfPK
+	pkCache     *lru.Cache
 	minerAccess *MinerPoolReader
 }
 
 var pkPool pubkeyPool
 
 func init() {
-	//vrfc, _ := lru.New(100)
 	pkPool = pubkeyPool{
 		pkCache: common.MustNewLRUCache(100),
-		//vrfPKCache: vrfc,
 	}
 }
 
@@ -36,6 +43,8 @@ func ready() bool {
 	return pkPool.minerAccess != nil
 }
 
+// GetMinerPK returns pubic key of the given id
+// It firstly retrieves from the cache, if missed, it gets from the chain and updates the cache.
 func GetMinerPK(id groupsig.ID) *groupsig.Pubkey {
 	if !ready() {
 		return nil

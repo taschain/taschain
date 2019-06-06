@@ -16,10 +16,11 @@
 package common
 
 import (
-	"github.com/glacjay/goini"
 	"os"
 	"strings"
 	"sync"
+
+	ini "github.com/glacjay/goini"
 )
 
 /*
@@ -96,11 +97,11 @@ func NewConfINIManager(path string) ConfManager {
 	if err != nil && os.IsNotExist(err) {
 		_, err = os.Create(path)
 		if err != nil {
-			//TODO: 记日志
+			DefaultLogger.Errorf("Failed to init the config manager: ",err)
 			panic(err)
 		}
 	} else if err != nil {
-		//TODO: 记日志
+		DefaultLogger.Errorf("Failed to init the config manager: ",err)
 		panic(err)
 	}
 	cs.dict = ini.MustLoad(path)

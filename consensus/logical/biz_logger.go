@@ -1,19 +1,29 @@
+//   Copyright (C) 2018 TASChain
+//
+//   This program is free software: you can redistribute it and/or modify
+//   it under the terms of the GNU General Public License as published by
+//   the Free Software Foundation, either version 3 of the License, or
+//   (at your option) any later version.
+//
+//   This program is distributed in the hope that it will be useful,
+//   but WITHOUT ANY WARRANTY; without even the implied warranty of
+//   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//   GNU General Public License for more details.
+//
+//   You should have received a copy of the GNU General Public License
+//   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 package logical
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
-	"time"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/8/31 下午4:40
-**  Description:
- */
-
-//业务标准输出日志
+// bizLog is Business standard output info
 type bizLog struct {
 	biz string
 }
@@ -22,7 +32,7 @@ func newBizLog(biz string) *bizLog {
 	return &bizLog{biz: biz}
 }
 
-func (bl *bizLog) log(format string, p ...interface{}) {
+func (bl *bizLog) info(format string, p ...interface{}) {
 	stdLogger.Infof("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
@@ -30,7 +40,14 @@ func (bl *bizLog) debug(format string, p ...interface{}) {
 	stdLogger.Debugf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
-//接口rt日志
+func (bl *bizLog) warn(format string, p ...interface{}) {
+	stdLogger.Warnf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
+}
+
+func (bl *bizLog) error(format string, p ...interface{}) {
+	stdLogger.Errorf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
+}
+
 type rtLog struct {
 	start time.Time
 	key   string
@@ -54,11 +71,11 @@ func (r *rtLog) end() {
 	stdLogger.Debugf(fmt.Sprintf("%v:%v cost ", time.Now().Format(TimestampLayout), r.key))
 }
 
-//消息追踪日志，记录到文件
+// msgTraceLog encapsulate message tracking info, recorded to file
 type msgTraceLog struct {
-	mtype  string //消息类型
-	key    string //关键字
-	sender string //消息发送者
+	mtype  string // Message type
+	key    string // Keyword
+	sender string // Message sender
 }
 
 func newMsgTraceLog(mtype string, key string, sender string) *msgTraceLog {
