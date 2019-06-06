@@ -293,7 +293,7 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 	}
 	chainPieceBlockMsg, e := unmarshalChainPieceBlockMsg(m.Body())
 	if e != nil {
-		fp.logger.Debugf("Unmarshal chain piece block msg error:%d", e.Error())
+		fp.logger.Warnf("Unmarshal chain piece block msg error:%d", e.Error())
 		return
 	}
 

@@ -22,11 +22,12 @@ import (
 	"github.com/taschain/taschain/consensus/net"
 )
 
+// Proc is the global unique instance of the consensus engine
 var Proc logical.Processor
 
-// ConsensusInit means consensus initialization，mid :Miner id
+// ConsensusInit means consensus initialization
 //
-// Returns: true - the initialization is successful and the ingot can be started.
+// Returns: true - the initialization is successful
 // The internal will interact with the chain for initial data loading and pre-processing.
 // False - failed.
 func ConsensusInit(mi model.SelfMinerDO, conf common.ConfManager) bool {
@@ -36,13 +37,13 @@ func ConsensusInit(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	return ret
 }
 
-// Start the miner process and participate in the cast
+// Start the miner process and participate in the consensus
 // Returns true if successful, false returns false
 func StartMiner() bool {
 	return Proc.Start()
 }
 
-// StopMiner end the miner process and no longer participate in the cast
+// StopMiner ends the miner process and no longer participate in the consensus
 func StopMiner() {
 	Proc.Stop()
 	Proc.Finalize()

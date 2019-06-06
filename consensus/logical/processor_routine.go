@@ -17,6 +17,7 @@ package logical
 
 import (
 	"fmt"
+	"sync/atomic"
 	time2 "time"
 
 	"github.com/taschain/taschain/common"
@@ -40,6 +41,13 @@ func (p *Processor) getReleaseRoutineName() string {
 
 // checkSelfCastRoutine check if the current group cast block
 func (p *Processor) checkSelfCastRoutine() bool {
+	if !atomic.CompareAndSwapInt32(&p.isCasting, 0, 1) {
+		return false
+	}
+	defer func() {
+		p.isCasting = 0
+	}()
+
 	if !p.Ready() {
 		return false
 	}
@@ -82,7 +90,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 		return false
 	}
 	blog.debug("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
-	worker = newVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime, p.ts)
+	worker = newVRFWorker(p.getSelfMinerDO(), top, castHeight, expireTime, p.ts)
 	p.setVrfWorker(worker)
 	p.blockProposal()
 	return true

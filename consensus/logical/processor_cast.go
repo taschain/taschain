@@ -31,7 +31,7 @@ func (p *Processor) triggerCastCheck() {
 	p.Ticker.StartAndTriggerRoutine(p.getCastCheckRoutineName())
 }
 
-func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height uint64) *groupsig.ID {
+func (p *Processor) calcVerifyGroupFromCache(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash = calcRandomHash(preBH, height)
 
 	selectGroup, err := p.globalGroups.SelectNextGroupFromCache(hash, height)
@@ -42,7 +42,7 @@ func (p *Processor) CalcVerifyGroupFromCache(preBH *types.BlockHeader, height ui
 	return &selectGroup
 }
 
-func (p *Processor) CalcVerifyGroupFromChain(preBH *types.BlockHeader, height uint64) *groupsig.ID {
+func (p *Processor) calcVerifyGroupFromChain(preBH *types.BlockHeader, height uint64) *groupsig.ID {
 	var hash = calcRandomHash(preBH, height)
 
 	selectGroup, err := p.globalGroups.SelectNextGroupFromChain(hash, height)
@@ -54,7 +54,7 @@ func (p *Processor) CalcVerifyGroupFromChain(preBH *types.BlockHeader, height ui
 }
 
 func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.GroupBrief {
-	nextID := p.CalcVerifyGroupFromCache(bh, height)
+	nextID := p.calcVerifyGroupFromCache(bh, height)
 	if nextID == nil {
 		return nil
 	}
@@ -66,6 +66,7 @@ func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.
 	return g
 }
 
+// reserveBlock reserves the block in the context utils it can be broadcast
 func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 	blog := newBizLog("reserveBLock")
@@ -138,11 +139,8 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 	return nil
 }
 
-// consensusFinalize means The QN value at a certain block height is successfully popped,
-// saved in the uplink, and broadcast to the outside of the group.
-// The same height, may call this function multiple times due to different QN
-// But once the low QN has passed, it should not be a high QN. That is, the function may be
-// called multiple times, but the QN value of the call is getting smaller and smaller.
+// consensusFinalize represents the final stage of the consensus process.
+// It firstly verifies the group signature and then requests the block body from proposer
 func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 
@@ -177,6 +175,7 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	return
 }
 
+// blockProposal starts a block proposing process
 func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
@@ -273,7 +272,11 @@ func (p *Processor) blockProposal() {
 
 }
 
-// reqRewardTransSign sign the reward transaction within the request group
+// reqRewardTransSign generates a bonus transaction based on the signature pieces received locally,
+// and broadcast it to other members of the group for signature.
+//
+// After the block verification consensus, the group should issue a corresponding bonus transaction consensus
+// to make sure that 51% of the verified-member can get the bonus
 func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeader) {
 	blog := newBizLog("reqRewardTransSign")
 	blog.debug("start, bh=%v", p.blockPreview(bh))
@@ -315,13 +318,17 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		}
 	}
 
-	bonus, tx := p.MainChain.GetBonusManager().GenerateBonus(targetIDIndexs, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+	bonus, tx, err := p.MainChain.GetBonusManager().GenerateBonus(targetIDIndexs, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+	if err != nil {
+		err = fmt.Errorf("failed to generate bonus %s", err)
+		return
+	}
 	blog.debug("generate bonus txHash=%v, targetIds=%v, height=%v", bonus.TxHash.ShortS(), bonus.TargetIds, bh.Height)
 
 	tlog := newHashTraceLog("REWARD_REQ", bh.Hash, p.GetMinerID())
 	tlog.log("txHash=%v, targetIds=%v", bonus.TxHash.ShortS(), strings.Join(idHexs, ","))
 
-	if slot.SetRewardTrans(tx) {
+	if slot.setRewardTrans(tx) {
 		msg := &model.CastRewardTransSignReqMessage{
 			Reward:       *bonus,
 			SignedPieces: signs,

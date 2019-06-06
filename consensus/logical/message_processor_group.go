@@ -108,13 +108,6 @@ func (p *Processor) OnMessageCreateGroupPong(msg *model.CreateGroupPongMessage) 
 func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) {
 	blog := newBizLog("OMCGR")
 
-	begin := time.Now()
-	defer func() {
-		if time.Since(begin).Seconds() > 0.5 {
-			slowLogger.Warnf("handle slow:%v, sender=%v, gHash=%v, cost %v", "OMCGR", msg.SI.GetID().ShortS(), msg.GInfo.GroupHash().ShortS(), time.Since(begin).String())
-		}
-	}()
-
 	gh := msg.GInfo.GI.GHeader
 	blog.debug("Proc(%v) begin, gHash=%v sender=%v", p.getPrefix(), gh.Hash.ShortS(), msg.SI.SignMember.ShortS())
 
@@ -123,9 +116,9 @@ func (p *Processor) OnMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMe
 	}
 	parentGid := msg.GInfo.GI.ParentID()
 
-	gpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(parentGid, msg.SI.SignMember))
+	gpk, ok := p.getMemberSignPubKey(model.NewGroupMinerID(parentGid, msg.SI.SignMember))
 	if !ok {
-		blog.error("GetMemberSignPubKey not ok, ask id %v", parentGid.ShortS())
+		blog.error("getMemberSignPubKey not ok, ask id %v", parentGid.ShortS())
 		return
 	}
 
@@ -177,9 +170,9 @@ func (p *Processor) OnMessageCreateGroupSign(msg *model.ConsensusCreateGroupSign
 		blog.warn("context is nil")
 		return
 	}
-	mpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(ctx.parentInfo.GroupID, msg.SI.SignMember))
+	mpk, ok := p.getMemberSignPubKey(model.NewGroupMinerID(ctx.parentInfo.GroupID, msg.SI.SignMember))
 	if !ok {
-		blog.error("GetMemberSignPubKey not ok, ask id %v", ctx.parentInfo.GroupID.ShortS())
+		blog.error("getMemberSignPubKey not ok, ask id %v", ctx.parentInfo.GroupID.ShortS())
 		return
 	}
 	if !msg.VerifySign(mpk) {
@@ -303,7 +296,7 @@ func (p *Processor) OnMessageGroupInit(msg *model.ConsensusGroupRawMessage) {
 				}
 
 			} else {
-				panic("GenSharePieces data not IsValid.")
+				blog.error("GenSharePieces data not isValid.")
 			}
 		}
 	}
@@ -425,7 +418,7 @@ func (p *Processor) handleSharePieceMessage(blog *bizLog, gHash common.Hash, sha
 	return
 }
 
-// OnMessageSharePiece received a secret sharing clip message sent to me by members of the group
+// OnMessageSharePiece handles sharepiece message received from other members during the group formation process.
 func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	blog := newBizLog("OMSP")
 
@@ -433,7 +426,8 @@ func (p *Processor) OnMessageSharePiece(spm *model.ConsensusSharePieceMessage) {
 	return
 }
 
-// OnMessageSignPK received the signature of the group member sent to me by the member of the group
+// OnMessageSignPK handles group-related public key messages received from other members
+// Simply stores the public key for future use
 func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	blog := newBizLog("OMSPK")
 	tlog := newHashTraceLog("OMSPK", spkm.GHash, spkm.SI.GetID())
@@ -465,6 +459,8 @@ func (p *Processor) OnMessageSignPK(spkm *model.ConsensusSignPubKeyMessage) {
 	return
 }
 
+// OnMessageSignPKReq receives group-related public key request from other members and
+// responses own public key
 func (p *Processor) OnMessageSignPKReq(msg *model.ConsensusSignPubkeyReqMessage) {
 	blog := newBizLog("OMSPKR")
 	sender := msg.SI.GetID()
@@ -516,11 +512,9 @@ func (p *Processor) acceptGroup(staticGroup *StaticGroupInfo) {
 	}
 }
 
-// OnMessageGroupInited is a network-wide node processing function(Adjust to parent group
-// node handler),The entire network node receives a group of initialized completion messages
-// (the same message is received when 51% of the members of the group are received in a time window)
-//
-// The final version was modified to the parent node for verification (51%) and the winding
+// OnMessageGroupInited is a network-wide node processing function.
+// The entire network node receives a group of initialized completion messages from all of the members in the group
+// and when 51% of the same message received from the group members, the group will be added on chain
 func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage) {
 	blog := newBizLog("OMGIED")
 	gHash := msg.GHash
@@ -533,8 +527,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		panic("grm gis hash diff")
 	}
 
-	// At this point, the group is already connected by synchronization, but the logic behind it still
-	// needs to be executed, otherwise the status of the group data is faulty.
+	// The group already added on chain before because of synchronization process
 	g := p.GroupChain.GetGroupByID(msg.GroupID.Serialize())
 	if g != nil {
 		blog.debug("group already onchain")
@@ -564,6 +557,7 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 		initedGroup = createInitedGroup(gInfo)
 		blog.debug("add inited group")
 	}
+	// Check the time window, deny messages out of date
 	if initedGroup.gInfo.GI.ReadyTimeout(p.MainChain.Height()) {
 		blog.warn("group ready timeout, gid=%v", msg.GroupID.ShortS())
 		return
@@ -614,6 +608,8 @@ func (p *Processor) OnMessageGroupInited(msg *model.ConsensusGroupInitedMessage)
 	return
 }
 
+// OnMessageSharePieceReq receives share piece request from other members
+// It happens in the case that the current node didn't heard from the other part during the piece-sharing with each other process.
 func (p *Processor) OnMessageSharePieceReq(msg *model.ReqSharePieceMessage) {
 	blog := newBizLog("OMSPR")
 	blog.debug("gHash=%v, sender=%v", msg.GHash.ShortS(), msg.SI.GetID().ShortS())
@@ -644,6 +640,7 @@ func (p *Processor) OnMessageSharePieceReq(msg *model.ReqSharePieceMessage) {
 	}
 }
 
+// OnMessageSharePieceResponse receives share piece message from other member after requesting
 func (p *Processor) OnMessageSharePieceResponse(msg *model.ResponseSharePieceMessage) {
 	blog := newBizLog("OMSPRP")
 

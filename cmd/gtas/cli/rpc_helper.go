@@ -68,8 +68,10 @@ func convertBonusTransaction(tx *types.Transaction) *BonusTransaction {
 	if tx.Type != types.TransactionTypeBonus {
 		return nil
 	}
-	gid, ids, bhash, value := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
-
+	gid, ids, bhash, value, err := mediator.Proc.MainChain.GetBonusManager().ParseBonusTransaction(tx)
+	if err != nil {
+		return nil
+	}
 	targets := make([]groupsig.ID, len(ids))
 	for i, id := range ids {
 		targets[i] = groupsig.DeserializeID(id)

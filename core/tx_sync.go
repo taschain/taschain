@@ -29,7 +29,6 @@ import (
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/storage/tasdb"
 	"github.com/taschain/taschain/taslog"
-	"github.com/taschain/taschain/utility"
 )
 
 const (
@@ -81,7 +80,7 @@ func (indexer *txSimpleIndexer) add(tx *types.Transaction) {
 }
 func (indexer *txSimpleIndexer) remove(tx *types.Transaction) {
 	indexer.cache.Remove(simpleTxKey(tx.Hash))
-	indexer.db.Delete(utility.UInt64ToByte(simpleTxKey(tx.Hash)))
+	indexer.db.Delete(common.UInt64ToByte(simpleTxKey(tx.Hash)))
 }
 func (indexer *txSimpleIndexer) get(k uint64) *types.Transaction {
 	var txHash common.Hash
@@ -90,7 +89,7 @@ func (indexer *txSimpleIndexer) get(k uint64) *types.Transaction {
 		txHash = v.(common.Hash)
 		exist = true
 	} else {
-		bs, err := indexer.db.Get(utility.UInt64ToByte(k))
+		bs, err := indexer.db.Get(common.UInt64ToByte(k))
 		if err == nil {
 			txHash = common.BytesToHash(bs)
 			exist = true
@@ -106,7 +105,7 @@ func (indexer *txSimpleIndexer) has(key uint64) bool {
 	if indexer.cache.Contains(key) {
 		return true
 	}
-	ok, _ := indexer.db.Has(utility.UInt64ToByte(key))
+	ok, _ := indexer.db.Has(common.UInt64ToByte(key))
 	return ok
 }
 
@@ -119,7 +118,7 @@ func (indexer *txSimpleIndexer) persistOldest() (int, error) {
 		if v != nil {
 			cnt++
 			removes = append(removes, k.(uint64))
-			batch.Put(utility.UInt64ToByte(k.(uint64)), v.(common.Hash).Bytes())
+			batch.Put(common.UInt64ToByte(k.(uint64)), v.(common.Hash).Bytes())
 		}
 		if cnt >= txIndexPersistPerTime {
 			break
@@ -321,7 +320,7 @@ func (ts *txSyncer) sendSimpleTxKeys(txs []*types.Transaction) {
 
 		bodyBuf := bytes.NewBuffer([]byte{})
 		for _, k := range txKeys {
-			bodyBuf.Write(utility.UInt64ToByte(k))
+			bodyBuf.Write(common.UInt64ToByte(k))
 		}
 
 		ts.logger.Debugf("notify transactions len:%d", len(txs))
@@ -354,7 +353,7 @@ func (ts *txSyncer) onTxNotify(msg notify.Message) {
 		if n != 8 {
 			break
 		}
-		keys = append(keys, utility.ByteToUInt64(buf))
+		keys = append(keys, common.ByteToUInt64(buf))
 	}
 
 	candidateKeys := ts.getOrAddCandidateKeys(nm.Source())
@@ -421,7 +420,7 @@ func (ts *txSyncer) requestTxs(id string, keys []uint64) {
 
 	bodyBuf := bytes.NewBuffer([]byte{})
 	for _, k := range keys {
-		bodyBuf.Write(utility.UInt64ToByte(k))
+		bodyBuf.Write(common.UInt64ToByte(k))
 	}
 
 	message := network.Message{Code: network.TxSyncReq, Body: bodyBuf.Bytes()}
@@ -439,7 +438,7 @@ func (ts *txSyncer) onTxReq(msg notify.Message) {
 		if n != 8 {
 			break
 		}
-		keys = append(keys, utility.ByteToUInt64(buf))
+		keys = append(keys, common.ByteToUInt64(buf))
 	}
 
 	ts.logger.Debugf("Rcv tx req from %v, size %v", nm.Source(), len(keys))

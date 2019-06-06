@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/taschain/taschain/utility"
 
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
@@ -152,7 +151,7 @@ func (mm *MinerManager) HeavyMinerCount(height uint64) uint64 {
 		return 0
 	}
 	heavyMinerCountByte := accountDB.GetData(common.MinerCountDBAddress, heavyMinerCountKey)
-	return utility.ByteToUInt64(heavyMinerCountByte)
+	return common.ByteToUInt64(heavyMinerCountByte)
 
 }
 
@@ -163,7 +162,7 @@ func (mm *MinerManager) LightMinerCount(height uint64) uint64 {
 		return 0
 	}
 	lightMinerCountByte := accountDB.GetData(common.MinerCountDBAddress, lightMinerCountKey)
-	return utility.ByteToUInt64(lightMinerCountByte)
+	return common.ByteToUInt64(lightMinerCountByte)
 }
 
 func (mm *MinerManager) buildVirtualNetRoutine() bool {
@@ -303,25 +302,25 @@ func (mm *MinerManager) minerIterator(minerType byte, accountdb vm.AccountDB) *M
 func (mm *MinerManager) updateMinerCount(minerType byte, operation MinerCountOperation, accountdb vm.AccountDB) {
 	if minerType == types.MinerTypeHeavy {
 		heavyMinerCountByte := accountdb.GetData(common.MinerCountDBAddress, heavyMinerCountKey)
-		heavyMinerCount := utility.ByteToUInt64(heavyMinerCountByte)
+		heavyMinerCount := common.ByteToUInt64(heavyMinerCountByte)
 		if operation == minerCountIncrease {
 			heavyMinerCount++
 		} else if operation == minerCountDecrease {
 			heavyMinerCount--
 		}
-		accountdb.SetData(common.MinerCountDBAddress, heavyMinerCountKey, utility.UInt64ToByte(heavyMinerCount))
+		accountdb.SetData(common.MinerCountDBAddress, heavyMinerCountKey, common.UInt64ToByte(heavyMinerCount))
 		return
 	}
 
 	if minerType == types.MinerTypeLight {
 		lightMinerCountByte := accountdb.GetData(common.MinerCountDBAddress, lightMinerCountKey)
-		lightMinerCount := utility.ByteToUInt64(lightMinerCountByte)
+		lightMinerCount := common.ByteToUInt64(lightMinerCountByte)
 		if operation == minerCountIncrease {
 			lightMinerCount++
 		} else if operation == minerCountDecrease {
 			lightMinerCount--
 		}
-		accountdb.SetData(common.MinerCountDBAddress, lightMinerCountKey, utility.UInt64ToByte(lightMinerCount))
+		accountdb.SetData(common.MinerCountDBAddress, lightMinerCountKey, common.UInt64ToByte(lightMinerCount))
 		return
 	}
 	Logger.Error("Unknown miner type:%d", minerType)
@@ -504,7 +503,7 @@ func (mi *MinerIterator) Current() (*types.Miner, error) {
 	var miner types.Miner
 	err := msgpack.Unmarshal(mi.iterator.Value, &miner)
 	if err != nil {
-		Logger.Debugf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iterator.Key, err, mi.iterator.Value)
+		Logger.Warnf("MinerIterator Unmarshal Error %+v %+v %+v", mi.iterator.Key, err, mi.iterator.Value)
 	}
 
 	if len(miner.ID) == 0 {

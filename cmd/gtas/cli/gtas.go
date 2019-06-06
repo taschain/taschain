@@ -84,7 +84,7 @@ func (gtas *Gtas) miner(rpc, super, testMode bool, rpcAddr, natIP string, natPor
 	if rpc {
 		err = StartRPC(rpcAddr, rpcPort)
 		if err != nil {
-			common.DefaultLogger.Infof(err.Error())
+			common.DefaultLogger.Errorf(err.Error())
 			return
 		}
 	}
@@ -343,7 +343,7 @@ func LoadPubKeyInfo(key string) []model.PubKeyInfo {
 	keys := common.GlobalConf.GetString(Section, key, "")
 	err := json.Unmarshal([]byte(keys), &infos)
 	if err != nil {
-		common.DefaultLogger.Infof(err.Error())
+		common.DefaultLogger.Errorf(err.Error())
 		return nil
 	}
 	var pubKeyInfos []model.PubKeyInfo
@@ -352,7 +352,7 @@ func LoadPubKeyInfo(key string) []model.PubKeyInfo {
 		common.DefaultLogger.Info(v.PubKey)
 		err := pub.SetHexString(v.PubKey)
 		if err != nil {
-			common.DefaultLogger.Info(err)
+			common.DefaultLogger.Errorf(err.Error())
 			return nil
 		}
 		pubKeyInfos = append(pubKeyInfos, model.NewPubKeyInfo(*groupsig.NewIDFromString(v.ID), pub))

@@ -55,6 +55,7 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 	}
 }
 
+// onBlockAddSuccess handle the event of block add-on-chain
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if !p.Ready() {
 		return
@@ -84,6 +85,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		vrf.markSuccess()
 	}
 
+	// start to check next proposal routine immediately
 	go p.checkSelfCastRoutine()
 
 	p.triggerFutureVerifyMsg(bh)
@@ -92,6 +94,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	p.blockContexts.removeProposed(bh.Hash)
 }
 
+// onGroupAddSuccess handles the event of group add-on-chain
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(*types.Group)
 	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeID(group.ID).GetHexString(), group.Header.WorkHeight)
@@ -123,7 +126,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 			if bh.PreHash != pre.Hash {
 				panic(fmt.Sprintf("pre error:bh %v, prehash %v, height %v, real pre hash %v height %v", bh.Hash.Hex(), bh.PreHash.Hex(), bh.Height, pre.Hash.Hex(), pre.Height))
 			}
-			gid := p.CalcVerifyGroupFromChain(pre, bh.Height)
+			gid := p.calcVerifyGroupFromChain(pre, bh.Height)
 			if !bytes.Equal(gid.Serialize(), bh.GroupID) {
 				old := p.MainChain.QueryTopBlock()
 				stdLogger.Errorf("adjust top block: old %v %v %v, new %v %v %v", old.Hash.Hex(), old.PreHash.Hex(), old.Height, pre.Hash.Hex(), pre.PreHash.Hex(), pre.Height)

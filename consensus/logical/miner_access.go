@@ -23,6 +23,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
+// MinerPoolReader provides some functions for access to the miner pool
 type MinerPoolReader struct {
 	minerPool       *core.MinerManager
 	blog            *bizLog

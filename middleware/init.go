@@ -13,6 +13,10 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package middleware provides important functionality such as event bus, time zone independent service,
+// ticker schedule and so on.
+//
+// Besides the above, it defines some key data structures of the chain
 package middleware
 
 import (

@@ -13,15 +13,17 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package notify implements an event bus framework for the system
 package notify
 
 import (
 	"sync"
 )
 
+// BUS is the unique global instance of the event bus which can accessed from all modules
 var BUS *Bus
 
-// Bus is internal message subscription service
+// Bus is internal message subscription service, or called event bus
 type Bus struct {
 	topics map[string]*Topic
 	lock   sync.RWMutex
@@ -34,6 +36,8 @@ func NewBus() *Bus {
 	}
 }
 
+// Subscribe subscribes a specified event identified by id.
+// The handler will be triggered when the event happens
 func (bus *Bus) Subscribe(id string, handler Handler) {
 	bus.lock.Lock()
 	defer bus.lock.Unlock()
@@ -49,6 +53,7 @@ func (bus *Bus) Subscribe(id string, handler Handler) {
 	topic.Subscribe(handler)
 }
 
+// UnSubscribe cancel the subscription for the given event identified by id
 func (bus *Bus) UnSubscribe(id string, handler Handler) {
 	bus.lock.RLock()
 	defer bus.lock.RUnlock()
@@ -61,6 +66,7 @@ func (bus *Bus) UnSubscribe(id string, handler Handler) {
 	topic.UnSubscribe(handler)
 }
 
+// Publish publishes a event identified by id, and all those who care about the event will be notified
 func (bus *Bus) Publish(id string, message Message) {
 	bus.lock.RLock()
 	defer bus.lock.RUnlock()

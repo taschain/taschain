@@ -292,7 +292,7 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 		return
 	}
 
-	pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(groupID, cvm.SI.GetID()))
+	pk, ok := p.getMemberSignPubKey(model.NewGroupMinerID(groupID, cvm.SI.GetID()))
 	if !ok {
 		err = fmt.Errorf("get member sign pubkey fail: gid=%v, uid=%v", groupID.ShortS(), cvm.SI.GetID().ShortS())
 		return
@@ -388,7 +388,11 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 	}
 	if !slot.hasSignedTxHash(reward.TxHash) {
 
-		genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+		genBonus, _, err2 := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+		if err2 != nil {
+			err = err2
+			return
+		}
 		if genBonus.TxHash != reward.TxHash {
 			err = fmt.Errorf("bonus txHash diff %v %v", genBonus.TxHash.ShortS(), reward.TxHash.ShortS())
 			return
@@ -399,9 +403,9 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 			return
 		}
 
-		mpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
+		mpk, ok := p.getMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
 		if !ok {
-			err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
+			err = fmt.Errorf("getMemberSignPubKey not ok, ask id %v", gid.ShortS())
 			return
 		}
 		if !msg.VerifySign(mpk) {
@@ -418,7 +422,7 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 
 			// If there is no local id signature, you need to verify the signature.
 			if sig, ok := gSignGener.GetWitness(id); !ok {
-				pk, exist := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
+				pk, exist := p.getMemberSignPubKey(model.NewGroupMinerID(gid, id))
 				if !exist {
 					continue
 				}
@@ -535,9 +539,9 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	if group == nil {
 		panic("group is nil")
 	}
-	pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
+	pk, ok := p.getMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
 	if !ok {
-		err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
+		err = fmt.Errorf("getMemberSignPubKey not ok, ask id %v", gid.ShortS())
 		return
 	}
 	if !msg.VerifySign(pk) {
@@ -562,7 +566,7 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	blog.debug("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
 
 	// Add the bonus transaction to pool if the signature is accepted and the group signature is recovered
-	if accept && recover && slot.StatusTransform(slRewardSignReq, slRewardSent) {
+	if accept && recover && slot.statusTransform(slRewardSignReq, slRewardSent) {
 		_, err2 := p.MainChain.GetTransactionPool().AddTransaction(slot.rewardTrans)
 		send = true
 		err = fmt.Errorf("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err2)

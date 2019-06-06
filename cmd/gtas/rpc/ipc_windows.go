@@ -17,6 +17,7 @@ package rpc
 
 import (
 	"context"
+	"github.com/taschain/taschain/cmd/gtas/cli/ipc_win_lib"
 	"net"
 	"time"
 )

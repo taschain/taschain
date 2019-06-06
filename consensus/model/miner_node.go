@@ -22,6 +22,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
+// MinerDO defines the important infos for one miner
 type MinerDO struct {
 	PK          groupsig.Pubkey
 	VrfPK       base.VRFPublicKey
@@ -58,6 +59,8 @@ func (md *MinerDO) IsWeight() bool {
 	return md.NType == types.MinerTypeHeavy
 }
 
+// SelfMinerDO inherited from MinerDO.
+// And some private key included
 type SelfMinerDO struct {
 	MinerDO
 	SecretSeed base.Rand // Private random number

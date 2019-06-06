@@ -13,26 +13,11 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package mediator
+/*
+Package tvm implements the TVM bridge.
 
-import (
-	"github.com/taschain/taschain/common"
-	"github.com/taschain/taschain/consensus/groupsig"
-)
+TVM is TASChain Virtual Machine.
 
-// SignMessage is miner message signature function
-func SignMessage(msg common.Hash, sk groupsig.Seckey) (sign []byte) {
-	s := groupsig.Sign(sk, msg.Bytes())
-	sign = s.Serialize()
-	return
-}
-
-// VerifyMessage is miner message check function
-func VerifyMessage(msg common.Hash, sign []byte, pk groupsig.Pubkey) bool {
-	var s groupsig.Signature
-	if s.Deserialize(sign) != nil {
-		return false
-	}
-	b := groupsig.VerifySig(pk, msg.Bytes(), s)
-	return b
-}
+TASChain Contract language is Python, execute at TVM.
+*/
+package tvm
