@@ -83,7 +83,7 @@ func (gm *GroupManager) CreateNextGroupRoutine() {
 
 func (gm *GroupManager) onMessageCreateGroupRaw(msg *model.ConsensusCreateGroupRawMessage) (bool, error) {
 	blog := newBizLog("OMCGR")
-	blog.log("gHash=%v, sender=%v", msg.GInfo.GI.GetHash().ShortS(), msg.SI.SignMember.ShortS())
+	blog.debug("gHash=%v, sender=%v", msg.GInfo.GI.GetHash().ShortS(), msg.SI.SignMember.ShortS())
 
 	ctx := gm.getContext()
 	if ctx == nil {
@@ -100,7 +100,7 @@ func (gm *GroupManager) onMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 		return false, fmt.Errorf("generate group init info fail")
 	}
 	if ctx.gInfo.GroupHash() != msg.GInfo.GroupHash() {
-		blog.log("expect gh %+v, real gh %+v", ctx.gInfo.GI.GHeader, msg.GInfo.GI.GHeader)
+		blog.error("expect gh %+v, real gh %+v", ctx.gInfo.GI.GHeader, msg.GInfo.GI.GHeader)
 		return false, fmt.Errorf("grouphash diff")
 	}
 	return true, nil
@@ -109,7 +109,7 @@ func (gm *GroupManager) onMessageCreateGroupRaw(msg *model.ConsensusCreateGroupR
 
 func (gm *GroupManager) onMessageCreateGroupSign(msg *model.ConsensusCreateGroupSignMessage) (bool, error) {
 	blog := newBizLog("OMCGS")
-	blog.log("gHash=%v, sender=%v", msg.GHash.ShortS(), msg.SI.SignMember.ShortS())
+	blog.debug("gHash=%v, sender=%v", msg.GHash.ShortS(), msg.SI.SignMember.ShortS())
 	ctx := gm.getContext()
 	if ctx == nil {
 		return false, fmt.Errorf("context is nil")
@@ -124,7 +124,7 @@ func (gm *GroupManager) onMessageCreateGroupSign(msg *model.ConsensusCreateGroup
 	}
 
 	accept, recover := ctx.acceptPiece(msg.SI.GetID(), msg.SI.DataSign)
-	blog.log("accept result %v %v", accept, recover)
+	blog.debug("accept result %v %v", accept, recover)
 	newHashTraceLog("OMCGS", msg.GHash, msg.SI.GetID()).log("onMessageCreateGroupSign ret %v, %v", recover, ctx.gSignGenerator.Brief())
 	if recover {
 		ctx.gInfo.GI.Signature = ctx.gSignGenerator.GetGroupSign()
@@ -156,7 +156,7 @@ func (gm *GroupManager) addGroupOnChain(sgi *StaticGroupInfo) {
 		if !sgi.GetReadyTimeout(top) {
 			err1 := gm.groupChain.AddGroup(group)
 			if err1 != nil {
-				stdLogger.Infof("ERROR:add group fail! hash=%v, gid=%v, err=%v\n", group.Header.Hash.ShortS(), sgi.GroupID.ShortS(), err1.Error())
+				stdLogger.Errorf("ERROR:add group fail! hash=%v, gid=%v, err=%v\n", group.Header.Hash.ShortS(), sgi.GroupID.ShortS(), err1.Error())
 				err = err1
 				return
 			}

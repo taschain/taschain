@@ -235,13 +235,13 @@ func (bg *BelongGroups) joinedGroup2DBIfConfigExists(file string) bool {
 	stdLogger.Debugf("load belongGroups from %v", file)
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
-		stdLogger.Debugf("load file %v fail, err %v", file, err.Error())
+		stdLogger.Errorf("load file %v fail, err %v", file, err.Error())
 		return false
 	}
 	var gs []*JoinedGroup
 	err = json.Unmarshal(data, &gs)
 	if err != nil {
-		stdLogger.Debugf("unmarshal belongGroup store file %v fail, err %v", file, err.Error())
+		stdLogger.Errorf("unmarshal belongGroup store file %v fail, err %v", file, err.Error())
 		return false
 	}
 	n := 0
@@ -292,7 +292,7 @@ func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
 	if !bg.ready() {
 		bg.initStore()
 	}
-	newBizLog("addJoinedGroup").log("add gid=%v", jg.GroupID.ShortS())
+	newBizLog("addJoinedGroup").debug("add gid=%v", jg.GroupID.ShortS())
 	bg.cache.Add(jg.GroupID.GetHexString(), jg)
 	bg.storeJoinedGroup(jg)
 }
@@ -338,7 +338,7 @@ func (p Processor) getMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pub
 //			gid : group ID (not dummy id)
 //			sk: user's group member signature private key
 func (p *Processor) joinGroup(g *JoinedGroup) {
-	stdLogger.Debugf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
+	stdLogger.Infof("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
 	}
@@ -368,7 +368,7 @@ func (p *Processor) askSignPK(gmi *model.GroupMinerID) {
 	}
 	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 	if msg.GenSign(ski, msg) {
-		newBizLog("AskSignPK").log("ask sign pk message, receiver %v, gid %v", gmi.UID.ShortS(), gmi.Gid.ShortS())
+		newBizLog("AskSignPK").debug("ask sign pk message, receiver %v, gid %v", gmi.UID.ShortS(), gmi.Gid.ShortS())
 		p.NetServer.AskSignPkMessage(msg, gmi.UID)
 	}
 }

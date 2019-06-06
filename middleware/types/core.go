@@ -27,16 +27,15 @@ import (
 
 type AddBlockOnChainSituation string
 
-
 // AddBlockResult is the result of the add-block operation
 type AddBlockResult int8
 
 // defines all possible result of the add-block operation
 const (
-	AddBlockFailed            AddBlockResult = -1	// Means the operations is fail
-	AddBlockSucc              AddBlockResult = 0	// Means success
-	BlockExisted              AddBlockResult = 1	// Means the block already added before
-	BlockTotalQnLessThanLocal AddBlockResult = 2	// Weight consideration
+	AddBlockFailed            AddBlockResult = -1 // Means the operations is fail
+	AddBlockSucc              AddBlockResult = 0  // Means success
+	BlockExisted              AddBlockResult = 1  // Means the block already added before
+	BlockTotalQnLessThanLocal AddBlockResult = 2  // Weight consideration
 	Forking                   AddBlockResult = 3
 )
 const (
@@ -98,11 +97,11 @@ const (
 
 // Transaction denotes one transaction infos
 type Transaction struct {
-	Data   []byte          `msgpack:"dt,omitempty"`	// Data of the transaction, cost gas
-	Value  uint64          `msgpack:"v"`			// The value the sender suppose to transfer
-	Nonce  uint64          `msgpack:"nc"`			// The nonce indicates the transaction sequence related to sender
-	Target *common.Address `msgpack:"tg,omitempty"`	// The receiver address
-	Type   int8            `msgpack:"tp"`			// Transaction type
+	Data   []byte          `msgpack:"dt,omitempty"` // Data of the transaction, cost gas
+	Value  uint64          `msgpack:"v"`            // The value the sender suppose to transfer
+	Nonce  uint64          `msgpack:"nc"`           // The nonce indicates the transaction sequence related to sender
+	Target *common.Address `msgpack:"tg,omitempty"` // The receiver address
+	Type   int8            `msgpack:"tp"`           // Transaction type
 
 	GasLimit uint64      `msgpack:"gl"`
 	GasPrice uint64      `msgpack:"gp"`
@@ -110,7 +109,7 @@ type Transaction struct {
 
 	ExtraData     []byte          `msgpack:"ed"`
 	ExtraDataType int8            `msgpack:"et,omitempty"`
-	Sign          []byte          `msgpack:"si"`	// The Sign of the sender
+	Sign          []byte          `msgpack:"si"`  // The Sign of the sender
 	Source        *common.Address `msgpack:"src"` // Sender address, recovered from sign
 }
 
@@ -241,10 +240,10 @@ type BlockHeader struct {
 	Signature   []byte         // Group signature from consensus
 	Nonce       int32          // Salt
 	TxTree      common.Hash    // Transaction Merkel root hash
-	ReceiptTree common.Hash		// Receipte Merkel root hash
-	StateTree   common.Hash		// State db Merkel root hash
+	ReceiptTree common.Hash    // Receipte Merkel root hash
+	StateTree   common.Hash    // State db Merkel root hash
 	ExtraData   []byte
-	Random      []byte			// Random number generated during the consensus process
+	Random      []byte // Random number generated during the consensus process
 }
 
 // GenHash calculates the hash of the block
@@ -378,8 +377,8 @@ type StateNode struct {
 
 // BlockWeight denotes the weight of one block
 type BlockWeight struct {
-	TotalQN uint64		// Same as TotalQN field of BlockHeader
-	PV      *big.Int	// Converted from ProveValue field of BlockHeader
+	TotalQN uint64   // Same as TotalQN field of BlockHeader
+	PV      *big.Int // Converted from ProveValue field of BlockHeader
 }
 
 type PvFunc func(pvBytes []byte) *big.Int

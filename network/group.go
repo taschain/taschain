@@ -30,10 +30,10 @@ const GroupBaseConnectNodeCount = 2
 type Group struct {
 	id               string
 	members          []NodeID
-	needConnectNodes []NodeID	// the nodes group network need connect
+	needConnectNodes []NodeID // the nodes group network need connect
 	mutex            sync.Mutex
 	resolvingNodes   map[NodeID]time.Time //nodes is finding in kad
-	curIndex         int		//current node index of this group
+	curIndex         int                  //current node index of this group
 }
 
 func (g *Group) Len() int {

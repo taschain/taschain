@@ -162,7 +162,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	if selectGroupIDFromCache == nil {
 		err = common.ErrSelectGroupNil
-		stdLogger.Debugf("selectGroupId is nil")
+		stdLogger.Errorf("selectGroupId is nil")
 		return
 	}
 	var verifyGid = *selectGroupIDFromCache
@@ -180,7 +180,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		}
 		if !selectGroupIDFromChain.IsEqual(gid) {
 			err = common.ErrSelectGroupInequal
-			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIDFromChain.ShortS(), gid.ShortS())
+			stdLogger.Errorf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIDFromChain.ShortS(), gid.ShortS())
 			return
 		}
 		verifyGid = *selectGroupIDFromChain

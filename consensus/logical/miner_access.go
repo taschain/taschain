@@ -51,7 +51,7 @@ func convert2MinerDO(miner *types.Miner) *model.MinerDO {
 		AbortHeight: miner.AbortHeight,
 	}
 	if !md.ID.IsValid() {
-		stdLogger.Debugf("invalid id %v, %v", miner.ID, md.ID.GetHexString())
+		stdLogger.Errorf("invalid id %v, %v", miner.ID, md.ID.GetHexString())
 		panic("id not valid")
 	}
 	return md
@@ -90,7 +90,7 @@ func (access *MinerPoolReader) getAllMinerDOByType(ntype byte, h uint64) []*mode
 func (access *MinerPoolReader) getCanJoinGroupMinersAt(h uint64) []model.MinerDO {
 	miners := access.getAllMinerDOByType(types.MinerTypeLight, h)
 	rets := make([]model.MinerDO, 0)
-	access.blog.log("all light nodes size %v", len(miners))
+	access.blog.debug("all light nodes size %v", len(miners))
 	for _, md := range miners {
 		if md.CanJoinGroupAt(h) {
 			rets = append(rets, *md)

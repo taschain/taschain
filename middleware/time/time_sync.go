@@ -75,7 +75,7 @@ var ntpServer = []string{"ntp.aliyun.com", "ntp1.aliyun.com", "ntp2.aliyun.com",
 
 // TimeSync implements time synchronization from ntp servers
 type TimeSync struct {
-	currentOffset time.Duration		// The offset of the local time to the ntp server
+	currentOffset time.Duration // The offset of the local time to the ntp server
 	ticker        *ticker.GlobalTicker
 }
 

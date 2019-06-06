@@ -70,13 +70,13 @@ func (p *Processor) spreadGroupBrief(bh *types.BlockHeader, height uint64) *net.
 func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 	blog := newBizLog("reserveBLock")
-	blog.log("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
+	blog.debug("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
 	if slot.IsRecovered() {
 		// The onBlockAddSuccess method is also marked, the call is asynchronous
 		vctx.markCastSuccess()
 		p.blockContexts.addReservedVctx(vctx)
 		if !p.tryNotify(vctx) {
-			blog.log("reserved, height=%v", vctx.castHeight)
+			blog.warn("reserved, height=%v", vctx.castHeight)
 		}
 	}
 
@@ -126,7 +126,7 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 	p.NetServer.BroadcastNewBlock(cbm, gb)
 	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, p.ts.Since(bh.CurTime))
 
-	// Send log
+	// Send info
 	le := &monitor.LogEntry{
 		LogType:  monitor.LogTypeBlockBroadcast,
 		Height:   bh.Height,
@@ -146,14 +146,17 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 
 	blog := newBizLog("consensusFinalize—" + bh.Hash.ShortS())
 
-	if p.blockOnChain(bh.Hash) { //已经上链
-		blog.log("block alreayd onchain!")
+	// Already on blockchain
+	if p.blockOnChain(bh.Hash) {
+		blog.error("block alreayd onchain!")
 		return
 	}
 
 	gpk := p.getGroupPubKey(groupsig.DeserializeID(bh.GroupID))
-	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
-		blog.log("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
+
+	// Group signs have passed verification
+	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) {
+		blog.error("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
 		return
 	}
@@ -178,53 +181,53 @@ func (p *Processor) blockProposal() {
 	top := p.MainChain.QueryTopBlock()
 	worker := p.getVrfWorker()
 	if worker.getBaseBH().Hash != top.Hash {
-		blog.log("vrf baseBH differ from top!")
+		blog.warn("vrf baseBH differ from top!")
 		return
 	}
 	if worker.isProposed() || worker.isSuccess() {
-		blog.log("vrf worker proposed/success, status %v", worker.getStatus())
+		blog.debug("vrf worker proposed/success, status %v", worker.getStatus())
 		return
 	}
 	height := worker.castHeight
 
 	if !p.ts.NowAfter(worker.baseBH.CurTime) {
-		blog.log("not the time!now=%v, pre=%v, height=%v", p.ts.Now(), worker.baseBH.CurTime, height)
+		blog.error("not the time!now=%v, pre=%v, height=%v", p.ts.Now(), worker.baseBH.CurTime, height)
 		return
 	}
 
 	totalStake := p.minerReader.getTotalStake(worker.baseBH.Height, false)
-	blog.log("totalStake height=%v, stake=%v", height, totalStake)
+	blog.debug("totalStake height=%v, stake=%v", height, totalStake)
 	pi, qn, err := worker.Prove(totalStake)
 	if err != nil {
-		blog.log("vrf prove not ok! %v", err)
+		blog.warn("vrf prove not ok! %v", err)
 		return
 	}
 
 	if height > 1 && p.proveChecker.proveExists(pi) {
-		blog.log("vrf prove exist, not proposal")
+		blog.warn("vrf prove exist, not proposal")
 		return
 	}
 
 	if worker.timeout() {
-		blog.log("vrf worker timeout")
+		blog.warn("vrf worker timeout")
 		return
 	}
 
 	gb := p.spreadGroupBrief(top, height)
 	if gb == nil {
-		blog.log("spreadGroupBrief nil, bh=%v, height=%v", top.Hash.ShortS(), height)
+		blog.error("spreadGroupBrief nil, bh=%v, height=%v", top.Hash.ShortS(), height)
 		return
 	}
 	gid := gb.Gid
 
 	block := p.MainChain.CastBlock(uint64(height), pi, qn, p.GetMinerID().Serialize(), gid.Serialize())
 	if block == nil {
-		blog.log("MainChain::CastingBlock failed, height=%v", height)
+		blog.error("MainChain::CastingBlock failed, height=%v", height)
 		return
 	}
 	bh := block.Header
 	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
-	blog.log("begin proposal, hash=%v, height=%v, qn=%v,, verifyGroup=%v, pi=%v...", bh.Hash.ShortS(), height, qn, gid.ShortS(), pi.ShortS())
+	blog.debug("begin proposal, hash=%v, height=%v, qn=%v,, verifyGroup=%v, pi=%v...", bh.Hash.ShortS(), height, qn, gid.ShortS(), pi.ShortS())
 	tlog.logStart("height=%v,qn=%v, preHash=%v, verifyGroup=%v", bh.Height, qn, bh.PreHash.ShortS(), gid.ShortS())
 
 	if bh.Height > 0 && bh.Height == height && bh.PreHash == worker.baseBH.Hash {
@@ -236,7 +239,7 @@ func (p *Processor) blockProposal() {
 		}
 		// The message hash sent to everyone is the same, the signature is the same
 		if !ccm.GenSign(model.NewSecKeyInfo(p.GetMinerID(), skey), ccm) {
-			blog.log("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
+			blog.error("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
 		// Generate full account book hash
@@ -247,7 +250,7 @@ func (p *Processor) blockProposal() {
 		// Castor cannot sign random numbers
 		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.Elapsed, ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
 
-		// Send log
+		// Send info
 		le := &monitor.LogEntry{
 			LogType:  monitor.LogTypeProposal,
 			Height:   bh.Height,
@@ -264,7 +267,7 @@ func (p *Processor) blockProposal() {
 		p.blockContexts.addProposed(block)
 
 	} else {
-		blog.log("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
+		blog.debug("bh/prehash Error or sign Error, bh=%v, real height=%v. bc.prehash=%v, bh.prehash=%v", height, bh.Height, worker.baseBH.Hash, bh.PreHash)
 	}
 
 }
@@ -276,23 +279,23 @@ func (p *Processor) blockProposal() {
 // to make sure that 51% of the verified-member can get the bonus
 func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeader) {
 	blog := newBizLog("reqRewardTransSign")
-	blog.log("start, bh=%v", p.blockPreview(bh))
+	blog.debug("start, bh=%v", p.blockPreview(bh))
 	slot := vctx.GetSlotByHash(bh.Hash)
 	if slot == nil {
-		blog.log("slot is nil")
+		blog.error("slot is nil")
 		return
 	}
 	if !slot.gSignGenerator.Recovered() {
-		blog.log("slot not recovered")
+		blog.error("slot not recovered")
 		return
 	}
 	if !slot.IsSuccess() && !slot.IsVerified() {
-		blog.log("slot not verified or success,status=%v", slot.GetSlotStatus())
+		blog.error("slot not verified or success,status=%v", slot.GetSlotStatus())
 		return
 	}
 	// If you sign yourself, you don’t have to send it again
 	if slot.hasSignedRewardTx() {
-		blog.log("has signed reward tx")
+		blog.warn("has signed reward tx")
 		return
 	}
 
@@ -333,9 +336,9 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		ski := model.NewSecKeyInfo(p.GetMinerID(), p.getSignKey(groupID))
 		if msg.GenSign(ski, msg) {
 			p.NetServer.SendCastRewardSignReq(msg)
-			blog.log("reward req send height=%v, gid=%v", bh.Height, groupID.ShortS())
+			blog.debug("reward req send height=%v, gid=%v", bh.Height, groupID.ShortS())
 		} else {
-			blog.debug("genSign fail, id=%v, sk=%v, belong=%v", ski.ID.ShortS(), ski.SK.ShortS(), p.IsMinerGroup(groupID))
+			blog.error("genSign fail, id=%v, sk=%v, belong=%v", ski.ID.ShortS(), ski.SK.ShortS(), p.IsMinerGroup(groupID))
 		}
 	}
 

@@ -13,8 +13,6 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-
 // Package network module implements p2p network, It uses a Kademlia-like protocol to maintain and discover Nodes.
 // network transfer protocol use  KCP, a open source RUDP implementation,it provide NAT Traversal ability,let nodes
 // under NAT can be connecting with other.

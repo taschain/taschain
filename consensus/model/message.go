@@ -25,10 +25,7 @@ import (
 	"github.com/taschain/taschain/consensus/base"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/taslog"
 )
-
-var SlowLog taslog.Logger
 
 // ISignedMessage defines the message functions
 type ISignedMessage interface {
