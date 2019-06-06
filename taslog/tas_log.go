@@ -87,6 +87,14 @@ func GetLoggerByName(name string) Logger {
 	return l
 }
 
+func Flush(){
+		lock.Lock()
+		defer lock.Unlock()
+		for _, logger := range logManager {
+			logger.(seelog.LoggerInterface).Flush()
+		}
+}
+
 func getKey(s string) string {
 	hash := sha3.Sum256([]byte(s))
 	return string(hash[:])

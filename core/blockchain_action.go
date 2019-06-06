@@ -92,6 +92,9 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 		return nil
 	}
 
+	Logger.Infof("casting block height=%v,preHash=%x",height,preRoot)
+	taslog.Flush()
+
 	txs := chain.transactionPool.PackForCast()
 
 	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block.Header, txs, true)
@@ -401,6 +404,9 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 		Logger.Errorf("fail to verify receipt, hash1:%s hash2:%s", receiptsTree.Hex(), block.Header.ReceiptTree.Hex())
 		return false, nil
 	}
+
+	Logger.Infof("executeTransactions block height=%v,preHash=%x",block.Header.Height,preRoot)
+	taslog.Flush()
 
 	eps := &executePostState{state: state, receipts: receipts, evitedTxs: evitTxs, txs: block.Transactions}
 	chain.verifiedBlocks.Add(block.Header.Hash, eps)

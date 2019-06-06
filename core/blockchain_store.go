@@ -17,6 +17,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/taschain/taschain/taslog"
 
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
@@ -48,6 +49,9 @@ func (chain *FullBlockChain) saveCurrentBlock(hash common.Hash) error {
 func (chain *FullBlockChain) updateLatestBlock(state *account.AccountDB, header *types.BlockHeader) {
 	chain.latestStateDB = state
 	chain.latestBlock = header
+
+	Logger.Infof("updateLatestBlock success,height=%v,root hash is %x",header.Height,header.StateTree)
+	taslog.Flush()
 }
 
 func (chain *FullBlockChain) saveBlockHeader(hash common.Hash, dataBytes []byte) error {
