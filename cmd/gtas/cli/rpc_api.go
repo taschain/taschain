@@ -19,7 +19,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
 	"strconv"
@@ -604,7 +603,7 @@ func (api *GtasAPI) BlockDetail(h string) (*Result, error) {
 		if tx.Type == types.TransactionTypeBonus {
 			btx := *convertBonusTransaction(tx)
 			if st, err := mediator.Proc.MainChain.GetTransactionPool().GetTransactionStatus(tx.Hash); err != nil {
-				log.Printf("getTransactions statue error, hash %v, err %v", tx.Hash.Hex(), err)
+				common.DefaultLogger.Errorf("getTransactions statue error, hash %v, err %v", tx.Hash.Hex(), err)
 				btx.StatusReport = "获取状态错误" + err.Error()
 			} else {
 				if st == types.ReceiptStatusSuccessful {

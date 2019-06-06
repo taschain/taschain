@@ -69,6 +69,8 @@ type Processor struct {
 	NetServer net.NetworkServer  // Responsible for network messaging
 	conf      common.ConfManager // The config
 
+	isCasting int32 // Proposal check status: 0 idle, 1 casting
+
 	ts time.TimeService // Network-wide time service, regardless of local time
 
 }
@@ -102,6 +104,7 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.NetServer = net.NewNetworkServer()
 	p.proveChecker = newProveChecker(p.MainChain)
 	p.ts = time.TSInstance
+	p.isCasting = 0
 
 	p.minerReader = newMinerPoolReader(core.MinerManagerImpl)
 	pkPoolInit(p.minerReader)

@@ -17,6 +17,7 @@ package network
 
 /*
 #cgo LDFLAGS: -L ./ -lp2pcore -lstdc++
+#cgo windows LDFLAGS: -L -lwsock32 -lws2_32
 
 #include "p2p_api.h"
 
