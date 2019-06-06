@@ -199,7 +199,6 @@ func signAndRecoverWithRandomMessages(t *testing.T, keys func() ([]byte, []byte)
 		}
 		compactSigCheck(t, sig)
 
-		// TODO: why do we flip around the recovery id?
 		sig[len(sig)-1] %= 4
 
 		pubkey2, err := RecoverPubkey(msg, sig)
