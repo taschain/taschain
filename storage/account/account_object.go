@@ -170,20 +170,27 @@ func (ao *accountObject) touch() {
 func (ao *accountObject) getTrie(db AccountDatabase) Trie {
 	if ao.address == common.HeavyDBAddress{
 		getLogger().Infof("access HeavyDBAddress begin")
+		taslog.Flush()
 	}
 	if ao.trie == nil {
 		if ao.address == common.HeavyDBAddress{
 			getLogger().Infof("access HeavyDBAddress begin find trie is nil,root is %x",ao.data.Root)
+			taslog.Flush()
 		}
 		var err error
 		ao.trie, err = db.OpenStorageTrie(ao.addrHash, ao.data.Root)
 		if err != nil {
 			if ao.address == common.HeavyDBAddress{
-				getLogger().Errorf("access HeavyDBAddress begin find trie is nil and next get has err %v, errorMsg = %s",err,err.Error())
+				getLogger().Errorf("access HeavyDBAddress begin find trie is nil and next get has err %v, errorMsg = %s,root is %x",err,err.Error(),ao.data.Root)
+				taslog.Flush()
 			}
 			ao.trie, _ = db.OpenStorageTrie(ao.addrHash, common.Hash{})
 			ao.setError(fmt.Errorf("can't create storage trie: %v", err))
 		}
+	}
+	if ao.trie == nil{
+		getLogger().Errorf("access HeavyDBAddress over find trie is nil,root is %x",ao.data.Root)
+		taslog.Flush()
 	}
 	return ao.trie
 }
@@ -214,6 +221,10 @@ func (ao *accountObject) GetData(db AccountDatabase, key string) []byte {
 
 // SetData updates a value in account storage.
 func (ao *accountObject) SetData(db AccountDatabase, key string, value []byte) {
+	if ao.address == common.HeavyDBAddress{
+		getLogger().Infof("set data HeavyDBAddress .root is %x",ao.data.Root)
+		taslog.Flush()
+	}
 	ao.db.transitions = append(ao.db.transitions, storageChange{
 		account:  &ao.address,
 		key:      key,
@@ -261,6 +272,7 @@ func (ao *accountObject) updateRoot(db AccountDatabase) {
 
 	if ao.address == common.HeavyDBAddress{
 		getLogger().Infof("updateRoot HeavyDBAddress .root is %x",ao.data.Root)
+		taslog.Flush()
 	}
 }
 
@@ -276,8 +288,10 @@ func (ao *accountObject) CommitTrie(db AccountDatabase) error {
 	if ao.address == common.HeavyDBAddress{
 		if err != nil{
 			getLogger().Errorf("commit HeavyDBAddress .root is %x,error is %s",root,err.Error())
+			taslog.Flush()
 		}else{
 			getLogger().Infof("commit HeavyDBAddress .root is %x",root)
+			taslog.Flush()
 		}
 	}
 	if err == nil {
