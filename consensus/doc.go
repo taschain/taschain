@@ -13,7 +13,5 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-
 // Package consensus implements the chiron consensus algorithm, including the bls framework and the vrf functions
 package consensus

@@ -36,8 +36,8 @@ const (
 
 // the ticker type
 const (
-	rTypePeriodic = 1 	// scheduled task will be executed periodically
-	rTypeOneTime  = 2	// scheduled task will be executed just once
+	rTypePeriodic = 1 // scheduled task will be executed periodically
+	rTypeOneTime  = 2 // scheduled task will be executed just once
 )
 
 // TickerRoutine define the infos of the scheduled task
@@ -48,7 +48,7 @@ type TickerRoutine struct {
 	lastTicker      uint64      // Last executed heartbeat
 	status          int32       // The current state : stopped, running
 	triggerNextTick int32       // Should be executed in next heartbeat
-	rType           int8		// type of the task
+	rType           int8        // type of the task
 }
 
 // GlobalTicker is the schedule tool structure
@@ -159,7 +159,6 @@ func (gt *GlobalTicker) RegisterOneTimeRoutine(name string, routine RoutineFunc,
 	gt.addRoutine(name, r)
 }
 
-
 func (gt *GlobalTicker) RemoveRoutine(name string) {
 	gt.routines.Delete(name)
 }
@@ -174,7 +173,6 @@ func (gt *GlobalTicker) StartTickerRoutine(name string, triggerNextTicker bool) 
 	atomic.CompareAndSwapInt32(&routine.triggerNextTick, 0, 1)
 	atomic.CompareAndSwapInt32(&routine.status, stopped, running)
 }
-
 
 // StartAndTriggerRoutine starts the specified routine.
 // Note that, the task won't work if this function wasn't called after registered

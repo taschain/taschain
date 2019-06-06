@@ -335,7 +335,7 @@ func (vc *VerifyContext) checkNotify() *SlotContext {
 		}
 	}
 	if maxBwSlot != nil {
-		blog.log("select max qn=%v, hash=%v, height=%v, hash=%v, all qn=%v", maxBwSlot.BH.TotalQN, maxBwSlot.BH.Hash.ShortS(), maxBwSlot.BH.Height, maxBwSlot.BH.Hash.ShortS(), qns)
+		blog.debug("select max qn=%v, hash=%v, height=%v, hash=%v, all qn=%v", maxBwSlot.BH.TotalQN, maxBwSlot.BH.Hash.ShortS(), maxBwSlot.BH.Height, maxBwSlot.BH.Hash.ShortS(), qns)
 	}
 	return maxBwSlot
 }

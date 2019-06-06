@@ -63,7 +63,7 @@ func (gm *GroupManager) checkCreateGroupRoutine(baseHeight uint64) {
 		if err != nil {
 			ret = err.Error()
 		}
-		blog.log("baseBH height=%v, create=%v, ret=%v", baseHeight, create, ret)
+		blog.debug("baseBH height=%v, create=%v, ret=%v", baseHeight, create, ret)
 	}()
 
 	// The specified height has appeared on the group chain
@@ -155,7 +155,7 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 		return false
 	}
 	if gInfo.MemberSize() < model.Param.GroupMemberMin {
-		blog.log("got not enough pongs!, got %v", pongsize)
+		blog.warn("got not enough pongs!, got %v", pongsize)
 		desc = "not enough pongs."
 		return false
 	}
@@ -165,7 +165,7 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	}
 	ski := gm.processor.getInGroupSeckeyInfo(ctx.parentInfo.GroupID)
 	if !msg.GenSign(ski, msg) {
-		blog.debug("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
+		blog.error("genSign fail, id=%v, sk=%v", ski.ID.ShortS(), ski.SK.ShortS())
 		return false
 	}
 
@@ -175,7 +175,7 @@ func (gm *GroupManager) checkReqCreateGroupSign(topHeight uint64) bool {
 	}
 	newHashTraceLog("checkReqCreateGroupSign", gh.Hash, gm.processor.GetMinerID()).log("parent %v, members %v", ctx.parentInfo.GroupID.ShortS(), strings.Join(memIDStrs, ","))
 
-	// Send log
+	// Send info
 	le := &monitor.LogEntry{
 		LogType:  monitor.LogTypeCreateGroup,
 		Height:   gm.groupChain.Height(),

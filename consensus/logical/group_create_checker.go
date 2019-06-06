@@ -84,7 +84,7 @@ func (gchecker *GroupCreateChecker) selectKing(theBH *types.BlockHeader, group *
 		}
 	}
 
-	newBizLog("selectKing").log("king index=%v, ids=%v, isKing %v", selectIndexs, kings, isKing)
+	newBizLog("selectKing").info("king index=%v, ids=%v, isKing %v", selectIndexs, kings, isKing)
 	return
 }
 
@@ -114,13 +114,13 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (
 	for idx, can := range allCandidates {
 		ids[idx] = can.ID.ShortS()
 	}
-	blog.log("=======allCandidates height %v, %v size %v", height, ids, len(allCandidates))
+	blog.debug("=======allCandidates height %v, %v size %v", height, ids, len(allCandidates))
 	if len(allCandidates) < min {
 		return
 	}
 	groups := gchecker.availableGroupsAt(theBH.Height)
 
-	blog.log("available groupsize %v", len(groups))
+	blog.debug("available groupsize %v", len(groups))
 
 	candidates := make([]model.MinerDO, 0)
 	for _, cand := range allCandidates {
@@ -141,7 +141,7 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (
 
 	selectNum := model.Param.CreateGroupMemberCount(num)
 	if selectNum <= 0 {
-		blog.log("not enough candidates, got %v", len(candidates))
+		blog.warn("not enough candidates, got %v", len(candidates))
 		return
 	}
 
@@ -157,6 +157,6 @@ func (gchecker *GroupCreateChecker) selectCandidates(theBH *types.BlockHeader) (
 	for _, id := range result {
 		str += id.ShortS() + ","
 	}
-	blog.log("=============selectCandidates %v", str)
+	blog.info("=============selectCandidates %v", str)
 	return true, result
 }

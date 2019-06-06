@@ -24,9 +24,9 @@ import (
 // BufferPoolItem  maintain the buffers of this size
 type BufferPoolItem struct {
 	buffers *list.List
-	size    int		//buffer size
-	max     int		//max count of cache buffer
-	inuse   int		//buffer count in use
+	size    int //buffer size
+	max     int //max count of cache buffer
+	inuse   int //buffer count in use
 }
 
 func newBufferPoolItem(size int, max int) *BufferPoolItem {

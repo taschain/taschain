@@ -57,7 +57,7 @@ func (p *Processor) prepareMiner() {
 	iterator := p.GroupChain.NewIterator()
 	groups := make([]*StaticGroupInfo, 0)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre() {
-		stdLogger.Infof("get group from core, id=%+v", coreGroup.Header)
+		stdLogger.Debugf("get group from core, id=%+v", coreGroup.Header)
 		if coreGroup.ID == nil || len(coreGroup.ID) == 0 {
 			continue
 		}
@@ -73,16 +73,16 @@ func (p *Processor) prepareMiner() {
 
 		}
 		groups = append(groups, sgi)
-		stdLogger.Infof("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.getGroupHeader().WorkHeight, topHeight)
+		stdLogger.Debugf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.getGroupHeader().WorkHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
-				stdLogger.Infof("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
+				stdLogger.Debugf("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
 			} else {
 				p.joinGroup(jg)
 			}
 			if sgi.GInfo.GI.CreateHeight() == 0 {
-				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().GetHexString())
+				stdLogger.Debugf("genesis member start...id %v", p.GetMinerID().GetHexString())
 				p.genesisMember = true
 			}
 		}
@@ -162,7 +162,7 @@ func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 	castor := groupsig.DeserializeID(bh.Castor)
 	miner := p.minerReader.getProposeMiner(castor)
 	if miner == nil {
-		stdLogger.Infof("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
+		stdLogger.Warnf("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
 		return 0
 	}
 	pre := p.MainChain.QueryBlockHeaderByHash(bh.PreHash)

@@ -23,7 +23,6 @@ import (
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/taslog"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
@@ -51,9 +50,8 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 	mtype := "CMCRSR-Future"
 	for _, msg := range futures {
 		blog := newBizLog(mtype)
-		slog := taslog.NewSlowLog(mtype, 0.5)
-		send, err := p.signCastRewardReq(msg.(*model.CastRewardTransSignReqMessage), bh, slog)
-		blog.log("send %v, result %v", send, err)
+		send, err := p.signCastRewardReq(msg.(*model.CastRewardTransSignReqMessage), bh)
+		blog.debug("send %v, result %v", send, err)
 	}
 }
 
@@ -115,7 +113,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 
 	// The current block height has exceeded the effective height, group may have a problem
 	if beginHeight > 0 && beginHeight <= topHeight {
-		stdLogger.Errorf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
+		stdLogger.Warnf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
 		pre := p.MainChain.QueryBlockHeaderFloor(beginHeight - 1)
 		if pre == nil {
 			panic(fmt.Sprintf("block nil at height %v", beginHeight-1))

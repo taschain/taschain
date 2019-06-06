@@ -18,13 +18,11 @@ package logical
 import (
 	"bytes"
 	"fmt"
-	"sync"
-	"time"
-
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
+	"sync"
 )
 
 // FutureMessageHolder store some messages non-processable currently and may be processed in the future
@@ -101,12 +99,6 @@ func (p *Processor) blockOnChain(h common.Hash) bool {
 }
 
 func (p *Processor) getBlockHeaderByHash(hash common.Hash) *types.BlockHeader {
-	begin := time.Now()
-	defer func() {
-		if time.Since(begin).Seconds() > 0.5 {
-			slowLogger.Warnf("slowQueryBlockHeaderByHash: cost %v, hash=%v", time.Since(begin).String(), hash.ShortS())
-		}
-	}()
 	b := p.MainChain.QueryBlockHeaderByHash(hash)
 	return b
 }
@@ -147,7 +139,7 @@ func (p *Processor) VerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader)
 	tlog := newMsgTraceLog("VerifyBlock", bh.Hash.ShortS(), "")
 	defer func() {
 		tlog.log("preHash=%v, height=%v, result=%v %v", bh.PreHash.ShortS(), bh.Height, ok, err)
-		newBizLog("VerifyBlock").log("hash=%v, preHash=%v, height=%v, result=%v %v", bh.Hash.ShortS(), bh.PreHash.ShortS(), bh.Height, ok, err)
+		newBizLog("VerifyBlock").info("hash=%v, preHash=%v, height=%v, result=%v %v", bh.Hash.ShortS(), bh.PreHash.ShortS(), bh.Height, ok, err)
 	}()
 	if bh.Hash != bh.GenHash() {
 		err = fmt.Errorf("block hash error")
