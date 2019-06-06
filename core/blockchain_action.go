@@ -25,6 +25,7 @@ import (
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/account"
+	"github.com/taschain/taschain/taslog"
 )
 
 type batchAddBlockCallback func(b *types.Block, ret types.AddBlockResult) bool
@@ -92,7 +93,7 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 		return nil
 	}
 
-	Logger.Infof("casting block height=%v,preHash=%x",height,preRoot)
+	Logger.Infof("casting block height=%v,preHash=%x", height, preRoot)
 	taslog.Flush()
 
 	txs := chain.transactionPool.PackForCast()
@@ -405,7 +406,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 		return false, nil
 	}
 
-	Logger.Infof("executeTransactions block height=%v,preHash=%x",block.Header.Height,preRoot)
+	Logger.Infof("executeTransactions block height=%v,preHash=%x", block.Header.Height, preRoot)
 	taslog.Flush()
 
 	eps := &executePostState{state: state, receipts: receipts, evitedTxs: evitTxs, txs: block.Transactions}
