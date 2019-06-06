@@ -13,14 +13,18 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+/*
+	Package account is used to do accounts or contract operations
+*/
 package account
 
 import (
 	"bytes"
 	"fmt"
-	"github.com/taschain/taschain/taslog"
 	"math/big"
 	"sync"
+
+	"github.com/taschain/taschain/taslog"
 
 	"io"
 
@@ -37,11 +41,11 @@ type Code []byte
 func (c Code) String() string {
 	return string(c)
 }
+
 var debugLog taslog.Logger
 
-
-func getLogger()taslog.Logger{
-	if debugLog == nil{
+func getLogger() taslog.Logger {
+	if debugLog == nil {
 		instance := common.GlobalConf.GetString("instance", "index", "")
 		debugLog = taslog.GetLoggerByIndex(taslog.CoreLogConfig, instance)
 	}
@@ -168,7 +172,7 @@ func (ao *accountObject) touch() {
 }
 
 func (ao *accountObject) getTrie(db AccountDatabase) Trie {
-	if ao.address == common.HeavyDBAddress{
+	if ao.address == common.HeavyDBAddress {
 		getLogger().Infof("access HeavyDBAddress begin")
 		taslog.Flush()
 	}

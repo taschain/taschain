@@ -27,11 +27,12 @@ import (
 	"github.com/taschain/taschain/common/secp256k1"
 )
 
+// PrivateKey data struct
 type PrivateKey struct {
 	PrivKey ecdsa.PrivateKey
 }
 
-//Sign message using the private key
+// Sign returns the message signature using the private key
 func (pk PrivateKey) Sign(hash []byte) Sign {
 	var sign Sign
 
@@ -52,7 +53,7 @@ func (pk PrivateKey) Sign(hash []byte) Sign {
 	return sign
 }
 
-//Generate Private key by the specified string
+// GenerateKey creates a Private key by the specified string
 func GenerateKey(s string) PrivateKey {
 	var r io.Reader
 	if len(s) > 0 {
@@ -70,19 +71,19 @@ func GenerateKey(s string) PrivateKey {
 	return pk
 }
 
-//Get public key from the data struct of private key
+// GetPubKey returns the public key mapped to the private key
 func (pk *PrivateKey) GetPubKey() PublicKey {
 	var pubk PublicKey
 	pubk.PubKey = pk.PrivKey.PublicKey
 	return pubk
 }
 
-//export the private key into a hex string
+// Hex converts the private key to a hex string
 func (pk *PrivateKey) Hex() string {
 	return ToHex(pk.Bytes())
 }
 
-//construct a private key with the hex string imported.
+// HexToSecKey returns a private key with the hex string imported.
 func HexToSecKey(s string) (sk *PrivateKey) {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return
@@ -91,7 +92,7 @@ func HexToSecKey(s string) (sk *PrivateKey) {
 	return
 }
 
-//export the private key into a byte array
+// Bytes converts the private key to a byte array
 func (pk *PrivateKey) Bytes() []byte {
 	buf := make([]byte, SecKeyLength)
 	copy(buf[:PubKeyLength], pk.GetPubKey().Bytes())
@@ -103,7 +104,7 @@ func (pk *PrivateKey) Bytes() []byte {
 	return buf
 }
 
-//construct a private key with the byte array imported
+// BytesToSecKey returns a private key with the byte array imported
 func BytesToSecKey(data []byte) (sk *PrivateKey) {
 	//fmt.Printf("begin bytesToSecKey, len=%v, data=%v.\n", len(data), data)
 	if len(data) < SecKeyLength {
@@ -120,7 +121,7 @@ func BytesToSecKey(data []byte) (sk *PrivateKey) {
 	return nil
 }
 
-//Decrypt function using the private key
+// Decrypt returns the plain message
 func (pk *PrivateKey) Decrypt(rand io.Reader, ct []byte) (m []byte, err error) {
 	prv := ecies.ImportECDSA(&pk.PrivKey)
 	return prv.Decrypt(rand, ct, nil, nil)

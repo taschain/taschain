@@ -181,7 +181,6 @@ func (t *TvmCli) Call(contractAddress string, abiJSON string) {
 	executeResult := controller.ExecuteAbiEval(&sender, contract, abiJSON)
 	fmt.Println("gas: ", 500000-controller.VM.Gas())
 
-	//TODO 需不需要快照
 	if executeResult == nil {
 		fmt.Println("ExecuteAbiEval error")
 		return

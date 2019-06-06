@@ -28,6 +28,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
+// defines the status of vrfWorker
 const (
 	prove    int32 = 0
 	proposed       = 1
@@ -44,12 +45,14 @@ func init() {
 	rat1 = new(big.Rat).SetInt64(1)
 }
 
+// vrfWorker do some vrf calculations during block proposal to check if the specified miner
+// satisfied the propose-condition
 type vrfWorker struct {
 	//read only
-	miner      *model.SelfMinerDO
-	baseBH     *types.BlockHeader
-	castHeight uint64
-	expire     time.TimeStamp
+	miner      *model.SelfMinerDO // Miner info
+	baseBH     *types.BlockHeader // The block the proposal process based on
+	castHeight uint64             // The height of the block to be proposed
+	expire     time.TimeStamp     // The worker process deadline
 	//writable
 	status int32
 	ts     time.TimeService
@@ -84,6 +87,8 @@ func vrfM(random []byte, h uint64) []byte {
 	return data
 }
 
+// Prove generates VRFProve and corresponding qn for block proposal with given total stake
+// which is read from chain
 func (vrf *vrfWorker) Prove(totalStake uint64) (base.VRFProve, uint64, error) {
 	pi, err := base.VRFGenerateProve(vrf.miner.VrfPK, vrf.miner.VrfSK, vrf.m())
 	if err != nil {
@@ -113,10 +118,6 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 
 	vs := vrfThreshold(stake, totalStake)
 
-	//s1, _ := pr.Float64()
-	//s2, _ := vs.Float64()
-	//blog := newBizLog("vrfSatisfy")
-
 	ok = pr.Cmp(vs) < 0
 	// Calculate qn
 	if vs.Cmp(rat1) > 0 {
@@ -125,16 +126,13 @@ func vrfSatisfy(pi base.VRFProve, stake uint64, totalStake uint64) (ok bool, qn 
 
 	step := vs.Quo(vs, new(big.Rat).SetInt64(int64(model.Param.MaxQN)))
 
-	//st, _ := step.Float64()
-
 	r, _ := pr.Quo(pr, step).Float64()
 	qn = uint64(math.Floor(r) + 1)
-
-	//blog.log("minerstake %v, totalstake %v, proveValue %v, stake %v, step %v, qn %v", stake, totalStake, s1, s2, st, qn)
 
 	return
 }
 
+// vrfVerifyBlock verifies if the vrf prove of the given block is legal
 func vrfVerifyBlock(bh *types.BlockHeader, preBH *types.BlockHeader, miner *model.MinerDO, totalStake uint64) (bool, error) {
 	pi := base.VRFProve(bh.ProveValue)
 	ok, err := base.VRFVerify(miner.VrfPK, pi, vrfM(preBH.Random, bh.Height-preBH.Height))

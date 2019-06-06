@@ -20,6 +20,8 @@ import (
 	"sync"
 )
 
+// Message defines the topic interface the bus can handle.
+// each event message should implements it
 type Message interface {
 	GetRaw() []byte
 	GetData() interface{}

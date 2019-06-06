@@ -26,7 +26,6 @@ import (
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/monitor"
-	"github.com/taschain/taschain/taslog"
 )
 
 func (p *Processor) thresholdPieceVerify(vctx *VerifyContext, slot *SlotContext) {
@@ -78,7 +77,7 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 
 	}
 	if _, same := p.blockContexts.isHeightCasted(bh.Height, bh.PreHash); same {
-		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
+		err = fmt.Errorf("the block of this height has been cast %v", bh.Height)
 		return
 	}
 
@@ -132,7 +131,7 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	// get the verify context for the height, it will create the context if not exists
 	vctx = p.blockContexts.getOrNewVerifyContext(group, bh, preBH)
 	if vctx == nil {
-		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
+		err = fmt.Errorf("get vctx is empty, maybe preBH has been deleted")
 		return
 	}
 
@@ -168,11 +167,7 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 // Note that, if the pre-block of the block present int the message isn't on the blockchain, it will caches the message
 // and trigger it after the pre-block added on chain
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
-	slog := taslog.NewSlowLog("OnMessageCast", 0.5)
 	bh := &ccm.BH
-	defer func() {
-		slog.Log("hash=%v, sender=%v, height=%v, preHash=%v", bh.Hash.ShortS(), ccm.SI.GetID().ShortS(), bh.Height, bh.PreHash.ShortS())
-	}()
 
 	le := &monitor.LogEntry{
 		LogType:  monitor.LogTypeProposal,
@@ -183,16 +178,12 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		Verifier: groupsig.DeserializeID(bh.GroupID).GetHexString(),
 		Ext:      fmt.Sprintf("external:qn:%v,totalQN:%v", 0, bh.TotalQN),
 	}
-	slog.AddStage("getGroup")
 	group := p.GetGroup(groupsig.DeserializeID(bh.GroupID))
-	slog.EndStage()
 
-	slog.AddStage("addLog")
 	detalHeight := int(bh.Height - p.MainChain.Height())
 	if common.AbsInt(detalHeight) < 100 && monitor.Instance.IsFirstNInternalNodesInGroup(group.GetMembers(), 3) {
 		monitor.Instance.AddLogIfNotInternalNodes(le)
 	}
-	slog.EndStage()
 	mtype := "OMC"
 	blog := newBizLog(mtype)
 
@@ -213,7 +204,6 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		}
 		traceLog.logEnd("%v:height=%v, hash=%v, preHash=%v,groupID=%v, result=%v", mtype, bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupID.ShortS(), result)
 		blog.debug("height=%v, hash=%v, preHash=%v, groupID=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupID.ShortS(), result)
-		slog.Log("senderShort=%v, hash=%v, gid=%v, height=%v", si.GetID().ShortS(), bh.Hash.ShortS(), groupID.ShortS(), bh.Height)
 	}()
 	if ccm.GenHash() != ccm.SI.DataHash {
 		err = fmt.Errorf("msg genHash %v diff from si.DataHash %v", ccm.GenHash().ShortS(), ccm.SI.DataHash.ShortS())
@@ -241,29 +231,21 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		return
 	}
 
-	slog.AddStage("checkOnChain")
 	if p.blockOnChain(bh.Hash) {
-		slog.EndStage()
 		err = fmt.Errorf("block onchain already")
 		return
 	}
-	slog.EndStage()
 
-	slog.AddStage("checkPreBlock")
 	preBH := p.getBlockHeaderByHash(bh.PreHash)
-	slog.EndStage()
 
-	slog.AddStage("baseCheck")
 	// Cache the message due to the absence of the pre-block
 	if preBH == nil {
 		p.addFutureVerifyMsg(ccm)
-		err = fmt.Errorf("父块未到达")
+		err = fmt.Errorf("parent block did not received")
 		return
 	}
 
-	slog.AddStage("OMC")
 	_, err = p.verifyCastMessage(ccm, preBH)
-	slog.EndStage()
 
 }
 
@@ -272,7 +254,6 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 	if p.blockOnChain(blockHash) {
 		return
 	}
-	slog := taslog.NewSlowLog("OMV", 0.5)
 
 	slot := vctx.GetSlotByHash(blockHash)
 	if slot == nil {
@@ -307,43 +288,33 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 	}
 
 	if _, same := p.blockContexts.isHeightCasted(bh.Height, bh.PreHash); same {
-		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
+		err = fmt.Errorf("the block of this height has been cast %v", bh.Height)
 		return
 	}
 
-	slog.AddStage("getPK")
-	pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(groupID, cvm.SI.GetID()))
+	pk, ok := p.getMemberSignPubKey(model.NewGroupMinerID(groupID, cvm.SI.GetID()))
 	if !ok {
 		err = fmt.Errorf("get member sign pubkey fail: gid=%v, uid=%v", groupID.ShortS(), cvm.SI.GetID().ShortS())
 		return
 	}
-	slog.EndStage()
 
-	slog.AddStage("vMemSign")
 	if !cvm.VerifySign(pk) {
 		err = fmt.Errorf("verify sign fail")
 		return
 	}
-	slog.EndStage()
-	slog.AddStage("vRandSign")
 	if !groupsig.VerifySig(pk, vctx.prevBH.Random, cvm.RandomSign) {
 		err = fmt.Errorf("verify random sign fail")
 		return
 	}
-	slog.EndStage()
 
-	slog.AddStage("acceptPiece")
 	ret, err = slot.AcceptVerifyPiece(cvm.SI.GetID(), cvm.SI.DataSign, cvm.RandomSign)
 	vctx.increaseVerifyNum()
 	if err != nil {
 		return
 	}
-	slog.EndStage()
 	if ret == pieceThreshold {
-		slog.AddStage("reserveBlock")
 		p.reserveBlock(vctx, slot)
 		vctx.increaseAggrNum()
-		slog.EndStage()
 	}
 	return
 }
@@ -385,14 +356,13 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	return
 }
 
-func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader, slog *taslog.SlowLog) (send bool, err error) {
+func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, bh *types.BlockHeader) (send bool, err error) {
 	gid := groupsig.DeserializeID(bh.GroupID)
 	group := p.GetGroup(gid)
 	reward := &msg.Reward
 	if group == nil {
 		panic("group is nil")
 	}
-	slog.AddStage("baseCheck")
 
 	vctx := p.blockContexts.getVctxByHeight(bh.Height)
 	if vctx == nil || vctx.prevBH.Hash != bh.PreHash {
@@ -416,55 +386,50 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		err = fmt.Errorf("groupID error %v %v", bh.GroupID, reward.GroupID)
 		return
 	}
-	slog.EndStage()
 	if !slot.hasSignedTxHash(reward.TxHash) {
 
-		slog.AddStage("GenerateBonus")
-		genBonus, _ := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+		genBonus, _, err2 := p.MainChain.GetBonusManager().GenerateBonus(reward.TargetIds, bh.Hash, bh.GroupID, model.Param.VerifyBonus)
+		if err2 != nil {
+			err = err2
+			return
+		}
 		if genBonus.TxHash != reward.TxHash {
 			err = fmt.Errorf("bonus txHash diff %v %v", genBonus.TxHash.ShortS(), reward.TxHash.ShortS())
 			return
 		}
-		slog.EndStage()
 
 		if len(msg.Reward.TargetIds) != len(msg.SignedPieces) {
 			err = fmt.Errorf("targetId len differ from signedpiece len %v %v", len(msg.Reward.TargetIds), len(msg.SignedPieces))
 			return
 		}
 
-		mpk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
+		mpk, ok := p.getMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
 		if !ok {
-			err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
+			err = fmt.Errorf("getMemberSignPubKey not ok, ask id %v", gid.ShortS())
 			return
 		}
-		slog.AddStage("vMemSign")
 		if !msg.VerifySign(mpk) {
-			slog.EndStage()
 			err = fmt.Errorf("verify sign fail, gid=%v, uid=%v", gid.ShortS(), msg.SI.GetID().ShortS())
 			return
 		}
-		slog.EndStage()
 
 		// Reuse the original generator to avoid duplicate signature verification
 		gSignGener := slot.gSignGenerator
 
-		slog.AddStage("checkTargetSign")
 		for idx, idIndex := range msg.Reward.TargetIds {
 			id := group.GetMemberID(int(idIndex))
 			sign := msg.SignedPieces[idx]
 
 			// If there is no local id signature, you need to verify the signature.
 			if sig, ok := gSignGener.GetWitness(id); !ok {
-				pk, exist := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, id))
+				pk, exist := p.getMemberSignPubKey(model.NewGroupMinerID(gid, id))
 				if !exist {
 					continue
 				}
-				slog.AddStage(fmt.Sprintf("checkSignMem%v", idx))
 				if !groupsig.VerifySig(pk, bh.Hash.Bytes(), sign) {
 					err = fmt.Errorf("verify member sign fail, id=%v", id.ShortS())
 					return
 				}
-				slog.EndStage()
 				// Join the generator
 				gSignGener.AddWitnessForce(id, sign)
 			} else { // If the signature of the id already exists locally, just judge whether it is the same as the local signature.
@@ -474,7 +439,6 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 				}
 			}
 		}
-		slog.EndStage()
 
 		if !gSignGener.Recovered() {
 			err = fmt.Errorf("recover group sign fail")
@@ -490,7 +454,6 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 		slot.addSignedTxHash(reward.TxHash)
 	}
 
-	slog.AddStage("EndSend")
 	send = true
 	// Sign yourself
 	signMsg := &model.CastRewardTransSignMessage{
@@ -505,7 +468,6 @@ func (p *Processor) signCastRewardReq(msg *model.CastRewardTransSignReqMessage, 
 	} else {
 		err = fmt.Errorf("signCastRewardReq genSign fail, id=%v, sk=%v, %v", ski.ID.ShortS(), ski.SK.ShortS(), p.IsMinerGroup(gid))
 	}
-	slog.EndStage()
 	return
 }
 
@@ -517,9 +479,8 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 	blog := newBizLog(mtype)
 	reward := &msg.Reward
 	tlog := newHashTraceLog("OMCRSR", reward.BlockHash, msg.SI.GetID())
-	blog.log("begin, sender=%v, blockHash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
+	blog.debug("begin, sender=%v, blockHash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
 	tlog.logStart("txHash=%v", reward.TxHash.ShortS())
-	slog := taslog.NewSlowLog(mtype, 0.5)
 
 	var (
 		send bool
@@ -528,24 +489,19 @@ func (p *Processor) OnMessageCastRewardSignReq(msg *model.CastRewardTransSignReq
 
 	defer func() {
 		tlog.logEnd("txHash=%v, %v %v", reward.TxHash.ShortS(), send, err)
-		blog.log("blockHash=%v, txHash=%v, result=%v %v", reward.BlockHash.ShortS(), reward.TxHash.ShortS(), send, err)
-		slog.Log("sender=%v, hash=%v, txHash=%v", msg.SI.GetID().ShortS(), reward.BlockHash.ShortS(), reward.TxHash.ShortS())
+		blog.debug("blockHash=%v, txHash=%v, result=%v %v", reward.BlockHash.ShortS(), reward.TxHash.ShortS(), send, err)
 	}()
 
 	// At this point the block is not necessarily on the chain
 	// in case that, the message will be cached
-	slog.AddStage("ChecBlock")
 	bh := p.getBlockHeaderByHash(reward.BlockHash)
 	if bh == nil {
-		slog.EndStage()
 		err = fmt.Errorf("future reward request receive and cached, hash=%v", reward.BlockHash.ShortS())
 		msg.ReceiveTime = time.Now()
 		p.futureRewardReqs.addMessage(reward.BlockHash, msg)
 		return
 	}
-	slog.EndStage()
 
-	send, err = p.signCastRewardReq(msg, bh, slog)
 	return
 }
 
@@ -555,7 +511,7 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	mtype := "OMCRS"
 	blog := newBizLog(mtype)
 
-	blog.log("begin, sender=%v, reqHash=%v", msg.SI.GetID().ShortS(), msg.ReqHash.ShortS())
+	blog.debug("begin, sender=%v, reqHash=%v", msg.SI.GetID().ShortS(), msg.ReqHash.ShortS())
 	tlog := newHashTraceLog(mtype, msg.BlockHash, msg.SI.GetID())
 
 	tlog.logStart("txHash=%v", msg.ReqHash.ShortS())
@@ -567,7 +523,7 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 
 	defer func() {
 		tlog.logEnd("bonus send:%v, ret:%v", send, err)
-		blog.log("blockHash=%v, send=%v, result=%v", msg.BlockHash.ShortS(), send, err)
+		blog.debug("blockHash=%v, send=%v, result=%v", msg.BlockHash.ShortS(), send, err)
 	}()
 
 	// If the block related to the bonus transaction is not on the chain, then drop the messages
@@ -583,9 +539,9 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 	if group == nil {
 		panic("group is nil")
 	}
-	pk, ok := p.GetMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
+	pk, ok := p.getMemberSignPubKey(model.NewGroupMinerID(gid, msg.SI.GetID()))
 	if !ok {
-		err = fmt.Errorf("GetMemberSignPubKey not ok, ask id %v", gid.ShortS())
+		err = fmt.Errorf("getMemberSignPubKey not ok, ask id %v", gid.ShortS())
 		return
 	}
 	if !msg.VerifySign(pk) {
@@ -607,10 +563,10 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 
 	// Try to add the signature to the group sign generator of the slot related to the block
 	accept, recover := slot.AcceptRewardPiece(&msg.SI)
-	blog.log("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
+	blog.debug("slot acceptRewardPiece %v %v status %v", accept, recover, slot.GetSlotStatus())
 
 	// Add the bonus transaction to pool if the signature is accepted and the group signature is recovered
-	if accept && recover && slot.StatusTransform(slRewardSignReq, slRewardSent) {
+	if accept && recover && slot.statusTransform(slRewardSignReq, slRewardSent) {
 		_, err2 := p.MainChain.GetTransactionPool().AddTransaction(slot.rewardTrans)
 		send = true
 		err = fmt.Errorf("add rewardTrans to txPool, txHash=%v, ret=%v", slot.rewardTrans.Hash.ShortS(), err2)
@@ -624,11 +580,11 @@ func (p *Processor) OnMessageCastRewardSign(msg *model.CastRewardTransSignMessag
 // It only happens in the proposal role and when the group signature generated by the verify-group
 func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourceID string) {
 	blog := newBizLog("OMRPB")
-	blog.log("hash %v", msg.Hash.ShortS())
+	blog.debug("hash %v", msg.Hash.ShortS())
 
 	pb := p.blockContexts.getProposed(msg.Hash)
 	if pb == nil || pb.block == nil {
-		blog.log("block is nil hash=%v", msg.Hash.ShortS())
+		blog.warn("block is nil hash=%v", msg.Hash.ShortS())
 		return
 	}
 
@@ -636,7 +592,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 		gid := groupsig.DeserializeID(pb.block.Header.GroupID)
 		group, err := p.globalGroups.GetGroupByID(gid)
 		if err != nil {
-			blog.log("block proposal response, GetGroupByID err= %v,  hash=%v", err, msg.Hash.ShortS())
+			blog.error("block proposal response, GetGroupByID err= %v,  hash=%v", err, msg.Hash.ShortS())
 			return
 		}
 
@@ -646,13 +602,13 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	// Only response to limited members of the group in case of network traffic
 	if pb.responseCount >= pb.maxResponseCount {
 
-		blog.log("block proposal response count >= maxResponseCount(%v), not response, hash=%v", pb.maxResponseCount, msg.Hash.ShortS())
+		blog.debug("block proposal response count >= maxResponseCount(%v), not response, hash=%v", pb.maxResponseCount, msg.Hash.ShortS())
 		return
 	}
 
 	pb.responseCount++
 
-	blog.log("block proposal response, count=%v, max count=%v, hash=%v", pb.responseCount, pb.maxResponseCount, msg.Hash.ShortS())
+	blog.debug("block proposal response, count=%v, max count=%v, hash=%v", pb.responseCount, pb.maxResponseCount, msg.Hash.ShortS())
 
 	m := &model.ResponseProposalBlock{
 		Hash:         pb.block.Header.Hash,
@@ -667,25 +623,25 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 // It will add the block on chain and then broadcast
 func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBlock) {
 	blog := newBizLog("OMRSPB")
-	blog.log("hash %v", msg.Hash.ShortS())
+	blog.debug("hash %v", msg.Hash.ShortS())
 
 	if p.blockOnChain(msg.Hash) {
 		return
 	}
 	vctx := p.blockContexts.getVctxByHash(msg.Hash)
 	if vctx == nil {
-		blog.log("verify context is nil, cache msg")
+		blog.warn("verify context is nil, cache msg")
 		return
 	}
 	slot := vctx.GetSlotByHash(msg.Hash)
 	if slot == nil {
-		blog.log("slot is nil")
+		blog.warn("slot is nil")
 		return
 	}
 	block := types.Block{Header: slot.BH, Transactions: msg.Transactions}
 	err := p.onBlockSignAggregation(&block, slot.gSignGenerator.GetGroupSign(), slot.rSignGenerator.GetGroupSign())
 	if err != nil {
-		blog.log("onBlockSignAggregation fail: %v", err)
+		blog.error("onBlockSignAggregation fail: %v", err)
 		slot.setSlotStatus(slFailed)
 		return
 	}

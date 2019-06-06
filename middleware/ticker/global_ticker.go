@@ -13,6 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package ticker implements a cron task schedule tool wrappered from the go timer sdk
 package ticker
 
 import (
@@ -24,28 +25,33 @@ import (
 	"github.com/taschain/taschain/common"
 )
 
+// RoutineFunc is the routine function which will be called at specified moment
 type RoutineFunc func() bool
 
+// the ticker status
 const (
-	STOPPED = int32(0)
-	RUNNING = int32(1)
+	stopped = int32(0)
+	running = int32(1)
 )
 
+// the ticker type
 const (
-	rtypePreiodic = 1
-	rtypeOneTime  = 2
+	rTypePeriodic = 1 // scheduled task will be executed periodically
+	rTypeOneTime  = 2 // scheduled task will be executed just once
 )
 
+// TickerRoutine define the infos of the scheduled task
 type TickerRoutine struct {
 	id              string
 	handler         RoutineFunc // Executive function
 	interval        uint32      // Triggered heartbeat interval
 	lastTicker      uint64      // Last executed heartbeat
-	status          int32       // The current state : STOPPED, RUNNING
-	triggerNextTick int32       // Next heartbeat
-	rtype           int8
+	status          int32       // The current state : stopped, running
+	triggerNextTick int32       // Should be executed in next heartbeat
+	rType           int8        // type of the task
 }
 
+// GlobalTicker is the schedule tool structure
 type GlobalTicker struct {
 	beginTime time.Time
 	timer     *time.Ticker
@@ -89,7 +95,7 @@ func (gt *GlobalTicker) trigger(routine *TickerRoutine) bool {
 	t := gt.ticker
 	lastTicker := atomic.LoadUint64(&routine.lastTicker)
 
-	if atomic.LoadInt32(&routine.status) != RUNNING {
+	if atomic.LoadInt32(&routine.status) != running {
 		return false
 	}
 
@@ -106,7 +112,7 @@ func (gt *GlobalTicker) routine() {
 		gt.ticker++
 		gt.routines.Range(func(key, value interface{}) bool {
 			rt := value.(*TickerRoutine)
-			if (atomic.LoadInt32(&rt.status) == RUNNING && gt.ticker-rt.lastTicker >= uint64(rt.interval)) || atomic.LoadInt32(&rt.triggerNextTick) == 1 {
+			if (atomic.LoadInt32(&rt.status) == running && gt.ticker-rt.lastTicker >= uint64(rt.interval)) || atomic.LoadInt32(&rt.triggerNextTick) == 1 {
 				atomic.CompareAndSwapInt32(&rt.triggerNextTick, 1, 0)
 				go gt.trigger(rt)
 			}
@@ -115,22 +121,26 @@ func (gt *GlobalTicker) routine() {
 	}
 }
 
+// RegisterPeriodicRoutine registers a specified periodic task to the scheduler instance.
+// The task denoted by the routine param will be executed every interval heartbeats (in seconds)
 func (gt *GlobalTicker) RegisterPeriodicRoutine(name string, routine RoutineFunc, interval uint32) {
 	if rt := gt.getRoutine(name); rt != nil {
 		return
 	}
 	r := &TickerRoutine{
-		rtype:           rtypePreiodic,
+		rType:           rTypePeriodic,
 		interval:        interval,
 		handler:         routine,
 		lastTicker:      gt.ticker,
 		id:              name,
-		status:          STOPPED,
+		status:          stopped,
 		triggerNextTick: 0,
 	}
 	gt.addRoutine(name, r)
 }
 
+// RegisterOneTimeRoutine registers a specified once-task to the scheduler instance.
+// It will be executed after the given heartbeats (in seconds) denoted by delay
 func (gt *GlobalTicker) RegisterOneTimeRoutine(name string, routine RoutineFunc, delay uint32) {
 	if rt := gt.getRoutine(name); rt != nil {
 		rt.lastTicker = gt.ticker
@@ -138,12 +148,12 @@ func (gt *GlobalTicker) RegisterOneTimeRoutine(name string, routine RoutineFunc,
 	}
 
 	r := &TickerRoutine{
-		rtype:           rtypeOneTime,
+		rType:           rTypeOneTime,
 		interval:        delay,
 		handler:         routine,
 		lastTicker:      gt.ticker,
 		id:              name,
-		status:          RUNNING,
+		status:          running,
 		triggerNextTick: 0,
 	}
 	gt.addRoutine(name, r)
@@ -153,29 +163,34 @@ func (gt *GlobalTicker) RemoveRoutine(name string) {
 	gt.routines.Delete(name)
 }
 
+// StartTickerRoutine starts the specified routine.
+// Note that, the task won't work if this function wasn't called after registered
 func (gt *GlobalTicker) StartTickerRoutine(name string, triggerNextTicker bool) {
 	routine := gt.getRoutine(name)
 	if routine == nil {
 		return
 	}
 	atomic.CompareAndSwapInt32(&routine.triggerNextTick, 0, 1)
-	atomic.CompareAndSwapInt32(&routine.status, STOPPED, RUNNING)
+	atomic.CompareAndSwapInt32(&routine.status, stopped, running)
 }
 
+// StartAndTriggerRoutine starts the specified routine.
+// Note that, the task won't work if this function wasn't called after registered
 func (gt *GlobalTicker) StartAndTriggerRoutine(name string) {
 	routine := gt.getRoutine(name)
 	if routine == nil {
 		return
 	}
 
-	atomic.CompareAndSwapInt32(&routine.status, STOPPED, RUNNING)
+	atomic.CompareAndSwapInt32(&routine.status, stopped, running)
 }
 
+// StopTickerRoutine stops the specified task
 func (gt *GlobalTicker) StopTickerRoutine(name string) {
 	routine := gt.getRoutine(name)
 	if routine == nil {
 		return
 	}
 
-	atomic.CompareAndSwapInt32(&routine.status, RUNNING, STOPPED)
+	atomic.CompareAndSwapInt32(&routine.status, running, stopped)
 }

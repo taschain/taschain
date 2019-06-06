@@ -143,7 +143,7 @@ func (s *Server) serveRequest(codec ServerCodec, singleShot bool, options CodecO
 		if err != nil {
 
 			if err.Error() != "EOF" {
-				common.DefaultLogger.Debug(fmt.Sprintf("read error %v\n", err))
+				common.DefaultLogger.Errorf(fmt.Sprintf("read error %v\n", err))
 				codec.Write(codec.CreateErrorResponse(nil, err))
 			}
 

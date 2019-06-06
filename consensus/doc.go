@@ -13,25 +13,5 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-/*
-	Package serialize is used gob to serialize object
-*/
-package serialize
-
-import (
-	"bytes"
-	"encoding/gob"
-	"io"
-)
-
-func Decode(r io.Reader, val interface{}) error {
-	decoder := gob.NewDecoder(r)
-	if err := decoder.Decode(val); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeBytes(b []byte, val interface{}) error {
-	return Decode(bytes.NewBuffer(b), val)
-}
+// Package consensus implements the chiron consensus algorithm, including the bls framework and the vrf functions
+package consensus

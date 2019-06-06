@@ -64,7 +64,6 @@ func RandomG1(r io.Reader) (*big.Int, *G1, error) {
 	return k, new(G1).ScalarBaseMult(k), nil
 }
 
-//获得x,y坐标(仿射坐标)
 func (g *G1) getXY() (*gfP, *gfP, bool) {
 	p := &curvePoint{}
 	p.Set(g.p)
@@ -73,24 +72,21 @@ func (g *G1) getXY() (*gfP, *gfP, bool) {
 	return &p.x, &p.y, p.y.IsOdd()
 }
 
-//通过x坐标恢复出点(x,y)
 func (g *G1) setX(px *gfP, isOdd bool) error {
-	//计算t=x³+b in gfP.
+	//compute t=x³+b in gfP.
 	pt := &gfP{}
 	gfpMul(pt, px, px)
 	gfpMul(pt, pt, px)
 	gfpAdd(pt, pt, curveB)
 	montDecode(pt, pt)
 
-	//t转化为big.Int类型，再计算y=sqrt(t).
+	//compute y=sqrt(t).
 	y := &big.Int{}
 	buf := make([]byte, 32)
 	pt.Marshal(buf)
-	//fmt.Println("buf:", len(buf))
 	y.SetBytes(buf)
 	y.ModSqrt(y, P)
 
-	//y转化为gfP类型
 	py := &gfP{}
 	yBytes := y.Bytes()
 	if len(yBytes) == 32 {

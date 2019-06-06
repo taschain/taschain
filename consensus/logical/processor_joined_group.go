@@ -30,17 +30,19 @@ import (
 	"github.com/taschain/taschain/storage/tasdb"
 )
 
+// key suffix definition when store the group infos to db
 const (
 	suffixSignKey = "_signKey"
 	suffixGInfo   = "_gInfo"
 )
 
-// JoinedGroup is a castor group participating in the current node (initialized)
+// JoinedGroup stores group-related infos the current node joins in.
+// Note that, nodes outside the group don't care the infos
 type JoinedGroup struct {
 	GroupID groupsig.ID        // Group ID
-	SignKey groupsig.Seckey    // Miner signature private key
-	GroupPK groupsig.Pubkey    // Group public key (backup, which can be taken from the global group)
-	Members groupsig.PubkeyMap // Group member signature public key
+	SignKey groupsig.Seckey    // Miner signature private key related to the group
+	GroupPK groupsig.Pubkey    // Group public key (backup, which can be got from the global group)
+	Members groupsig.PubkeyMap // Group related public keys of all members
 	gHash   common.Hash
 	lock    sync.RWMutex
 }
@@ -101,6 +103,7 @@ func (jg *JoinedGroup) getMemberMap() groupsig.PubkeyMap {
 	return m
 }
 
+// BelongGroups stores all group-related infos which is important to the members
 type BelongGroups struct {
 	cache    *lru.Cache
 	priKey   common.PrivateKey
@@ -232,13 +235,13 @@ func (bg *BelongGroups) joinedGroup2DBIfConfigExists(file string) bool {
 	stdLogger.Debugf("load belongGroups from %v", file)
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
-		stdLogger.Debugf("load file %v fail, err %v", file, err.Error())
+		stdLogger.Errorf("load file %v fail, err %v", file, err.Error())
 		return false
 	}
 	var gs []*JoinedGroup
 	err = json.Unmarshal(data, &gs)
 	if err != nil {
-		stdLogger.Debugf("unmarshal belongGroup store file %v fail, err %v", file, err.Error())
+		stdLogger.Errorf("unmarshal belongGroup store file %v fail, err %v", file, err.Error())
 		return false
 	}
 	n := 0
@@ -289,7 +292,7 @@ func (bg *BelongGroups) addJoinedGroup(jg *JoinedGroup) {
 	if !bg.ready() {
 		bg.initStore()
 	}
-	newBizLog("addJoinedGroup").log("add gid=%v", jg.GroupID.ShortS())
+	newBizLog("addJoinedGroup").debug("add gid=%v", jg.GroupID.ShortS())
 	bg.cache.Add(jg.GroupID.GetHexString(), jg)
 	bg.storeJoinedGroup(jg)
 }
@@ -320,8 +323,8 @@ func (p *Processor) genBelongGroupStoreFile() string {
 	return storeFile
 }
 
-// GetMemberSignPubKey get the signature public key of the member in the group
-func (p Processor) GetMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pubkey, ok bool) {
+// getMemberSignPubKey get the signature public key of the member in the group
+func (p Processor) getMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pubkey, ok bool) {
 	if jg := p.belongGroups.getJoinedGroup(gmi.Gid); jg != nil {
 		pk, ok = jg.getMemSignPK(gmi.UID)
 		if !ok && !p.GetMinerID().IsEqual(gmi.UID) {
@@ -335,7 +338,7 @@ func (p Processor) GetMemberSignPubKey(gmi *model.GroupMinerID) (pk groupsig.Pub
 //			gid : group ID (not dummy id)
 //			sk: user's group member signature private key
 func (p *Processor) joinGroup(g *JoinedGroup) {
-	stdLogger.Debugf("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
+	stdLogger.Infof("begin Processor(%v)::joinGroup, gid=%v...\n", p.getPrefix(), g.GroupID.ShortS())
 	if !p.IsMinerGroup(g.GroupID) {
 		p.belongGroups.addJoinedGroup(g)
 	}
@@ -365,7 +368,7 @@ func (p *Processor) askSignPK(gmi *model.GroupMinerID) {
 	}
 	ski := model.NewSecKeyInfo(p.GetMinerID(), p.mi.GetDefaultSecKey())
 	if msg.GenSign(ski, msg) {
-		newBizLog("AskSignPK").log("ask sign pk message, receiver %v, gid %v", gmi.UID.ShortS(), gmi.Gid.ShortS())
+		newBizLog("AskSignPK").debug("ask sign pk message, receiver %v, gid %v", gmi.UID.ShortS(), gmi.Gid.ShortS())
 		p.NetServer.AskSignPkMessage(msg, gmi.UID)
 	}
 }

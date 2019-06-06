@@ -23,7 +23,7 @@ import (
 	"github.com/taschain/taschain/consensus/groupsig"
 )
 
-// bizLog is Business standard output log
+// bizLog is Business standard output info
 type bizLog struct {
 	biz string
 }
@@ -32,12 +32,20 @@ func newBizLog(biz string) *bizLog {
 	return &bizLog{biz: biz}
 }
 
-func (bl *bizLog) log(format string, p ...interface{}) {
+func (bl *bizLog) info(format string, p ...interface{}) {
 	stdLogger.Infof("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
 func (bl *bizLog) debug(format string, p ...interface{}) {
 	stdLogger.Debugf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
+}
+
+func (bl *bizLog) warn(format string, p ...interface{}) {
+	stdLogger.Warnf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
+}
+
+func (bl *bizLog) error(format string, p ...interface{}) {
+	stdLogger.Errorf("%v:%v", bl.biz, fmt.Sprintf(format, p...))
 }
 
 type rtLog struct {
@@ -63,7 +71,7 @@ func (r *rtLog) end() {
 	stdLogger.Debugf(fmt.Sprintf("%v:%v cost ", time.Now().Format(TimestampLayout), r.key))
 }
 
-// msgTraceLog encapsulate message tracking log, recorded to file
+// msgTraceLog encapsulate message tracking info, recorded to file
 type msgTraceLog struct {
 	mtype  string // Message type
 	key    string // Keyword

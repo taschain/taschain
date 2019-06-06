@@ -17,9 +17,9 @@ package rpc
 
 import (
 	"context"
+	"github.com/taschain/taschain/cmd/gtas/cli/ipc_win_lib"
 	"net"
 	"time"
-	"github.com/taschain/taschain/cmd/gtas/cli/ipc_win_lib"
 )
 
 // defaultPipeDialTimeout is used if the dialing context has no deadline. It is much smaller than the

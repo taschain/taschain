@@ -14,24 +14,10 @@
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /*
-	Package serialize is used gob to serialize object
+Package tvm implements the TVM bridge.
+
+TVM is TASChain Virtual Machine.
+
+TASChain Contract language is Python, execute at TVM.
 */
-package serialize
-
-import (
-	"bytes"
-	"encoding/gob"
-	"io"
-)
-
-func Decode(r io.Reader, val interface{}) error {
-	decoder := gob.NewDecoder(r)
-	if err := decoder.Decode(val); err != nil {
-		return err
-	}
-	return nil
-}
-
-func DecodeBytes(b []byte, val interface{}) error {
-	return Decode(bytes.NewBuffer(b), val)
-}
+package tvm

@@ -26,11 +26,12 @@ import (
 	"github.com/taschain/taschain/storage/tasdb"
 )
 
-func init(){
+func init() {
 	common.InitConf("../../cmd/gtas/cli/tas.ini")
 	instance := common.GlobalConf.GetString("instance", "index", "")
 	debugLog = taslog.GetLoggerByIndex(taslog.CoreLogConfig, instance)
 }
+
 type StateSuite struct {
 	db    *tasdb.MemDatabase
 	state *AccountDB

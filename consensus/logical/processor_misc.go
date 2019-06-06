@@ -24,7 +24,7 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-// Start start a global timer, start from this function.
+// Start starts miner process
 func (p *Processor) Start() bool {
 	p.Ticker.RegisterPeriodicRoutine(p.getCastCheckRoutineName(), p.checkSelfCastRoutine, 1)
 	p.Ticker.RegisterPeriodicRoutine(p.getReleaseRoutineName(), p.releaseRoutine, 2)
@@ -57,7 +57,7 @@ func (p *Processor) prepareMiner() {
 	iterator := p.GroupChain.NewIterator()
 	groups := make([]*StaticGroupInfo, 0)
 	for coreGroup := iterator.Current(); coreGroup != nil; coreGroup = iterator.MovePre() {
-		stdLogger.Infof("get group from core, id=%+v", coreGroup.Header)
+		stdLogger.Debugf("get group from core, id=%+v", coreGroup.Header)
 		if coreGroup.ID == nil || len(coreGroup.ID) == 0 {
 			continue
 		}
@@ -73,16 +73,16 @@ func (p *Processor) prepareMiner() {
 
 		}
 		groups = append(groups, sgi)
-		stdLogger.Infof("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.getGroupHeader().WorkHeight, topHeight)
+		stdLogger.Debugf("load group=%v, beginHeight=%v, topHeight=%v\n", sgi.GroupID.ShortS(), sgi.getGroupHeader().WorkHeight, topHeight)
 		if sgi.MemExist(p.GetMinerID()) {
 			jg := p.belongGroups.getJoinedGroup(sgi.GroupID)
 			if jg == nil {
-				stdLogger.Infof("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
+				stdLogger.Debugf("prepareMiner get join group fail, gid=%v\n", sgi.GroupID.ShortS())
 			} else {
 				p.joinGroup(jg)
 			}
 			if sgi.GInfo.GI.CreateHeight() == 0 {
-				stdLogger.Infof("genesis member start...id %v", p.GetMinerID().GetHexString())
+				stdLogger.Debugf("genesis member start...id %v", p.GetMinerID().GetHexString())
 				p.genesisMember = true
 			}
 		}
@@ -96,14 +96,17 @@ func (p *Processor) prepareMiner() {
 	stdLogger.Infof("prepare finished")
 }
 
+// Ready check if the processor engine is initialized and ready for message processing
 func (p *Processor) Ready() bool {
 	return p.ready
 }
 
+// GetCastQualifiedGroups returns all group infos can work at the given height through the cached group slices
 func (p *Processor) GetCastQualifiedGroups(height uint64) []*StaticGroupInfo {
 	return p.globalGroups.GetCastQualifiedGroups(height)
 }
 
+// Finalize do some clean and release work after stop mining
 func (p *Processor) Finalize() {
 	if p.belongGroups != nil {
 		p.belongGroups.close()
@@ -121,7 +124,7 @@ func (p *Processor) setVrfWorker(vrf *vrfWorker) {
 	p.vrf.Store(vrf)
 }
 
-func (p *Processor) GetSelfMinerDO() *model.SelfMinerDO {
+func (p *Processor) getSelfMinerDO() *model.SelfMinerDO {
 	md := p.minerReader.getProposeMiner(p.GetMinerID())
 	if md != nil {
 		p.mi.MinerDO = *md
@@ -137,6 +140,7 @@ func (p *Processor) canProposalAt(h uint64) bool {
 	return miner.CanCastAt(h)
 }
 
+// GetJoinedWorkGroupNums returns both work-group and avail-group num of current node
 func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 	h := p.MainChain.QueryTopBlock().Height
 	groups := p.globalGroups.GetAvailableGroups(h)
@@ -152,12 +156,13 @@ func (p *Processor) GetJoinedWorkGroupNums() (work, avail int) {
 	return
 }
 
+// CalcBlockHeaderQN calculates the qn value of the given block header
 func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 	pi := base.VRFProve(bh.ProveValue)
 	castor := groupsig.DeserializeID(bh.Castor)
 	miner := p.minerReader.getProposeMiner(castor)
 	if miner == nil {
-		stdLogger.Infof("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
+		stdLogger.Warnf("CalcBHQN getMiner nil id=%v, bh=%v", castor.ShortS(), bh.Hash.ShortS())
 		return 0
 	}
 	pre := p.MainChain.QueryBlockHeaderByHash(bh.PreHash)
@@ -169,6 +174,7 @@ func (p *Processor) CalcBlockHeaderQN(bh *types.BlockHeader) uint64 {
 	return qn
 }
 
+// GetVrfThreshold returns the vrf threshold of current node under the specified stake
 func (p *Processor) GetVrfThreshold(stake uint64) float64 {
 	totalStake := p.minerReader.getTotalStake(p.MainChain.Height(), true)
 	if totalStake == 0 {
@@ -179,6 +185,7 @@ func (p *Processor) GetVrfThreshold(stake uint64) float64 {
 	return f
 }
 
+// GetJoinGroupInfo returns group-related info current node joined in with the given gid(in hex string)
 func (p *Processor) GetJoinGroupInfo(gid string) *JoinedGroup {
 	var id groupsig.ID
 	id.SetHexString(gid)
@@ -186,6 +193,7 @@ func (p *Processor) GetJoinGroupInfo(gid string) *JoinedGroup {
 	return jg
 }
 
+// GetAllMinerDOs returns all available miner infos
 func (p *Processor) GetAllMinerDOs() []*model.MinerDO {
 	h := p.MainChain.Height()
 	dos := make([]*model.MinerDO, 0)
@@ -197,11 +205,12 @@ func (p *Processor) GetAllMinerDOs() []*model.MinerDO {
 	return dos
 }
 
+// GetCastQualifiedGroupsFromChain returns all group infos can work at the given height through the group chain
 func (p *Processor) GetCastQualifiedGroupsFromChain(height uint64) []*types.Group {
 	return p.globalGroups.getCastQualifiedGroupFromChains(height)
 }
 
-func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
+func (p *Processor) checkProveRoot(bh *types.BlockHeader) (bool, error) {
 	//exist, ok, err := p.proveChecker.getPRootResult(bh.Hash)
 	//if exist {
 	//	return ok, err
@@ -221,11 +230,10 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	//slog.AddStage("getGroup")
 	//group := p.GetGroup(gid)
 	//slog.EndStage()
-	//if !group.GroupID.IsValid() {
+	//if !group.GroupID.isValid() {
 	//	return false, errors.New(fmt.Sprintf("group is invalid, gid %v", gid))
 	//}
 
-	////这个还是很耗时
 	//slog.AddStage("genProveHash")
 	//if _, root := p.proveChecker.genProveHashs(bh.Height, preBH.Random, group.GetMembers()); root == bh.ProveRoot {
 	//	slog.EndStage()
@@ -238,6 +246,7 @@ func (p *Processor) CheckProveRoot(bh *types.BlockHeader) (bool, error) {
 	return true, nil
 }
 
+// DebugPrintCheckProves print some message for debug use
 func (p *Processor) DebugPrintCheckProves(preBH *types.BlockHeader, height uint64, gid groupsig.ID) []string {
 
 	group := p.GetGroup(gid)

@@ -13,25 +13,32 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-/*
-	Package serialize is used gob to serialize object
-*/
-package serialize
+package common
 
 import (
-	"bytes"
-	"encoding/gob"
-	"io"
+	"fmt"
+	"testing"
 )
 
-func Decode(r io.Reader, val interface{}) error {
-	decoder := gob.NewDecoder(r)
-	if err := decoder.Decode(val); err != nil {
-		return err
+func TestByteToInt(t *testing.T) {
+
+	var a uint32
+	a = 16
+	bytes := UInt32ToByte(a)
+	i := ByteToInt(bytes)
+
+	if i == 16 {
+		fmt.Printf("OK")
+	} else {
+		fmt.Errorf("Failed")
 	}
-	return nil
 }
 
-func DecodeBytes(b []byte, val interface{}) error {
-	return Decode(bytes.NewBuffer(b), val)
+func TestInt64ToByte(t *testing.T) {
+	i := int32(2222)
+	bs := Int32ToByte(i)
+	t.Log(bs)
+
+	i2 := ByteToInt32(bs)
+	t.Log(i2)
 }

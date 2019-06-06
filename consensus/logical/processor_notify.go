@@ -23,7 +23,6 @@ import (
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/middleware/notify"
 	"github.com/taschain/taschain/middleware/types"
-	"github.com/taschain/taschain/taslog"
 )
 
 func (p *Processor) triggerFutureVerifyMsg(bh *types.BlockHeader) {
@@ -51,12 +50,12 @@ func (p *Processor) triggerFutureRewardSign(bh *types.BlockHeader) {
 	mtype := "CMCRSR-Future"
 	for _, msg := range futures {
 		blog := newBizLog(mtype)
-		slog := taslog.NewSlowLog(mtype, 0.5)
-		send, err := p.signCastRewardReq(msg.(*model.CastRewardTransSignReqMessage), bh, slog)
-		blog.log("send %v, result %v", send, err)
+		send, err := p.signCastRewardReq(msg.(*model.CastRewardTransSignReqMessage), bh)
+		blog.debug("send %v, result %v", send, err)
 	}
 }
 
+// onBlockAddSuccess handle the event of block add-on-chain
 func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	if !p.Ready() {
 		return
@@ -86,6 +85,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 		vrf.markSuccess()
 	}
 
+	// start to check next proposal routine immediately
 	go p.checkSelfCastRoutine()
 
 	p.triggerFutureVerifyMsg(bh)
@@ -94,6 +94,7 @@ func (p *Processor) onBlockAddSuccess(message notify.Message) {
 	p.blockContexts.removeProposed(bh.Hash)
 }
 
+// onGroupAddSuccess handles the event of group add-on-chain
 func (p *Processor) onGroupAddSuccess(message notify.Message) {
 	group := message.GetData().(*types.Group)
 	stdLogger.Infof("groupAddEventHandler receive message, groupId=%v, workheight=%v\n", groupsig.DeserializeID(group.ID).GetHexString(), group.Header.WorkHeight)
@@ -112,7 +113,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 
 	// The current block height has exceeded the effective height, group may have a problem
 	if beginHeight > 0 && beginHeight <= topHeight {
-		stdLogger.Errorf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
+		stdLogger.Warnf("group add after can work! gid=%v, gheight=%v, beginHeight=%v, currentHeight=%v", sgi.GroupID.ShortS(), group.GroupHeight, beginHeight, topHeight)
 		pre := p.MainChain.QueryBlockHeaderFloor(beginHeight - 1)
 		if pre == nil {
 			panic(fmt.Sprintf("block nil at height %v", beginHeight-1))
@@ -125,7 +126,7 @@ func (p *Processor) onGroupAddSuccess(message notify.Message) {
 			if bh.PreHash != pre.Hash {
 				panic(fmt.Sprintf("pre error:bh %v, prehash %v, height %v, real pre hash %v height %v", bh.Hash.Hex(), bh.PreHash.Hex(), bh.Height, pre.Hash.Hex(), pre.Height))
 			}
-			gid := p.CalcVerifyGroupFromChain(pre, bh.Height)
+			gid := p.calcVerifyGroupFromChain(pre, bh.Height)
 			if !bytes.Equal(gid.Serialize(), bh.GroupID) {
 				old := p.MainChain.QueryTopBlock()
 				stdLogger.Errorf("adjust top block: old %v %v %v, new %v %v %v", old.Hash.Hex(), old.PreHash.Hex(), old.Height, pre.Hash.Hex(), pre.PreHash.Hex(), pre.Height)

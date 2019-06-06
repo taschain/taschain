@@ -28,6 +28,7 @@ import (
 	"github.com/taschain/taschain/network"
 )
 
+// NetworkServerImpl implements a network transmission interface for various types of data.
 type NetworkServerImpl struct {
 	net network.Network
 }
@@ -50,11 +51,13 @@ func id2String(ids []groupsig.ID) []string {
 Group network management
 */
 
+// BuildGroupNet builds the group net in local for inter-group communication
 func (ns *NetworkServerImpl) BuildGroupNet(gid string, mems []groupsig.ID) {
 	memStrs := id2String(mems)
 	ns.net.BuildGroupNet(gid, memStrs)
 }
 
+// ReleaseGroupNet releases the group net in local
 func (ns *NetworkServerImpl) ReleaseGroupNet(gid string) {
 	ns.net.DissolveGroupNet(gid)
 }
@@ -67,7 +70,8 @@ func (ns *NetworkServerImpl) send2Self(self groupsig.ID, m network.Message) {
 Group initialization
 */
 
-// SendGroupInitMessage broadcast group initialization message
+// SendGroupInitMessage send group initialization message to the corresponding members
+// Note that the group net is unavailable currently, so p2p transmission is required
 func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMessage) {
 	body, e := marshalConsensusGroupRawMessage(grm)
 	if e != nil {
@@ -83,8 +87,7 @@ func (ns *NetworkServerImpl) SendGroupInitMessage(grm *model.ConsensusGroupRawMe
 	}
 }
 
-// SendKeySharePiece means intra-group broadcast key, for each
-// directed transmission, intra-group broadcast
+// SendKeySharePiece transit the share piece to each other of the group members
 func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMessage) {
 
 	body, e := marshalConsensusSharePieceMessage(spm)
@@ -103,7 +106,7 @@ func (ns *NetworkServerImpl) SendKeySharePiece(spm *model.ConsensusSharePieceMes
 	logger.Debugf("SendKeySharePiece to id:%s,hash:%s, gHash:%v, cost time:%v", spm.Dest.GetHexString(), m.Hash(), spm.GHash.Hex(), time.Since(begin))
 }
 
-// SendSignPubKey means group broadcast signature public key
+// SendSignPubKey broadcast the message among the group members
 func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessage) {
 	body, e := marshalConsensusSignPubKeyMessage(spkm)
 	if e != nil {
@@ -120,8 +123,8 @@ func (ns *NetworkServerImpl) SendSignPubKey(spkm *model.ConsensusSignPubKeyMessa
 	logger.Debugf("SendSignPubKey hash:%s, dummyId:%v, cost time:%v", m.Hash(), spkm.GHash.Hex(), time.Since(begin))
 }
 
-// BroadcastGroupInfo means group initialization completed,
-// network broadcast group information
+// BroadcastGroupInfo means group initialization completed and then issue the network-wide broadcast
+// It is slow and expensive
 func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedMessage) {
 	body, e := marshalConsensusGroupInitedMessage(cgm)
 	if e != nil {
@@ -142,9 +145,8 @@ func (ns *NetworkServerImpl) BroadcastGroupInfo(cgm *model.ConsensusGroupInitedM
 Group coinage
 */
 
-// SendCastVerify means the coinage node completes the coinage,
-// sends the blockheader signature, and sends it to other nodes
-// in the group for verification. Broadcast within a group
+// SendCastVerify happens at the proposal role.
+// It send the message contains the proposed-block to all of the members of the verify-group for the verification consensus
 func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gb *GroupBrief, proveHashs []common.Hash) {
 	bh := types.BlockHeaderToPb(&ccm.BH)
 	si := signDataToPb(&ccm.SI)
@@ -161,9 +163,7 @@ func (ns *NetworkServerImpl) SendCastVerify(ccm *model.ConsensusCastMessage, gb 
 	}
 }
 
-// SendVerifiedCast means the intra-group node starts its own signature
-// after the verification is passed, broadcasts the verification block
-// and broadcasts within the group. Verify not pass, keep silent
+// SendVerifiedCast broadcast the signed message for specified block proposal among group members
 func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage, receiver groupsig.ID) {
 	body, e := marshalConsensusVerifyMessage(cvm)
 	if e != nil {
@@ -181,8 +181,9 @@ func (ns *NetworkServerImpl) SendVerifiedCast(cvm *model.ConsensusVerifyMessage,
 	logger.Debugf("[peer]send VARIFIED_CAST_MSG,hash:%s", cvm.BlockHash.Hex())
 }
 
-// BroadcastNewBlock means the whole network broadcasts the block
-// signed by the group.
+// BroadcastNewBlock means network-wide broadcast for the generated block.
+// Based on bandwidth and performance considerations, it only transits the block to all of the proposers and
+// the next verify-group
 func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage, group *GroupBrief) {
 	body, e := types.MarshalBlock(&cbm.Block)
 	if e != nil {
@@ -223,6 +224,7 @@ func (ns *NetworkServerImpl) BroadcastNewBlock(cbm *model.ConsensusBlockMessage,
 	core.Logger.Debugf("Broad new block %d-%d,hash:%v, spread over group:%s", cbm.Block.Header.Height, cbm.Block.Header.TotalQN, cbm.Block.Header.Hash.Hex(), nextVerifyGroupID)
 }
 
+// AnswerSignPkMessage sends the group-related public key request to requester
 func (ns *NetworkServerImpl) AnswerSignPkMessage(msg *model.ConsensusSignPubKeyMessage, receiver groupsig.ID) {
 	body, e := marshalConsensusSignPubKeyMessage(msg)
 	if e != nil {
@@ -237,6 +239,7 @@ func (ns *NetworkServerImpl) AnswerSignPkMessage(msg *model.ConsensusSignPubKeyM
 	logger.Debugf("AnswerSignPkMessage %v, hash:%s, dummyId:%v, cost time:%v", receiver.GetHexString(), m.Hash(), msg.GHash.Hex(), time.Since(begin))
 }
 
+// AskSignPkMessage sends a request for group-related public key to the given receiver
 func (ns *NetworkServerImpl) AskSignPkMessage(msg *model.ConsensusSignPubkeyReqMessage, receiver groupsig.ID) {
 	body, e := marshalConsensusSignPubKeyReqMessage(msg)
 	if e != nil {
@@ -255,7 +258,7 @@ func (ns *NetworkServerImpl) AskSignPkMessage(msg *model.ConsensusSignPubkeyReqM
 Pre-establishment consensus
 */
 
-// SendCreateGroupRawMessage start building a group
+// SendCreateGroupRawMessage sends the group-create raw message to other members of the group
 func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreateGroupRawMessage) {
 	body, e := marshalConsensusCreateGroupRawMessage(msg)
 	if e != nil {
@@ -268,6 +271,7 @@ func (ns *NetworkServerImpl) SendCreateGroupRawMessage(msg *model.ConsensusCreat
 	go ns.net.SpreadAmongGroup(groupID.GetHexString(), m)
 }
 
+// SendCreateGroupSignMessage sends signed message for the group-create raw message to the requester
 func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCreateGroupSignMessage, parentGid groupsig.ID) {
 	body, e := marshalConsensusCreateGroupSignMessage(msg)
 	if e != nil {
@@ -279,6 +283,7 @@ func (ns *NetworkServerImpl) SendCreateGroupSignMessage(msg *model.ConsensusCrea
 	go ns.net.SendWithGroupRelay(msg.Launcher.GetHexString(), parentGid.GetHexString(), m)
 }
 
+// SendCastRewardSignReq sends bonus transaction sign request to other members of the group
 func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSignReqMessage) {
 	body, e := marshalCastRewardTransSignReqMessage(msg)
 	if e != nil {
@@ -294,6 +299,7 @@ func (ns *NetworkServerImpl) SendCastRewardSignReq(msg *model.CastRewardTransSig
 	ns.net.SpreadAmongGroup(gid.GetHexString(), m)
 }
 
+// SendCastRewardSign sends signed message of the bonus transaction to the requester by group relaying
 func (ns *NetworkServerImpl) SendCastRewardSign(msg *model.CastRewardTransSignMessage) {
 	body, e := marshalCastRewardTransSignMessage(msg)
 	if e != nil {
@@ -305,6 +311,7 @@ func (ns *NetworkServerImpl) SendCastRewardSign(msg *model.CastRewardTransSignMe
 	ns.net.SendWithGroupRelay(msg.Launcher.GetHexString(), msg.GroupID.GetHexString(), m)
 }
 
+// SendGroupPingMessage sends ping message to the given receiver
 func (ns *NetworkServerImpl) SendGroupPingMessage(msg *model.CreateGroupPingMessage, receiver groupsig.ID) {
 	body, e := marshalCreateGroupPingMessage(msg)
 	if e != nil {
@@ -316,6 +323,7 @@ func (ns *NetworkServerImpl) SendGroupPingMessage(msg *model.CreateGroupPingMess
 	ns.net.Send(receiver.GetHexString(), m)
 }
 
+// SendGroupPongMessage sends pong response to the group which the requester belongs to
 func (ns *NetworkServerImpl) SendGroupPongMessage(msg *model.CreateGroupPongMessage, group *GroupBrief) {
 	body, e := marshalCreateGroupPongMessage(msg)
 	if e != nil {
@@ -329,6 +337,7 @@ func (ns *NetworkServerImpl) SendGroupPongMessage(msg *model.CreateGroupPongMess
 	ns.net.SpreadToGroup(group.Gid.GetHexString(), mems, m, msg.SI.DataHash.Bytes())
 }
 
+// ReqSharePiece requests share piece from the given id
 func (ns *NetworkServerImpl) ReqSharePiece(msg *model.ReqSharePieceMessage, receiver groupsig.ID) {
 	body, e := marshalSharePieceReqMessage(msg)
 	if e != nil {
@@ -340,6 +349,7 @@ func (ns *NetworkServerImpl) ReqSharePiece(msg *model.ReqSharePieceMessage, rece
 	ns.net.Send(receiver.GetHexString(), m)
 }
 
+// ResponseSharePiece sends share piece to the requester
 func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMessage, receiver groupsig.ID) {
 	body, e := marshalSharePieceResponseMessage(msg)
 	if e != nil {
@@ -351,6 +361,7 @@ func (ns *NetworkServerImpl) ResponseSharePiece(msg *model.ResponseSharePieceMes
 	ns.net.Send(receiver.GetHexString(), m)
 }
 
+// ReqProposalBlock request block body from the target
 func (ns *NetworkServerImpl) ReqProposalBlock(msg *model.ReqProposalBlock, target string) {
 	body, e := marshalReqProposalBlockMessage(msg)
 	if e != nil {
@@ -362,6 +373,7 @@ func (ns *NetworkServerImpl) ReqProposalBlock(msg *model.ReqProposalBlock, targe
 	ns.net.Send(target, m)
 }
 
+// ResponseProposalBlock sends block body to the requester
 func (ns *NetworkServerImpl) ResponseProposalBlock(msg *model.ResponseProposalBlock, target string) {
 
 	body, e := marshalResponseProposalBlockMessage(msg)

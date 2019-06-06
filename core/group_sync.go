@@ -27,7 +27,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/taslog"
-	"github.com/taschain/taschain/utility"
 )
 
 const (
@@ -165,7 +164,7 @@ func (gs *groupSyncer) notifyNeighbor() bool {
 
 func (gs *groupSyncer) sendGroupHeightToNeighbor(gheight uint64) {
 	gs.logger.Debugf("Send local group height %d to neighbor!", gheight)
-	body := utility.UInt64ToByte(gheight)
+	body := common.UInt64ToByte(gheight)
 	message := network.Message{Code: network.GroupChainCountMsg, Body: body}
 	network.GetNetInstance().TransmitToNeighbor(message)
 }
@@ -174,7 +173,7 @@ func (gs *groupSyncer) groupHeightHandler(msg notify.Message) {
 	groupHeightMsg := notify.AsDefault(msg)
 
 	source := groupHeightMsg.Source()
-	height := utility.ByteToUInt64(groupHeightMsg.Body())
+	height := common.ByteToUInt64(groupHeightMsg.Body())
 	peerManagerImpl.heardFromPeer(source)
 
 	localGroupHeight := gs.gchain.Height()

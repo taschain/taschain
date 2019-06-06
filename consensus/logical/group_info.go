@@ -243,7 +243,7 @@ func (gg *GlobalGroups) AddStaticGroup(g *StaticGroupInfo) bool {
 	result := ""
 	blog := newBizLog("AddStaticGroup")
 	defer func() {
-		blog.log("id=%v, hash=%v, beginHeight=%v, result=%v\n", g.GroupID.ShortS(), g.getGroupHeader().Hash.ShortS(), g.getGroupHeader().WorkHeight, result)
+		blog.debug("id=%v, hash=%v, beginHeight=%v, result=%v\n", g.GroupID.ShortS(), g.getGroupHeader().Hash.ShortS(), g.getGroupHeader().WorkHeight, result)
 	}()
 
 	if _, ok := gg.gIndex[g.GroupID.GetHexString()]; !ok {
@@ -385,7 +385,7 @@ func (gg *GlobalGroups) getCastQualifiedGroupFromChains(height uint64) []*types.
 // SelectNextGroupFromChain determines the next verification group through the chained work-groups according to the previous random number.
 // The result is random and certain, and mostly should be the same as method SelectNextGroupFromCache
 //
-// This method can be used to compensate when the result of the calculation through the cache（method SelectNextGroupFromCache）
+// This method can be used to compensate when the result of the calculation through the cache(method SelectNextGroupFromCache)
 // does not match the expectation
 func (gg *GlobalGroups) SelectNextGroupFromChain(h common.Hash, height uint64) (groupsig.ID, error) {
 	quaulifiedGS := gg.getCastQualifiedGroupFromChains(height)

@@ -13,6 +13,8 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package logical implements the whole logic of the consensus engine.
+// Including the group manager process
 package logical
 
 import (
@@ -34,46 +36,43 @@ import (
 
 var ProcTestMode bool
 
-// Processor is witness processor
+// Processor is the consensus engine implementation struct that implements all the consensus logic
+// and contextual information needed in the consensus process
 type Processor struct {
-	joiningGroups *JoiningGroups // A group that has not completed initialization has been added
-	// (after the group initialization is completed, it is no longer needed).
-	// Member data process data within the group.
 
-	blockContexts *castBlockContexts
+	// group related info
+	joiningGroups *JoiningGroups // Group information in the process of being established joined by the current node
+	belongGroups  *BelongGroups  // Join (successful) group information (miner node data)
+	globalGroups  *GlobalGroups  // All available group infos, including groups can work currently or in the future
+	groupManager  *GroupManager  // Responsible for group creating process
 
-	globalGroups *GlobalGroups // Static information of the entire network group (including the group to be
-	// completed by the group, that is, the group with the group ID only DUMMY ID)
+	// miner releted
+	mi            *model.SelfMinerDO // Current miner information
+	genesisMember bool               // Whether current node is one of the genesis group members
+	minerReader   *MinerPoolReader   // Miner info reader
 
-	groupManager *GroupManager
+	// block generate related
+	blockContexts    *castBlockContexts   // Stores the proposal messages for proposal role and the verification context for verify roles
+	futureVerifyMsgs *FutureMessageHolder // Store the verification messages non-processable because of absence of the proposal message
+	futureRewardReqs *FutureMessageHolder // Store the reward sign request messages non-processable because of absence of the corresponding block
+	proveChecker     *proveChecker        // Check the vrf prove and the full-book
 
-	mi           *model.SelfMinerDO // Miner information not related to the group
-	belongGroups *BelongGroups      // Join (successful) group information (miner node data)
-	// Which (in the chained, castable) group the current ID participates in,
-	// group id_str-> private data in the group (invisible outside the group
-	// or accelerated cache)
-	GroupProcs map[string]*Processor // Test Data
-	Ticker     *ticker.GlobalTicker  // Global timer, started after group initialization is complete
+	Ticker *ticker.GlobalTicker // Global timer responsible for some cron tasks
 
-	futureVerifyMsgs *FutureMessageHolder // Store the verification message of the previous block
-	futureRewardReqs *FutureMessageHolder // Block redemption transaction signature request that is still unchained
+	ready bool // Whether it has been initialized
 
-	proveChecker *proveChecker
+	MainChain  core.BlockChain  // Blockchain access interface
+	GroupChain *core.GroupChain // Groupchain access interface
 
-	ready         bool // Whether it has been initialized
-	genesisMember bool
+	vrf atomic.Value // VrfWorker
 
-	MainChain  core.BlockChain // Blockchain interface
-	GroupChain *core.GroupChain
+	NetServer net.NetworkServer  // Responsible for network messaging
+	conf      common.ConfManager // The config
 
-	minerReader *MinerPoolReader
-	vrf         atomic.Value // VrfWorker
+	isCasting int32 // Proposal check status: 0 idle, 1 casting
 
-	NetServer net.NetworkServer
-	conf      common.ConfManager
-	isCasting int32 // 0 idle, 1 casting
+	ts time.TimeService // Network-wide time service, regardless of local time
 
-	ts time.TimeService
 }
 
 func (p Processor) getPrefix() string {
@@ -89,11 +88,7 @@ func (p Processor) GetPubkeyInfo() model.PubKeyInfo {
 	return model.NewPubKeyInfo(p.mi.GetMinerID(), p.mi.GetDefaultPubKey())
 }
 
-func (p *Processor) setProcs(gps map[string]*Processor) {
-	p.GroupProcs = gps
-}
-
-// Init initialize miner data (not related to group)
+// Init initialize the process engine
 func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	p.ready = false
 	p.conf = conf
@@ -134,7 +129,7 @@ func (p *Processor) Init(mi model.SelfMinerDO, conf common.ConfManager) bool {
 	return true
 }
 
-// GetMinerID get miner ID (not related to group)
+// GetMinerID get current miner ID
 func (p Processor) GetMinerID() groupsig.ID {
 	return p.mi.GetMinerID()
 }
@@ -143,7 +138,7 @@ func (p Processor) GetMinerInfo() *model.MinerDO {
 	return &p.mi.MinerDO
 }
 
-// isCastLegal check if the ingot group is legal
+// isCastLegal check if the block header is legal
 func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHeader) (ok bool, group *StaticGroupInfo, err error) {
 	castor := groupsig.DeserializeID(bh.Castor)
 	minerDO := p.minerReader.getProposeMiner(castor)
@@ -163,18 +158,18 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 
 	var gid = groupsig.DeserializeID(bh.GroupID)
 
-	selectGroupIDFromCache := p.CalcVerifyGroupFromCache(preHeader, bh.Height)
+	selectGroupIDFromCache := p.calcVerifyGroupFromCache(preHeader, bh.Height)
 
 	if selectGroupIDFromCache == nil {
 		err = common.ErrSelectGroupNil
-		stdLogger.Debugf("selectGroupId is nil")
+		stdLogger.Errorf("selectGroupId is nil")
 		return
 	}
 	var verifyGid = *selectGroupIDFromCache
 
 	// It is possible that the group has been disbanded and needs to be taken from the chain.
 	if !selectGroupIDFromCache.IsEqual(gid) {
-		selectGroupIDFromChain := p.CalcVerifyGroupFromChain(preHeader, bh.Height)
+		selectGroupIDFromChain := p.calcVerifyGroupFromChain(preHeader, bh.Height)
 		if selectGroupIDFromChain == nil {
 			err = common.ErrSelectGroupNil
 			return
@@ -185,7 +180,7 @@ func (p *Processor) isCastLegal(bh *types.BlockHeader, preHeader *types.BlockHea
 		}
 		if !selectGroupIDFromChain.IsEqual(gid) {
 			err = common.ErrSelectGroupInequal
-			stdLogger.Debugf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIDFromChain.ShortS(), gid.ShortS())
+			stdLogger.Errorf("selectGroupId from both cache and chain not equal, expect %v, receive %v", selectGroupIDFromChain.ShortS(), gid.ShortS())
 			return
 		}
 		verifyGid = *selectGroupIDFromChain

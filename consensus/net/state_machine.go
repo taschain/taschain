@@ -50,16 +50,16 @@ type stateNode struct {
 	execNum    int32
 
 	//future state msgs cached in the queue
-	queue []*StateMsg
+	queue []*stateMsg
 }
 
-type StateMsg struct {
+type stateMsg struct {
 	Code uint32
 	Data interface{}
 	ID   string
 }
 
-type StateMachine struct {
+type stateMachine struct {
 	ID      string
 	Current *stateNode
 	Head    *stateNode
@@ -67,21 +67,21 @@ type StateMachine struct {
 	lock    sync.Mutex
 }
 
-type StateMachines struct {
+type stateMachines struct {
 	name      string
 	machines  *lru.Cache
 	generator StateMachineGenerator
 	ticker    *ticker.GlobalTicker
 }
 
-var GroupInsideMachines StateMachines
+var GroupInsideMachines stateMachines
 
 var logger taslog.Logger
 
-func InitStateMachines() {
+func initStateMachines() {
 	logger = taslog.GetLoggerByIndex(taslog.StateMachineLogConfig, common.GlobalConf.GetString("instance", "index", ""))
 
-	GroupInsideMachines = StateMachines{
+	GroupInsideMachines = stateMachines{
 		name:      "GroupInsideMachines",
 		generator: &groupInsideMachineGenerator{},
 		machines:  common.MustNewLRUCache(50),
@@ -92,8 +92,8 @@ func InitStateMachines() {
 
 }
 
-func NewStateMsg(code uint32, data interface{}, id string) *StateMsg {
-	return &StateMsg{
+func newStateMsg(code uint32, data interface{}, id string) *stateMsg {
+	return &stateMsg{
 		Code: code,
 		Data: data,
 		ID:   id,
@@ -105,13 +105,13 @@ func newStateNode(st uint32, lr, mr int, h stateHandleFunc) *stateNode {
 		code:        st,
 		leastRepeat: int32(lr),
 		mostRepeat:  int32(mr),
-		queue:       make([]*StateMsg, 0),
+		queue:       make([]*stateMsg, 0),
 		handler:     h,
 	}
 }
 
-func newStateMachine(id string) *StateMachine {
-	return &StateMachine{
+func newStateMachine(id string) *stateMachine {
+	return &stateMachine{
 		ID:   id,
 		Time: time.Now(),
 	}
@@ -134,7 +134,7 @@ func (n *stateNode) dataIndex(id string) int32 {
 	return -1
 }
 
-func (n *stateNode) addData(stateMsg *StateMsg) (int32, bool) {
+func (n *stateNode) addData(stateMsg *stateMsg) (int32, bool) {
 	idx := n.dataIndex(stateMsg.ID)
 	if idx >= 0 {
 		return idx, false
@@ -151,7 +151,7 @@ func (n *stateNode) mostFinished() bool {
 	return n.execNum >= n.mostRepeat
 }
 
-func (m *StateMachine) findTail() *stateNode {
+func (m *stateMachine) findTail() *stateNode {
 	p := m.Head
 	for p != nil && p.next != nil {
 		p = p.next
@@ -159,15 +159,15 @@ func (m *StateMachine) findTail() *stateNode {
 	return p
 }
 
-func (m *StateMachine) currentNode() *stateNode {
+func (m *stateMachine) currentNode() *stateNode {
 	return m.Current
 }
 
-func (m *StateMachine) setCurrent(node *stateNode) {
+func (m *stateMachine) setCurrent(node *stateNode) {
 	m.Current = node
 }
 
-func (m *StateMachine) appendNode(node *stateNode) {
+func (m *stateMachine) appendNode(node *stateNode) {
 	if node == nil {
 		panic("cannot add nil node to the state machine!")
 	}
@@ -181,7 +181,7 @@ func (m *StateMachine) appendNode(node *stateNode) {
 	}
 }
 
-func (m *StateMachine) findNode(code uint32) *stateNode {
+func (m *stateMachine) findNode(code uint32) *stateNode {
 	p := m.Head
 	for p != nil && p.code != code {
 		p = p.next
@@ -189,12 +189,12 @@ func (m *StateMachine) findNode(code uint32) *stateNode {
 	return p
 }
 
-func (m *StateMachine) finish() bool {
+func (m *stateMachine) finish() bool {
 	current := m.currentNode()
 	return current.next == nil && current.leastFinished()
 }
 
-func (m *StateMachine) allFinished() bool {
+func (m *stateMachine) allFinished() bool {
 	for n := m.Head; n != nil; n = n.next {
 		if !n.mostFinished() {
 			return false
@@ -203,11 +203,11 @@ func (m *StateMachine) allFinished() bool {
 	return true
 }
 
-func (m *StateMachine) expire() bool {
+func (m *stateMachine) expire() bool {
 	return int(time.Since(m.Time).Seconds()) >= model.Param.GroupInitMaxSeconds
 }
 
-func (m *StateMachine) transform() {
+func (m *stateMachine) doTransform() {
 	node := m.currentNode()
 	qs := node.queueSize()
 
@@ -243,12 +243,12 @@ func (m *StateMachine) transform() {
 
 	if node.leastFinished() && node.next != nil {
 		m.setCurrent(node.next)
-		m.transform()
+		m.doTransform()
 	}
 
 }
 
-func (m *StateMachine) Transform(msg *StateMsg) bool {
+func (m *stateMachine) transform(msg *stateMsg) bool {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -277,18 +277,18 @@ func (m *StateMachine) Transform(msg *StateMsg) bool {
 			logger.Debugf("machine %v ignore redundant state %v, current state %v", m.ID, node.code, m.currentNode().state())
 			return false
 		}
-		m.transform()
+		m.doTransform()
 	}
 	return true
 }
 
 type StateMachineGenerator interface {
-	Generate(id string, cnt int) *StateMachine
+	Generate(id string, cnt int) *stateMachine
 }
 
 type groupInsideMachineGenerator struct{}
 
-func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *StateMachine {
+func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *stateMachine {
 	machine := newStateMachine(id)
 	memNum := cnt
 	machine.appendNode(newStateNode(network.GroupInitMsg, 1, 1, func(msg interface{}) {
@@ -306,19 +306,19 @@ func (m *groupInsideMachineGenerator) Generate(id string, cnt int) *StateMachine
 	return machine
 }
 
-func (stm *StateMachines) startCleanRoutine() {
+func (stm *stateMachines) startCleanRoutine() {
 	stm.ticker.RegisterPeriodicRoutine(stm.name, stm.cleanRoutine, 2)
 	stm.ticker.StartTickerRoutine(stm.name, false)
 }
 
-func (stm *StateMachines) cleanRoutine() bool {
+func (stm *stateMachines) cleanRoutine() bool {
 	for _, k := range stm.machines.Keys() {
 		id := k.(string)
 		value, ok := stm.machines.Get(id)
 		if !ok {
 			continue
 		}
-		m := value.(*StateMachine)
+		m := value.(*stateMachine)
 		if m.allFinished() {
 			logger.Infof("%v state machine allFinished, id=%v", stm.name, m.ID)
 			stm.machines.Remove(m.ID)
@@ -331,9 +331,9 @@ func (stm *StateMachines) cleanRoutine() bool {
 	return true
 }
 
-func (stm *StateMachines) GetMachine(id string, cnt int) *StateMachine {
+func (stm *stateMachines) GetMachine(id string, cnt int) *stateMachine {
 	if v, ok := stm.machines.Get(id); ok {
-		return v.(*StateMachine)
+		return v.(*stateMachine)
 	}
 	m := stm.generator.Generate(id, cnt)
 	contains, _ := stm.machines.ContainsOrAdd(id, m)
@@ -341,7 +341,7 @@ func (stm *StateMachines) GetMachine(id string, cnt int) *StateMachine {
 		return m
 	}
 	if v, ok := stm.machines.Get(id); ok {
-		return v.(*StateMachine)
+		return v.(*stateMachine)
 	}
 	panic("get machine fail, id " + id)
 }

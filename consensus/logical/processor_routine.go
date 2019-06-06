@@ -42,7 +42,7 @@ func (p *Processor) getReleaseRoutineName() string {
 // checkSelfCastRoutine check if the current group cast block
 func (p *Processor) checkSelfCastRoutine() bool {
 	if !atomic.CompareAndSwapInt32(&p.isCasting, 0, 1) {
-		return false;
+		return false
 	}
 	defer func() {
 		p.isCasting = 0
@@ -55,7 +55,7 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	blog := newBizLog("checkSelfCastRoutine")
 
 	if p.MainChain.IsAdjusting() {
-		blog.log("isAdjusting, return...")
+		blog.warn("isAdjusting, return...")
 		p.triggerCastCheck()
 		return false
 	}
@@ -89,8 +89,8 @@ func (p *Processor) checkSelfCastRoutine() bool {
 	if worker != nil && worker.workingOn(top, castHeight) {
 		return false
 	}
-	blog.log("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
-	worker = newVRFWorker(p.GetSelfMinerDO(), top, castHeight, expireTime, p.ts)
+	blog.debug("topHeight=%v, topHash=%v, topCurTime=%v, castHeight=%v, expireTime=%v", top.Height, top.Hash.ShortS(), top.CurTime, castHeight, expireTime)
+	worker = newVRFWorker(p.getSelfMinerDO(), top, castHeight, expireTime, p.ts)
 	p.setVrfWorker(worker)
 	p.blockProposal()
 	return true
@@ -123,7 +123,7 @@ func (p *Processor) releaseRoutine() bool {
 	blog := newBizLog("releaseRoutine")
 
 	if len(ids) > 0 {
-		blog.log("clean group %v\n", len(ids))
+		blog.debug("clean group %v\n", len(ids))
 		p.globalGroups.removeGroups(ids)
 		p.belongGroups.leaveGroups(ids)
 		for _, g := range groups {
@@ -159,7 +159,7 @@ func (p *Processor) releaseRoutine() bool {
 					waitIds = append(waitIds, mem)
 				}
 			}
-			// Send log
+			// Send info
 			le := &monitor.LogEntry{
 				LogType:  monitor.LogTypeInitGroupRevPieceTimeout,
 				Height:   p.GroupChain.Height(),
@@ -175,15 +175,15 @@ func (p *Processor) releaseRoutine() bool {
 			msg := &model.ReqSharePieceMessage{
 				GHash: gc.gInfo.GroupHash(),
 			}
-			stdLogger.Infof("reqSharePieceRoutine:req size %v, ghash=%v", len(waitIds), gc.gInfo.GroupHash().ShortS())
+			stdLogger.Debugf("reqSharePieceRoutine:req size %v, ghash=%v", len(waitIds), gc.gInfo.GroupHash().ShortS())
 			if msg.GenSign(p.getDefaultSeckeyInfo(), msg) {
 				for _, receiver := range waitIds {
-					stdLogger.Infof("reqSharePieceRoutine:req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
+					stdLogger.Debugf("reqSharePieceRoutine:req share piece msg from %v, ghash=%v", receiver, gc.gInfo.GroupHash().ShortS())
 					p.NetServer.ReqSharePiece(msg, receiver)
 				}
 			} else {
 				ski := p.getDefaultSeckeyInfo()
-				stdLogger.Infof("gen req sharepiece sign fail, ski=%v %v", ski.ID.ShortS(), ski.SK.ShortS())
+				stdLogger.Debugf("gen req sharepiece sign fail, ski=%v %v", ski.ID.ShortS(), ski.SK.ShortS())
 			}
 
 		}
@@ -198,7 +198,7 @@ func (p *Processor) releaseRoutine() bool {
 			if gctx != nil && gctx.gInfo != nil {
 				gHash = gctx.gInfo.GroupHash().Hex()
 			}
-			// Send log
+			// Send info
 			le := &monitor.LogEntry{
 				LogType:  monitor.LogTypeCreateGroupSignTimeout,
 				Height:   p.GroupChain.Height(),
@@ -239,7 +239,9 @@ func (p *Processor) releaseRoutine() bool {
 	p.futureRewardReqs.forEach(func(key common.Hash, arr []interface{}) bool {
 		for _, msg := range arr {
 			b := msg.(*model.CastRewardTransSignReqMessage)
-			if time2.Now().After(b.ReceiveTime.Add(400 * time2.Second)) { //400s不能处理的，都删除
+
+			// Can not be processed within 400s, are deleted
+			if time2.Now().After(b.ReceiveTime.Add(400 * time2.Second)) {
 				p.futureRewardReqs.remove(key)
 				blog.debug("remove future reward msg, hash=%v", key.Hex())
 				break
@@ -276,7 +278,7 @@ func (p *Processor) updateGlobalGroups() bool {
 			continue
 		}
 		sgi := newSGIFromCoreGroup(g)
-		stdLogger.Debugf("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
+		stdLogger.Infof("updateGlobalGroups:gid=%v, workHeight=%v, topHeight=%v", gid.ShortS(), g.Header.WorkHeight, top)
 		p.acceptGroup(sgi)
 	}
 	return true

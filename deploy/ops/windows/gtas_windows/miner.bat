@@ -1,1 +1,0 @@
-gtas.exe miner

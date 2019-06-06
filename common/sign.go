@@ -22,43 +22,43 @@ import (
 	"github.com/taschain/taschain/common/secp256k1"
 )
 
-//Data struct of signature
+// Sign Data struct
 type Sign struct {
 	r     big.Int
 	s     big.Int
 	recid byte
 }
 
-//data struct for message casting
+//SignData data struct for message casting
 type SignData struct {
 	DataHash Hash   //哈希值
 	DataSign Sign   //签名
 	ID       string //用户ID
 }
 
-//signature construct function
+// Set constructs a signature data
 func (s *Sign) Set(_r, _s *big.Int, recid int) {
 	s.r = *_r
 	s.s = *_s
 	s.recid = byte(recid)
 }
 
-//Check the signature is valid
+// Valid Checks the validity of the signature
 func (s Sign) Valid() bool {
 	return s.r.BitLen() != 0 && s.s.BitLen() != 0 && s.recid < 4
 }
 
-//Get r value
+// GetR obtains r value
 func (s Sign) GetR() big.Int {
 	return s.r
 }
 
-//Get s value
+// GetS obtains s value
 func (s Sign) GetS() big.Int {
 	return s.s
 }
 
-//Export the signature into a byte array.
+// Bytes converts the signature to a byte array.
 func (s Sign) Bytes() []byte {
 	rb := s.r.Bytes()
 	sb := s.s.Bytes()
@@ -69,7 +69,7 @@ func (s Sign) Bytes() []byte {
 	return r
 }
 
-//Construct a signature with the byte array imported. The length of the byte array must be 65.
+// BytesToSign returns a signature with the byte array imported. The length of the byte array must be 65.
 func BytesToSign(b []byte) *Sign {
 	if len(b) == 65 {
 		var r, s big.Int
@@ -85,12 +85,12 @@ func BytesToSign(b []byte) *Sign {
 	panic("BytesToSign must input 65 bytes!")
 }
 
-//Export the signature into a hex string
+// Hex converts the signature into a hex string
 func (s Sign) Hex() string {
 	return ToHex(s.Bytes())
 }
 
-//Construct a signature with the hex string imported
+// HexToSign returns a signature with the hex string imported
 func HexToSign(s string) (si *Sign) {
 	if len(s) < len(PREFIX) || s[:len(PREFIX)] != PREFIX {
 		return
@@ -100,7 +100,7 @@ func HexToSign(s string) (si *Sign) {
 	return si
 }
 
-//Recover the public key from the signature
+// RecoverPubkey returns the public key recovered from the signature
 func (s Sign) RecoverPubkey(msg []byte) (pk *PublicKey, err error) {
 	pubkey, err := secp256k1.RecoverPubkey(msg, s.Bytes())
 	if err != nil {

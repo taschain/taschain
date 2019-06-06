@@ -21,6 +21,7 @@ import (
 	"github.com/taschain/taschain/consensus/groupsig"
 )
 
+// pubkeyPool is the cache stores public keys of miners which is used for accelerated calculation
 type pubkeyPool struct {
 	pkCache     *lru.Cache
 	minerAccess *MinerPoolReader
@@ -42,6 +43,8 @@ func ready() bool {
 	return pkPool.minerAccess != nil
 }
 
+// GetMinerPK returns pubic key of the given id
+// It firstly retrieves from the cache, if missed, it gets from the chain and updates the cache.
 func GetMinerPK(id groupsig.ID) *groupsig.Pubkey {
 	if !ready() {
 		return nil

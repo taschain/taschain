@@ -54,24 +54,22 @@ const (
 	slRewardSent
 )
 
-// SlotContext is cast groove structure, one-to-one correspondence with a certain KING consensus data
+// SlotContext stores the contextual infos of a specified block proposal
 type SlotContext struct {
 
 	// Verification related
 	BH             *types.BlockHeader        // Detailed data in block header
 	gSignGenerator *model.GroupSignGenerator // Block signature generator
 	rSignGenerator *model.GroupSignGenerator // Random number signature generator
-	slotStatus     int32
+	slotStatus     int32                     // The current status
 
-	castor groupsig.ID
-
-	txs []*types.Transaction
+	castor groupsig.ID // The proposal miner id
 
 	// Reward related
-	rewardTrans    *types.Transaction
-	rewardGSignGen *model.GroupSignGenerator // Reward transaction signature generator
+	rewardTrans    *types.Transaction        // The bonus transaction related to the block, it should issue after the block broadcast
+	rewardGSignGen *model.GroupSignGenerator // Bonus transaction signature generator
 
-	signedRewardTxHashs set.Interface // Signed transaction hash
+	signedRewardTxHashs set.Interface // Signed bonus transaction hash
 }
 
 func createSlotContext(bh *types.BlockHeader, threshold int) *SlotContext {
@@ -104,9 +102,7 @@ func (sc SlotContext) MessageSize() int {
 	return sc.gSignGenerator.WitnessSize()
 }
 
-// VerifyGroupSigns is verification group signature, pk : Group public key
-//
-// Returns true validation passed, returning false failed
+// VerifyGroupSigns verifies both the group signature and the random number(also a signature in fact)
 func (sc *SlotContext) VerifyGroupSigns(pk groupsig.Pubkey, preRandom []byte) bool {
 	if sc.IsVerified() || sc.IsSuccess() {
 		return true
@@ -141,13 +137,12 @@ func (sc *SlotContext) IsWaiting() bool {
 	return sc.GetSlotStatus() == slWaiting
 }
 
-// AcceptVerifyPiece received an in-group verification signature fragment
+// AcceptVerifyPiece received an in-group verification signature piece
 //
 // Returns:
-// 		0, the verification request is accepted and the threshold reaches the number of group signatures.
-//		1, the verification request is accepted, the threshold has not reached the number of group signatures
-//		2, repeated check
-//		3, Abnormal data
+//		1, the verification piece is accepted and the threshold not reached
+// 		2, the verification piece is accepted and the threshold reached
+//		-1, piece denied
 func (sc *SlotContext) AcceptVerifyPiece(signer groupsig.ID, sign groupsig.Signature, randomSign groupsig.Signature) (ret int8, err error) {
 	var (
 		add      bool
@@ -156,7 +151,7 @@ func (sc *SlotContext) AcceptVerifyPiece(signer groupsig.ID, sign groupsig.Signa
 
 	add, generate = sc.gSignGenerator.AddWitness(signer, sign)
 
-	// Has received the member’s verification
+	// Has received the member's verification
 	if !add {
 		// ignore
 		return pieceFail, fmt.Errorf("CBMR_IGNORE_REPEAT")
@@ -172,22 +167,23 @@ func (sc *SlotContext) AcceptVerifyPiece(signer groupsig.ID, sign groupsig.Signa
 	return pieceNormal, nil
 }
 
-func (sc *SlotContext) IsValid() bool {
+func (sc *SlotContext) isValid() bool {
 	return sc.GetSlotStatus() != slIniting
 }
 
-func (sc *SlotContext) StatusTransform(from int32, to int32) bool {
+func (sc *SlotContext) statusTransform(from int32, to int32) bool {
 	return atomic.CompareAndSwapInt32(&sc.slotStatus, from, to)
 }
 
-func (sc *SlotContext) SetRewardTrans(tx *types.Transaction) bool {
-	if !sc.hasSignedRewardTx() && sc.StatusTransform(slSuccess, slRewardSignReq) {
+func (sc *SlotContext) setRewardTrans(tx *types.Transaction) bool {
+	if !sc.hasSignedRewardTx() && sc.statusTransform(slSuccess, slRewardSignReq) {
 		sc.rewardTrans = tx
 		return true
 	}
 	return false
 }
 
+// AcceptRewardPiece try to accept the signature piece of the bonus transaction consensus
 func (sc *SlotContext) AcceptRewardPiece(sd *model.SignData) (accept, recover bool) {
 	if sc.rewardTrans != nil && sc.rewardTrans.Hash != sd.DataHash {
 		return

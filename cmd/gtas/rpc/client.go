@@ -403,7 +403,7 @@ func (c *Client) write(ctx context.Context, msg interface{}) error {
 func (c *Client) reconnect(ctx context.Context) error {
 	newconn, err := c.connectFunc(ctx)
 	if err != nil {
-		common.DefaultLogger.Debugf(fmt.Sprintf("reconnect failed: %v", err))
+		common.DefaultLogger.Errorf(fmt.Sprintf("reconnect failed: %v", err))
 		return err
 	}
 	select {
@@ -454,13 +454,11 @@ func (c *Client) dispatch(conn net.Conn) {
 					c.handleNotification(msg)
 				case msg.isResponse():
 					c.handleResponse(msg)
-				default:
-					// TODO: maybe close
 				}
 			}
 
 		case err := <-c.readErr:
-			common.DefaultLogger.Debug(fmt.Sprintf("<-readErr: %v", err))
+			common.DefaultLogger.Errorf(fmt.Sprintf("<-readErr: %v", err))
 			c.closeRequestOps(err)
 			conn.Close()
 			reading = false
@@ -527,7 +525,7 @@ func (c *Client) handleNotification(msg *jsonrpcMessage) {
 		Result json.RawMessage `json:"result"`
 	}
 	if err := json.Unmarshal(msg.Params, &subResult); err != nil {
-		common.DefaultLogger.Debug(fmt.Sprint("dropping invalid subscription message: ", msg))
+		common.DefaultLogger.Errorf(fmt.Sprintf("dropping invalid subscription message:%s,errorMsg=%s ", msg, err.Error()))
 		return
 	}
 	if c.subs[subResult.ID] != nil {
@@ -538,7 +536,7 @@ func (c *Client) handleNotification(msg *jsonrpcMessage) {
 func (c *Client) handleResponse(msg *jsonrpcMessage) {
 	op := c.respWait[string(msg.ID)]
 	if op == nil {
-		common.DefaultLogger.Debug(fmt.Sprintf("unsolicited response %v", msg))
+		common.DefaultLogger.Warnf(fmt.Sprintf("unsolicited response %v", msg))
 		return
 	}
 	delete(c.respWait, string(msg.ID))
