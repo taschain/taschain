@@ -151,7 +151,7 @@ func (sc *SlotContext) AcceptVerifyPiece(signer groupsig.ID, sign groupsig.Signa
 
 	add, generate = sc.gSignGenerator.AddWitness(signer, sign)
 
-	// Has received the member’s verification
+	// Has received the member's verification
 	if !add {
 		// ignore
 		return pieceFail, fmt.Errorf("CBMR_IGNORE_REPEAT")

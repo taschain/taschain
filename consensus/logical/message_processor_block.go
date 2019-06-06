@@ -78,7 +78,7 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 
 	}
 	if _, same := p.blockContexts.isHeightCasted(bh.Height, bh.PreHash); same {
-		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
+		err = fmt.Errorf("the block of this height has been cast %v", bh.Height)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 	// get the verify context for the height, it will create the context if not exists
 	vctx = p.blockContexts.getOrNewVerifyContext(group, bh, preBH)
 	if vctx == nil {
-		err = fmt.Errorf("获取vctx为空，可能preBH已经被删除")
+		err = fmt.Errorf("get vctx is empty, maybe preBH has been deleted")
 		return
 	}
 
@@ -257,7 +257,7 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	// Cache the message due to the absence of the pre-block
 	if preBH == nil {
 		p.addFutureVerifyMsg(ccm)
-		err = fmt.Errorf("父块未到达")
+		err = fmt.Errorf("parent block did not received")
 		return
 	}
 
@@ -307,7 +307,7 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 	}
 
 	if _, same := p.blockContexts.isHeightCasted(bh.Height, bh.PreHash); same {
-		err = fmt.Errorf("该高度已铸过 %v", bh.Height)
+		err = fmt.Errorf("the block of this height has been cast %v", bh.Height)
 		return
 	}
 

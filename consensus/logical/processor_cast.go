@@ -87,7 +87,7 @@ func (p *Processor) tryNotify(vctx *VerifyContext) bool {
 	if sc := vctx.checkNotify(); sc != nil {
 		bh := sc.BH
 		tlog := newHashTraceLog("tryNotify", bh.Hash, p.GetMinerID())
-		tlog.log("try broadcast, height=%v, totalQN=%v, 耗时%v秒", bh.Height, bh.TotalQN, p.ts.Since(bh.CurTime))
+		tlog.log("try broadcast, height=%v, totalQN=%v, consuming %vs", bh.Height, bh.TotalQN, p.ts.Since(bh.CurTime))
 
 		// Add on chain and out-of-group broadcasting
 		p.consensusFinalize(vctx, sc)
@@ -124,7 +124,7 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 		return fmt.Errorf("next group is nil")
 	}
 	p.NetServer.BroadcastNewBlock(cbm, gb)
-	tlog.log("broadcasted height=%v, 耗时%v秒", bh.Height, p.ts.Since(bh.CurTime))
+	tlog.log("broadcasted height=%v, consuming %vs", bh.Height, p.ts.Since(bh.CurTime))
 
 	// Send log
 	le := &monitor.LogEntry{
@@ -144,15 +144,18 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 
-	blog := newBizLog("consensusFinalize—" + bh.Hash.ShortS())
+	blog := newBizLog("consensusFinalize-" + bh.Hash.ShortS())
 
-	if p.blockOnChain(bh.Hash) { //已经上链
+	// Already on blockchain
+	if p.blockOnChain(bh.Hash) {
 		blog.log("block alreayd onchain!")
 		return
 	}
 
 	gpk := p.getGroupPubKey(groupsig.DeserializeID(bh.GroupID))
-	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) { //组签名验证通过
+
+	// Group signature verification passed
+	if !slot.VerifyGroupSigns(gpk, vctx.prevBH.Random) {
 		blog.log("group pub key local check failed, gpk=%v, hash in slot=%v, hash in bh=%v status=%v.",
 			gpk.ShortS(), slot.BH.Hash.ShortS(), bh.Hash.ShortS(), slot.GetSlotStatus())
 		return
@@ -245,7 +248,7 @@ func (p *Processor) blockProposal() {
 
 		// ccm.GenRandomSign(skey, worker.baseBH.Random)
 		// Castor cannot sign random numbers
-		tlog.log("铸块成功, SendVerifiedCast, 时间间隔 %v, castor=%v, hash=%v, genHash=%v", bh.Elapsed, ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
+		tlog.log("successful cast block, SendVerifiedCast, time interval %v, castor=%v, hash=%v, genHash=%v", bh.Elapsed, ccm.SI.GetID().ShortS(), bh.Hash.ShortS(), ccm.SI.DataHash.ShortS())
 
 		// Send log
 		le := &monitor.LogEntry{
@@ -290,7 +293,7 @@ func (p *Processor) reqRewardTransSign(vctx *VerifyContext, bh *types.BlockHeade
 		blog.log("slot not verified or success,status=%v", slot.GetSlotStatus())
 		return
 	}
-	// If you sign yourself, you don’t have to send it again
+	// If you sign yourself, you don't have to send it again
 	if slot.hasSignedRewardTx() {
 		blog.log("has signed reward tx")
 		return

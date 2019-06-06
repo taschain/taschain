@@ -191,7 +191,7 @@ func (bctx *castBlockContexts) getOrNewVctx(group *StaticGroupInfo, height uint6
 		bctx.addVctx(vctx)
 		blog.log("add vctx expire %v", expireTime)
 	} else {
-		// In case of hash inconsistency，
+		// In case of hash inconsistency,
 		if vctx.prevBH.Hash != preBH.Hash {
 			blog.log("vctx pre hash diff, height=%v, existHash=%v, commingHash=%v", height, vctx.prevBH.Hash.ShortS(), preBH.Hash.ShortS())
 			preOld := bctx.chain.QueryBlockHeaderByHash(vctx.prevBH.Hash)

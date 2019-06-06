@@ -239,7 +239,9 @@ func (p *Processor) releaseRoutine() bool {
 	p.futureRewardReqs.forEach(func(key common.Hash, arr []interface{}) bool {
 		for _, msg := range arr {
 			b := msg.(*model.CastRewardTransSignReqMessage)
-			if time2.Now().After(b.ReceiveTime.Add(400 * time2.Second)) { //400s不能处理的，都删除
+
+			// Can not be processed within 400s, are deleted
+			if time2.Now().After(b.ReceiveTime.Add(400 * time2.Second)) {
 				p.futureRewardReqs.remove(key)
 				blog.debug("remove future reward msg, hash=%v", key.Hex())
 				break

@@ -23,12 +23,6 @@ import (
 	"github.com/taschain/taschain/middleware/types"
 )
 
-/*
-**  Creator: pxf
-**  Date: 2018/6/8 上午9:52
-**  Description:
- */
-
 func getCastExpireTime(base time.TimeStamp, deltaHeight uint64, castHeight uint64) time.TimeStamp {
 	t := uint64(0)
 
