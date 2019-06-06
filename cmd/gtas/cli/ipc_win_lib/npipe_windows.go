@@ -1,4 +1,3 @@
-
 /*
 	Package npipe provides windows ipc lib
 */

@@ -527,7 +527,7 @@ func (c *Client) handleNotification(msg *jsonrpcMessage) {
 		Result json.RawMessage `json:"result"`
 	}
 	if err := json.Unmarshal(msg.Params, &subResult); err != nil {
-		common.DefaultLogger.Errorf(fmt.Sprintf("dropping invalid subscription message:%s,errorMsg=%s ", msg,err.Error()))
+		common.DefaultLogger.Errorf(fmt.Sprintf("dropping invalid subscription message:%s,errorMsg=%s ", msg, err.Error()))
 		return
 	}
 	if c.subs[subResult.ID] != nil {

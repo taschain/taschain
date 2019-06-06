@@ -27,7 +27,7 @@ import (
 )
 
 type proveChecker struct {
-	proposalVrfHashs *lru.Cache // Recently proposed vrf prve hash
+	proposalVrfHashs *lru.Cache // Recently proposed vrf prove hash
 	proveRootCaches  *lru.Cache // Full account verification cache
 	chain            core.BlockChain
 }

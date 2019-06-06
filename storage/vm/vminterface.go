@@ -26,7 +26,6 @@ import (
 	"github.com/taschain/taschain/storage/trie"
 )
 
-
 type AccountDB interface {
 	CreateAccount(common.Address)
 

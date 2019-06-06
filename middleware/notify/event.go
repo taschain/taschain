@@ -15,6 +15,7 @@
 
 package notify
 
+// defines all of current used event ids
 const (
 	BlockAddSucc = "block_add_succ"
 

@@ -13,6 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package groupsig defines the main structures and functions for the bls algorithm implementation
 package groupsig
 
 import (
@@ -23,6 +24,9 @@ import (
 	"github.com/taschain/taschain/common"
 	"golang.org/x/crypto/sha3"
 )
+
+// Idlength is ID byte length (256 bits, same as private key length)
+const Idlength = 32
 
 // ID is id for secret sharing, represented by big.Int
 // Secret shared ID, 64 bit int, a total of 256 bits
@@ -84,14 +88,14 @@ func (id ID) GetHexString() string {
 // Serialize convert ID to byte slice (LittleEndian)
 func (id ID) Serialize() []byte {
 	idBytes := id.value.Serialize()
-	if len(idBytes) == IDLENGTH {
+	if len(idBytes) == Idlength {
 		return idBytes
 	}
-	if len(idBytes) > IDLENGTH {
-		panic("ID Serialize error: ID bytes is more than IDLENGTH")
+	if len(idBytes) > Idlength {
+		panic("ID Serialize error: ID bytes is more than Idlength")
 	}
-	buff := make([]byte, IDLENGTH)
-	copy(buff[IDLENGTH-len(idBytes):IDLENGTH], idBytes)
+	buff := make([]byte, Idlength)
+	copy(buff[Idlength-len(idBytes):Idlength], idBytes)
 	return buff
 }
 

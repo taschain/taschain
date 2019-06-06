@@ -13,6 +13,7 @@
 //   You should have received a copy of the GNU General Public License
 //   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+// Package time provides time-zone and local-machine independent time service
 package time
 
 import (
@@ -26,6 +27,7 @@ import (
 	"github.com/taschain/taschain/middleware/ticker"
 )
 
+// TimeStamp in seconds
 type TimeStamp int64
 
 func Int64ToTimeStamp(sec int64) TimeStamp {
@@ -68,18 +70,24 @@ func (ts TimeStamp) String() string {
 	return ts.Local().String()
 }
 
+// ntpServer defines the ntp servers used for time synchronization
 var ntpServer = []string{"ntp.aliyun.com", "ntp1.aliyun.com", "ntp2.aliyun.com", "ntp3.aliyun.com", "ntp4.aliyun.com", "ntp4.aliyun.com", "ntp5.aliyun.com", "ntp6.aliyun.com", "ntp7.aliyun.com"}
 
+// TimeSync implements time synchronization from ntp servers
 type TimeSync struct {
-	currentOffset time.Duration
+	currentOffset time.Duration		// The offset of the local time to the ntp server
 	ticker        *ticker.GlobalTicker
 }
 
-// TimeService is a time service, it return utc time
-// All input time will convert to utc time
+// TimeService is a time service, it return a timestamp in seconds
 type TimeService interface {
+	// Now returns the current timestamp calibrated with ntp server
 	Now() TimeStamp
+
+	// Since returns the time duration from the given timestamp to current moment
 	Since(t TimeStamp) int64
+
+	// NowAfter checks if current timestamp greater than the given one
 	NowAfter(t TimeStamp) bool
 }
 
@@ -110,14 +118,17 @@ func (ts *TimeSync) syncRoutine() bool {
 	return true
 }
 
+// Now returns the current timestamp calibrated with ntp server
 func (ts *TimeSync) Now() TimeStamp {
 	return TimeToTimeStamp(time.Now().Add(ts.currentOffset).UTC())
 }
 
+// Since returns the time duration from the given timestamp to current moment
 func (ts *TimeSync) Since(t TimeStamp) int64 {
 	return ts.Now().Since(t)
 }
 
+// NowAfter checks if current timestamp greater than the given one
 func (ts *TimeSync) NowAfter(t TimeStamp) bool {
 	return ts.Now().After(t)
 }

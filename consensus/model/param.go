@@ -21,6 +21,7 @@ import (
 	"github.com/taschain/taschain/common"
 )
 
+// defines some const params of the consensus engine
 const (
 	// MaxWaitBlockTime is group cast block maximum allowable time, it's 10s
 	MaxGroupBlockTime int = 10
@@ -74,25 +75,26 @@ const (
 	GroupCreateInterval = Epoch * 10
 )
 
+// ConsensusParam defines all the params of the consensus engine
 type ConsensusParam struct {
-	GroupMemberMax      int
-	GroupMemberMin      int
-	MaxQN               int
-	SSSSThreshold       int
-	MaxGroupCastTime    int
-	MaxWaitBlockTime    int
-	MaxFutureBlock      int
+	GroupMemberMax      int // limit the maximum number of one group
+	GroupMemberMin      int // limit the minimum number of one group
+	MaxQN               int // limit the max qn of one block
+	SSSSThreshold       int // the bls threshold for consensus
+	MaxGroupCastTime    int // the time window length of the block consensus in seconds
+	MaxWaitBlockTime    int // the waiting seconds for waiting the more weight block to broadcast
+	MaxFutureBlock      int //
 	GroupInitMaxSeconds int
-	Epoch               uint64
-	CreateGroupInterval uint64
-	MinerMaxJoinGroup   int
-	CandidatesMinRatio  int
+	Epoch               uint64 // epoch length denoted by height
+	CreateGroupInterval uint64 // group create routine triggered interval denoted by height
+	MinerMaxJoinGroup   int    // limit the maximum group counts one node can joined in
+	CandidatesMinRatio  int    // The lowest ratio of the total number of miners' pools to the number of group members
 	GroupReadyGap       uint64
 	GroupWorkGap        uint64
 	GroupworkDuration   uint64
 	GroupCreateGap      uint64
 	GroupWaitPongGap    uint64
-	PotentialProposal   int // Potential proposer
+	PotentialProposal   int // Potential proposer count
 
 	ProposalBonus uint64 // Proposal reward
 	PackBonus     uint64 // Pack a bonus trading reward
