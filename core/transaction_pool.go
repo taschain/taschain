@@ -28,10 +28,11 @@ import (
 )
 
 const (
-	maxTxPoolSize   = 50000
-	bonusTxMaxSize  = 1000
-	txCountPerBlock = 3000
-	gasLimitMax     = 500000
+	maxTxPoolSize               = 50000
+	bonusTxMaxSize              = 1000
+	txCountPerBlock             = 3000
+	txAccumulateSizeMaxPerBlock = 1024 * 1024
+	gasLimitMax                 = 500000
 
 	// Maximum size per transaction
 	txMaxSize = 64000
@@ -226,10 +227,10 @@ func (pool *txPool) RecoverAndValidateTx(tx *types.Transaction) error {
 		if !IsTestTransaction(tx) && (tx.Nonce <= stateNonce || tx.Nonce > stateNonce+1000) {
 			return fmt.Errorf("nonce error:%v %v", tx.Nonce, stateNonce)
 		}
-
-		if !pk.Verify(msg, sign) {
-			return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
-		}
+		//
+		//if !pk.Verify(msg, sign) {
+		//	return fmt.Errorf("verify sign fail, hash=%v", tx.Hash.Hex())
+		//}
 	}
 
 	return nil
@@ -289,19 +290,22 @@ func (pool *txPool) isTransactionExisted(tx *types.Transaction) (exists bool, wh
 }
 
 func (pool *txPool) packTx() []*types.Transaction {
-	txs := make([]*types.Transaction, 0, txCountPerBlock)
+	txs := make([]*types.Transaction, 0)
+	accuSize := 0
 	pool.bonPool.forEach(func(tx *types.Transaction) bool {
 		txs = append(txs, tx)
-		return len(txs) < txCountPerBlock
+		accuSize += tx.Size()
+		return accuSize < txAccumulateSizeMaxPerBlock
 	})
-	if len(txs) < txCountPerBlock {
-		for _, tx := range pool.received.asSlice(txCountPerBlock - len(txs)) {
+	if len(txs) < txAccumulateSizeMaxPerBlock {
+		for _, tx := range pool.received.asSlice(10000) {
 			//gas price too low
 			if tx.GasPrice < pool.gasPriceLowerBound {
 				continue
 			}
 			txs = append(txs, tx)
-			if len(txs) >= txCountPerBlock {
+			accuSize += tx.Size()
+			if accuSize >= txAccumulateSizeMaxPerBlock {
 				break
 			}
 		}

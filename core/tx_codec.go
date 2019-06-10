@@ -18,11 +18,10 @@ package core
 import (
 	"bytes"
 	"fmt"
-	"io"
-
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/vmihailenco/msgpack"
+	"io"
 )
 
 const codecVersion = 1
@@ -57,7 +56,6 @@ func encodeBlockTransactions(b *types.Block) ([]byte, error) {
 			// Write each transaction length
 			dataBuf.Write(common.UInt16ToByte(uint16(len(txBytes))))
 			txBuf.Write(txBytes)
-
 		}
 		// Finally write transaction data
 		dataBuf.Write(txBuf.Bytes())

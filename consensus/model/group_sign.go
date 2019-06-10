@@ -131,5 +131,5 @@ func (gs *GroupSignGenerator) ForEachWitness(f func(id string, sig groupsig.Sign
 }
 
 func (gs *GroupSignGenerator) Brief() string {
-	return fmt.Sprintf("当前分片数%v，需分片数%v", gs.WitnessSize(), gs.threshold)
+	return fmt.Sprintf("current piece-size %v，threshold %v", gs.WitnessSize(), gs.threshold)
 }

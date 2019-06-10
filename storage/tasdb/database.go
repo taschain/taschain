@@ -26,7 +26,6 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
-	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -53,7 +52,7 @@ type databaseConfig struct {
 	handler  int
 }
 
-func getInstance(file string) (*LDBDatabase, error) {
+func getInstance(file string, options *opt.Options) (*LDBDatabase, error) {
 	var (
 		instanceInner *LDBDatabase
 		err           error
@@ -66,9 +65,9 @@ func getInstance(file string) (*LDBDatabase, error) {
 	}
 
 	if nil == common.GlobalConf {
-		instanceInner, err = NewLDBDatabase(defaultConfig.database, defaultConfig.cache, defaultConfig.handler)
+		instanceInner, err = NewLDBDatabase(defaultConfig.database, options)
 	} else {
-		instanceInner, err = NewLDBDatabase(file, common.GlobalConf.GetInt(ConfigSec, "cache", defaultConfig.cache), common.GlobalConf.GetInt(ConfigSec, "handler", defaultConfig.handler))
+		instanceInner, err = NewLDBDatabase(file, options)
 	}
 
 	return instanceInner, err
@@ -240,46 +239,34 @@ type LDBDatabase struct {
 	quitLock sync.Mutex
 	quitChan chan chan error
 
-	filename      string
-	cacheConfig   int
-	handlesConfig int
+	filename string
+	//cacheConfig   int
+	//handlesConfig int
 
 	inited bool
 }
 
 // NewLDBDatabase create level db instance by file
-func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
+func NewLDBDatabase(file string, options *opt.Options) (*LDBDatabase, error) {
 
-	if cache < 16 {
-		cache = 16
-	}
-	if handles < 16 {
-		handles = 16
-	}
-
-	db, err := newLevelDBInstance(file, cache, handles)
+	db, err := newLevelDBInstance(file, options)
 	if err != nil {
 		return nil, err
 	}
 
 	ldb := &LDBDatabase{
-		filename:      file,
-		db:            db,
-		cacheConfig:   cache,
-		handlesConfig: handles,
-		inited:        true,
+		filename: file,
+		db:       db,
+		//cacheConfig:   cache,
+		//handlesConfig: handles,
+		inited: true,
 	}
 	return ldb, nil
 }
 
 // newLevelDBInstance generate a leveldb instance
-func newLevelDBInstance(file string, cache int, handles int) (*leveldb.DB, error) {
-	db, err := leveldb.OpenFile(file, &opt.Options{
-		OpenFilesCacheCapacity: handles,
-		BlockCacheCapacity:     cache / 2 * opt.MiB,
-		WriteBuffer:            cache / 4 * opt.MiB, // Two of these are used internally
-		Filter:                 filter.NewBloomFilter(10),
-	})
+func newLevelDBInstance(file string, options *opt.Options) (*leveldb.DB, error) {
+	db, err := leveldb.OpenFile(file, options)
 
 	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
 		db, err = leveldb.RecoverFile(file, nil)
@@ -298,7 +285,7 @@ func (ldb *LDBDatabase) Clear() error {
 
 	os.RemoveAll(ldb.Path())
 
-	db, err := newLevelDBInstance(ldb.Path(), ldb.cacheConfig, ldb.handlesConfig)
+	db, err := newLevelDBInstance(ldb.Path(), nil)
 	if err != nil {
 		return err
 	}

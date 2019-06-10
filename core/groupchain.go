@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -110,9 +112,18 @@ func initGroupChain(genesisInfo *types.GenesisInfo, consensusHelper types.Consen
 		consensusHelper: consensusHelper,
 		topGroups:       common.MustNewLRUCache(10),
 	}
-
+	options := &opt.Options{
+		OpenFilesCacheCapacity:        100,
+		BlockCacheCapacity:            16 * opt.MiB,
+		WriteBuffer:                   32 * opt.MiB, // Two of these are used internally
+		Filter:                        filter.NewBloomFilter(10),
+		CompactionTableSize:           4 * opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+		CompactionTotalSize:           16 * opt.MiB,
+		BlockSize:                     1 * opt.MiB,
+	}
 	var err error
-	ds, err := tasdb.NewDataSource(chain.config.dbfile)
+	ds, err := tasdb.NewDataSource(chain.config.dbfile, options)
 	if err != nil {
 		Logger.Errorf("new datasource error:%v", err)
 		return err

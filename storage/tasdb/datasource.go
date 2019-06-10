@@ -15,13 +15,15 @@
 
 package tasdb
 
+import "github.com/syndtr/goleveldb/leveldb/opt"
+
 type TasDataSource struct {
 	db *LDBDatabase
 }
 
 // NewDataSource create levedb instance by file
-func NewDataSource(file string) (*TasDataSource, error) {
-	db, err := getInstance(file)
+func NewDataSource(file string, options *opt.Options) (*TasDataSource, error) {
+	db, err := getInstance(file, options)
 	if err != nil {
 		return nil, err
 	}

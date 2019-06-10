@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/taschain/taschain/monitor"
 	"time"
 
 	"github.com/taschain/taschain/common"
@@ -31,16 +32,24 @@ import (
 type batchAddBlockCallback func(b *types.Block, ret types.AddBlockResult) bool
 
 type executePostState struct {
-	state     *account.AccountDB
-	receipts  types.Receipts
-	evitedTxs []common.Hash
-	txs       []*types.Transaction
+	state      *account.AccountDB
+	receipts   types.Receipts
+	evictedTxs []common.Hash
+	txs        []*types.Transaction
+	ts         *common.TimeStatCtx
 }
 
 // CastBlock cast a block, current casters synchronization operation in the group
 func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint64, castor []byte, groupid []byte) *types.Block {
 	chain.mu.Lock()
 	defer chain.mu.Unlock()
+	block := new(types.Block)
+
+	traceLog := monitor.NewPerformTraceLogger("CastBlock", common.Hash{}, height)
+	traceLog.SetParent("blockProposal")
+	defer func() {
+		traceLog.Log("txs size %v", len(block.Transactions))
+	}()
 
 	latestBlock := chain.QueryTopBlock()
 	if latestBlock == nil {
@@ -54,14 +63,12 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	}
 
 	begin := time.Now()
-	block := new(types.Block)
 
 	defer func() {
 		Logger.Debugf("cast block, height=%v, hash=%v, cost %v", block.Header.Height, block.Header.Hash.Hex(), time.Since(begin).String())
 	}()
 
 	block.Header = &types.BlockHeader{
-		CurTime:    chain.ts.Now(),
 		Height:     height,
 		ProveValue: proveValue,
 		Castor:     castor,
@@ -70,12 +77,6 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 		StateTree:  common.BytesToHash(latestBlock.StateTree.Bytes()),
 		PreHash:    latestBlock.Hash,
 		Nonce:      common.ChainDataVersion,
-	}
-	block.Header.Elapsed = int32(block.Header.CurTime.Since(latestBlock.CurTime))
-
-	if block.Header.Elapsed < 0 {
-		Logger.Error("cur time is before pre time:height=%v, curtime=%v, pretime=%v", height, block.Header.CurTime, latestBlock.CurTime)
-		return nil
 	}
 
 	preRoot := common.BytesToHash(latestBlock.StateTree.Bytes())
@@ -96,9 +97,17 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	Logger.Infof("casting block height=%v,preHash=%x", height, preRoot)
 	taslog.Flush()
 
+	packTraceLog := monitor.NewPerformTraceLogger("PackForCast", common.Hash{}, height)
+	packTraceLog.SetParent("CastBlock")
 	txs := chain.transactionPool.PackForCast()
+	packTraceLog.SetEnd()
+	defer packTraceLog.Log("")
 
-	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block.Header, txs, true)
+	exeTraceLog := monitor.NewPerformTraceLogger("Execute", common.Hash{}, height)
+	exeTraceLog.SetParent("CastBlock")
+	defer exeTraceLog.Log("pack=true")
+	statehash, evitTxs, transactions, receipts, err := chain.executor.Execute(state, block.Header, txs, true, nil)
+	exeTraceLog.SetEnd()
 
 	block.Transactions = transactions
 	block.Header.TxTree = calcTxTree(block.Transactions)
@@ -106,29 +115,43 @@ func (chain *FullBlockChain) CastBlock(height uint64, proveValue []byte, qn uint
 	block.Header.StateTree = common.BytesToHash(statehash.Bytes())
 	block.Header.ReceiptTree = calcReceiptsTree(receipts)
 
+	// Curtime setting after txs executed. More accuracy
+	block.Header.CurTime = chain.ts.Now()
+	block.Header.Elapsed = int32(block.Header.CurTime.Since(latestBlock.CurTime))
+	if block.Header.Elapsed <= 0 {
+		Logger.Error("cur time is before pre time:height=%v, curtime=%v, pretime=%v", height, block.Header.CurTime, latestBlock.CurTime)
+		return nil
+	}
+
 	block.Header.Hash = block.Header.GenHash()
 
-	defer Logger.Infof("casting block %d,hash:%v,qn:%d,tx:%d,TxTree:%v,proValue:%v,stateTree:%s,prestatetree:%s",
-		height, block.Header.Hash.Hex(), block.Header.TotalQN, len(block.Transactions), block.Header.TxTree.Hex(),
-		chain.consensusHelper.VRFProve2Value(block.Header.ProveValue), block.Header.StateTree.Hex(), preRoot.Hex())
+	traceLog.SetHash(block.Header.Hash)
+	packTraceLog.SetHash(block.Header.Hash)
+	exeTraceLog.SetHash(block.Header.Hash)
+
 	// Blocks that you cast yourself do not need to be verified
 	chain.verifiedBlocks.Add(block.Header.Hash, &executePostState{
-		state:     state,
-		receipts:  receipts,
-		evitedTxs: evitTxs,
-		txs:       block.Transactions,
+		state:      state,
+		receipts:   receipts,
+		evictedTxs: evitTxs,
+		txs:        block.Transactions,
 	})
 	return block
 }
 
 func (chain *FullBlockChain) verifyTxs(bh *types.BlockHeader, txs []*types.Transaction) (ps *executePostState, ret int8) {
 	begin := time.Now()
+
+	traceLog := monitor.NewPerformTraceLogger("verifyTxs", bh.Hash, bh.Height)
+	traceLog.SetParent("addBlockOnChain")
+
 	var err error
 	defer func() {
 		Logger.Infof("verifyTxs hash:%v,height:%d,totalQn:%d,preHash:%v,len tx:%d, cost:%v, err=%v", bh.Hash.Hex(), bh.Height, bh.TotalQN, bh.PreHash.Hex(), len(txs), time.Since(begin).String(), err)
+		traceLog.Log("err=%v", err)
 	}()
 
-	if !chain.validateTxs(txs) {
+	if !chain.validateTxs(bh, txs) {
 		return nil, -1
 	}
 
@@ -192,9 +215,13 @@ func (chain *FullBlockChain) processFutureBlock(b *types.Block, source string) {
 }
 
 func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool, error) {
+
 	if b == nil {
 		return false, fmt.Errorf("block is nil")
 	}
+	traceLog := monitor.NewPerformTraceLogger("validateBlock", b.Header.Hash, b.Header.Height)
+	traceLog.SetParent("addBlockOnChain")
+	defer traceLog.Log("")
 
 	if !chain.HasBlock(b.Header.PreHash) {
 		chain.processFutureBlock(b, source)
@@ -222,7 +249,11 @@ func (chain *FullBlockChain) validateBlock(source string, b *types.Block) (bool,
 
 func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret types.AddBlockResult, err error) {
 	begin := time.Now()
+
+	traceLog := monitor.NewPerformTraceLogger("addBlockOnChain", b.Header.Hash, b.Header.Height)
+
 	defer func() {
+		traceLog.Log("ret=%v, err=%v", ret, err)
 		Logger.Debugf("addBlockOnchain hash=%v, height=%v, err=%v, cost=%v", b.Header.Hash.Hex(), b.Header.Height, err, time.Since(begin).String())
 	}()
 
@@ -333,11 +364,16 @@ func (chain *FullBlockChain) addBlockOnChain(source string, b *types.Block) (ret
 }
 
 // validateTxs check tx sign and recover source
-func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
+func (chain *FullBlockChain) validateTxs(bh *types.BlockHeader, txs []*types.Transaction) bool {
 	if txs == nil || len(txs) == 0 {
 		return true
 	}
-	recoverCnt := 0
+
+	traceLog := monitor.NewPerformTraceLogger("validateTxs", bh.Hash, bh.Height)
+	traceLog.SetParent("verifyTxs")
+	defer traceLog.Log("size=%v", len(txs))
+
+	addTxs := make([]*types.Transaction, 0)
 	for _, tx := range txs {
 		if tx.Source != nil {
 			continue
@@ -354,15 +390,28 @@ func (chain *FullBlockChain) validateTxs(txs []*types.Transaction) bool {
 			}
 			tx.Source = poolTx.Source
 		} else {
-			recoverCnt++
-			TxSyncer.add(tx)
-			if err := chain.transactionPool.RecoverAndValidateTx(tx); err != nil {
-				Logger.Debugf("fail to validate txs RecoverAndValidateTx err:%v at %v", err, tx.Hash.Hex())
-				return false
-			}
+			addTxs = append(addTxs, tx)
+			//recoverCnt++
+			//TxSyncer.add(tx)
+			//if err := chain.transactionPool.RecoverAndValidateTx(tx); err != nil {
+			//	Logger.Debugf("fail to validate txs RecoverAndValidateTx err:%v at %v", err, tx.Hash.String())
+			//	return false
+			//}
 		}
 	}
-	Logger.Debugf("validate txs size %v, recover cnt %v", len(txs), recoverCnt)
+
+	batchTraceLog := monitor.NewPerformTraceLogger("batchAdd", bh.Hash, bh.Height)
+	batchTraceLog.SetParent("validateTxs")
+	defer batchTraceLog.Log("size=%v", len(addTxs))
+	chain.txBatch.batchAdd(addTxs)
+	for _, tx := range addTxs {
+		if err := tx.RecoverSource(); err != nil {
+			Logger.Errorf("tx source recover fail:%s", tx.Hash.Hex())
+			return false
+		}
+	}
+
+	Logger.Debugf("block %v, validate txs size %v, recover cnt %v", bh.Hash.Hex(), len(txs), len(addTxs))
 	return true
 }
 
@@ -377,6 +426,10 @@ func (chain *FullBlockChain) validateTxRoot(txMerkleTreeRoot common.Hash, txs []
 }
 
 func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *executePostState) {
+	traceLog := monitor.NewPerformTraceLogger("executeTransaction", block.Header.Hash, block.Header.Height)
+	traceLog.SetParent("verifyTxs")
+	defer traceLog.Log("size=%v", len(block.Transactions))
+
 	cached, _ := chain.verifiedBlocks.Get(block.Header.Hash)
 	if cached != nil {
 		cb := cached.(*executePostState)
@@ -395,7 +448,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 		return false, nil
 	}
 
-	statehash, evitTxs, _, receipts, err := chain.executor.Execute(state, block.Header, block.Transactions, false)
+	statehash, evitTxs, _, receipts, err := chain.executor.Execute(state, block.Header, block.Transactions, false, nil)
 	if statehash != block.Header.StateTree {
 		Logger.Errorf("Fail to verify statetrexecute transaction failee, hash1:%s hash2:%s", statehash.Hex(), block.Header.StateTree.Hex())
 		return false, nil
@@ -409,7 +462,7 @@ func (chain *FullBlockChain) executeTransaction(block *types.Block) (bool, *exec
 	Logger.Infof("executeTransactions block height=%v,preHash=%x", block.Header.Height, preRoot)
 	taslog.Flush()
 
-	eps := &executePostState{state: state, receipts: receipts, evitedTxs: evitTxs, txs: block.Transactions}
+	eps := &executePostState{state: state, receipts: receipts, evictedTxs: evitTxs, txs: block.Transactions}
 	chain.verifiedBlocks.Add(block.Header.Hash, eps)
 	return true, eps
 }

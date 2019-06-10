@@ -80,8 +80,8 @@ func (chain *FullBlockChain) LatestStateDB() *account.AccountDB {
 
 // QueryTopBlock returns the latest block header
 func (chain *FullBlockChain) QueryTopBlock() *types.BlockHeader {
-	chain.rwLock.RLock()
-	defer chain.rwLock.RUnlock()
+	//chain.rwLock.RLock()
+	//defer chain.rwLock.RUnlock()
 
 	return chain.getLatestBlock()
 }

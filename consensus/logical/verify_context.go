@@ -32,10 +32,10 @@ import (
 const (
 	// svWorking indicates waiting for shards
 	svWorking = iota
-	// svSuccess indicates block added on chain successfully
-	svSuccess
 	// svNotified means block body requested from proposer already
 	svNotified
+	// svSuccess indicates block added on chain successfully
+	svSuccess
 	// svTimeout means the block consensus timeout
 	svTimeout
 )
@@ -183,12 +183,13 @@ func (vc *VerifyContext) baseCheck(bh *types.BlockHeader, sender groupsig.ID) (e
 
 	// Only sign blocks with higher weights than that have been signed
 	if vc.hasSignedMoreWeightThan(bh) {
-		err = fmt.Errorf("have signed a higher qn block %v,This block qn %v", vc.getSignedMaxWeight().String(), bh.TotalQN)
+		max := vc.getSignedMaxWeight()
+		err = fmt.Errorf("have signed a higher qn block %v,This block qn %v", max.String(), bh.TotalQN)
 		return
 	}
 
-	if vc.castSuccess() {
-		err = fmt.Errorf("already blocked")
+	if vc.castSuccess() || vc.isNotified() {
+		err = fmt.Errorf("already blocked:%v", vc.consensusStatus)
 		return
 	}
 	if vc.castExpire() {
@@ -307,7 +308,7 @@ func (vc *VerifyContext) GetSlots() []*SlotContext {
 // checkNotify check and returns the slotContext the maximum weight of block stored in
 func (vc *VerifyContext) checkNotify() *SlotContext {
 	blog := newBizLog("checkNotify")
-	if !vc.castSuccess() || vc.isNotified() {
+	if vc.isNotified() || vc.castSuccess() {
 		return nil
 	}
 	if vc.ts.Since(vc.createTime) < int64(model.Param.MaxWaitBlockTime) {
@@ -335,7 +336,7 @@ func (vc *VerifyContext) checkNotify() *SlotContext {
 		}
 	}
 	if maxBwSlot != nil {
-		blog.debug("select max qn=%v, hash=%v, height=%v, hash=%v, all qn=%v", maxBwSlot.BH.TotalQN, maxBwSlot.BH.Hash.ShortS(), maxBwSlot.BH.Height, maxBwSlot.BH.Hash.ShortS(), qns)
+		blog.debug("select max qn=%v, hash=%v, height=%v, hash=%v, size=%v", maxBwSlot.BH.TotalQN, maxBwSlot.BH.Hash.ShortS(), maxBwSlot.BH.Height, maxBwSlot.BH.Hash.ShortS(), len(qns))
 	}
 	return maxBwSlot
 }

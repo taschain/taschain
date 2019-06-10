@@ -18,6 +18,8 @@ package logical
 import (
 	"crypto/rand"
 	"encoding/json"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -128,7 +130,16 @@ func (bg *BelongGroups) initStore() {
 	if bg.ready() {
 		return
 	}
-	db, err := tasdb.NewLDBDatabase(bg.storeDir, 1, 1)
+	options := &opt.Options{
+		OpenFilesCacheCapacity:        10,
+		WriteBuffer:                   32 * opt.MiB, // Two of these are used internally
+		Filter:                        filter.NewBloomFilter(10),
+		CompactionTableSize:           4 * opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+		CompactionTotalSize:           16 * opt.MiB,
+		BlockSize:                     1 * opt.MiB,
+	}
+	db, err := tasdb.NewLDBDatabase(bg.storeDir, options)
 	if err != nil {
 		stdLogger.Errorf("newLDBDatabase fail, file=%v, err=%v\n", bg.storeDir, err.Error())
 		return

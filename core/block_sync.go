@@ -38,7 +38,7 @@ const (
 
 const (
 	tickerSendLocalTop = "send_local_top"
-	tickerSyncNeighbor = "sync_neightbors"
+	tickerSyncNeighbor = "sync_neightbor"
 	tickerSyncTimeout  = "sync_timeout"
 )
 
@@ -58,14 +58,12 @@ type blockSyncer struct {
 
 type topBlockInfo struct {
 	types.BlockWeight
-	Hash   common.Hash
 	Height uint64
 }
 
 func newTopBlockInfo(topBH *types.BlockHeader) *topBlockInfo {
 	return &topBlockInfo{
 		BlockWeight: *types.NewBlockWeight(topBH),
-		Hash:        topBH.Hash,
 		Height:      topBH.Height,
 	}
 }
@@ -421,8 +419,9 @@ func (bs *blockSyncer) unMarshalTopBlockInfo(b []byte) (*topBlockInfo, error) {
 	bw := &types.BlockWeight{
 		TotalQN: *message.TotalQn,
 		PV:      pv,
+		Hash:    common.BytesToHash(message.Hash),
 	}
-	blockInfo := topBlockInfo{Hash: common.BytesToHash(message.Hash), BlockWeight: *bw, Height: *message.Height}
+	blockInfo := topBlockInfo{BlockWeight: *bw, Height: *message.Height}
 	return &blockInfo, nil
 }
 

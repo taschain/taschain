@@ -18,6 +18,8 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"sync"
 	"time"
 
@@ -53,7 +55,17 @@ type txSimpleIndexer struct {
 
 func buildTxSimpleIndexer() *txSimpleIndexer {
 	f := "d_txidx" + common.GlobalConf.GetString("instance", "index", "")
-	ds, err := tasdb.NewDataSource(f)
+	options := &opt.Options{
+		OpenFilesCacheCapacity:        100,
+		BlockCacheCapacity:            16 * opt.MiB,
+		WriteBuffer:                   32 * opt.MiB, // Two of these are used internally
+		Filter:                        filter.NewBloomFilter(10),
+		CompactionTableSize:           4 * opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+		CompactionTotalSize:           16 * opt.MiB,
+		BlockSize:                     1 * opt.MiB,
+	}
+	ds, err := tasdb.NewDataSource(f, options)
 	if err != nil {
 		Logger.Errorf("new datasource error:%v, file=%v", err, f)
 		panic(fmt.Errorf("new data source error:file=%v, err=%v", f, err.Error()))
