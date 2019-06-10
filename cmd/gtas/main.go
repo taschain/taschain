@@ -16,13 +16,10 @@
 package main
 
 import (
-	"runtime"
-
 	"github.com/taschain/taschain/cmd/gtas/cli"
 )
 
 func main() {
-	runtime.GOMAXPROCS(4)
 	gtas := cli.NewGtas()
 	gtas.Run()
 }

@@ -75,6 +75,7 @@ func (holder *FutureMessageHolder) size() int {
 }
 
 func (p *Processor) doAddOnChain(block *types.Block) (result int8) {
+
 	bh := block.Header
 
 	rlog := newRtLog("doAddOnChain")

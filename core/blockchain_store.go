@@ -17,11 +17,12 @@ package core
 
 import (
 	"fmt"
-	"github.com/taschain/taschain/taslog"
+	"github.com/taschain/taschain/monitor"
 
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/middleware/types"
 	"github.com/taschain/taschain/storage/account"
+	"github.com/taschain/taschain/taslog"
 )
 
 func (chain *FullBlockChain) saveBlockState(b *types.Block, state *account.AccountDB) error {
@@ -50,7 +51,7 @@ func (chain *FullBlockChain) updateLatestBlock(state *account.AccountDB, header 
 	chain.latestStateDB = state
 	chain.latestBlock = header
 
-	Logger.Infof("updateLatestBlock success,height=%v,root hash is %x",header.Height,header.StateTree)
+	Logger.Infof("updateLatestBlock success,height=%v,root hash is %x", header.Height, header.StateTree)
 	taslog.Flush()
 }
 
@@ -68,15 +69,22 @@ func (chain *FullBlockChain) saveBlockTxs(blockHash common.Hash, dataBytes []byt
 
 // commitBlock persist a block in a batch
 func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostState) (ok bool, err error) {
+	traceLog := monitor.NewPerformTraceLogger("commitBlock", block.Header.Hash, block.Header.Height)
+	traceLog.SetParent("addBlockOnChain")
+	defer traceLog.Log("")
 
 	bh := block.Header
+	//b := time.Now()
 	headerBytes, err := types.MarshalBlockHeader(bh)
+	//ps.ts.AddStat("MarshalBlockHeader", time.Since(b))
 	if err != nil {
 		Logger.Errorf("Fail to json Marshal, error:%s", err.Error())
 		return
 	}
 
+	//b = time.Now()
 	bodyBytes, err := encodeBlockTransactions(block)
+	//ps.ts.AddStat("encodeBlockTransactions", time.Since(b))
 	if err != nil {
 		Logger.Errorf("encode block transaction error:%v", err)
 		return
@@ -115,7 +123,13 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 	if err = chain.batch.Write(); err != nil {
 		return
 	}
+	//ps.ts.AddStat("batch.Write", time.Since(b))
+
 	chain.updateLatestBlock(ps.state, bh)
+
+	rmTxLog := monitor.NewPerformTraceLogger("RemoveFromPool", block.Header.Hash, block.Header.Height)
+	rmTxLog.SetParent("commitBlock")
+	defer rmTxLog.Log("")
 
 	// If the block is successfully submitted, the transaction
 	// corresponding to the transaction pool should be deleted
@@ -123,10 +137,9 @@ func (chain *FullBlockChain) commitBlock(block *types.Block, ps *executePostStat
 		chain.transactionPool.RemoveFromPool(block.GetTransactionHashs())
 	}
 	// Remove eviction transactions from the transaction pool
-	if ps.evitedTxs != nil {
-		chain.transactionPool.RemoveFromPool(ps.evitedTxs)
+	if ps.evictedTxs != nil {
+		chain.transactionPool.RemoveFromPool(ps.evictedTxs)
 	}
-
 	ok = true
 	return
 }
@@ -138,6 +151,10 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 			chain.isAdjusting = false
 		}()
 	}
+
+	traceLog := monitor.NewPerformTraceLogger("resetTop", block.Hash, block.Height)
+	traceLog.SetParent("addBlockOnChain")
+	defer traceLog.Log("")
 
 	// Add read and write locks, block reading at this time
 	chain.rwLock.Lock()
@@ -180,6 +197,7 @@ func (chain *FullBlockChain) resetTop(block *types.BlockHeader) error {
 		}
 
 		chain.removeTopBlock(curr.Hash)
+		Logger.Debugf("remove block %v", curr.Hash.Hex())
 		if curr.PreHash == block.Hash {
 			break
 		}

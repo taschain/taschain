@@ -43,7 +43,7 @@ func NewTVMExecutor(bc BlockChain) *TVMExecutor {
 }
 
 // Execute executes all types transactions and returns the receipts
-func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.BlockHeader, txs []*types.Transaction, pack bool) (state common.Hash, evits []common.Hash, executed []*types.Transaction, recps []*types.Receipt, err error) {
+func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.BlockHeader, txs []*types.Transaction, pack bool, ts *common.TimeStatCtx) (state common.Hash, evits []common.Hash, executed []*types.Transaction, recps []*types.Receipt, err error) {
 	beginTime := time.Now()
 	receipts := make([]*types.Receipt, 0)
 	transactions := make([]*types.Transaction, 0)
@@ -106,6 +106,7 @@ func (executor *TVMExecutor) Execute(accountdb *account.AccountDB, bh *types.Blo
 		}
 
 	}
+	//ts.AddStat("executeLoop", time.Since(b))
 	accountdb.AddBalance(castor, executor.bc.GetConsensusHelper().ProposalBonus())
 
 	state = accountdb.IntermediateRoot(true)

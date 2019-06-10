@@ -18,6 +18,8 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"os"
 	"sync"
 	"time"
@@ -99,6 +101,8 @@ type FullBlockChain struct {
 	forkProcessor *forkProcessor
 	config        *BlockChainConfig
 
+	txBatch *txBatchAdder
+
 	ticker *ticker.GlobalTicker // Ticker is a global time ticker
 	ts     time2.TimeService
 }
@@ -140,7 +144,18 @@ func initBlockChain(helper types.ConsensusHelper) error {
 
 	chain.initMessageHandler()
 
-	ds, err := tasdb.NewDataSource(chain.config.dbfile)
+	options := &opt.Options{
+		OpenFilesCacheCapacity:        100,
+		BlockCacheCapacity:            16 * opt.MiB,
+		WriteBuffer:                   512 * opt.MiB, // Two of these are used internally
+		Filter:                        filter.NewBloomFilter(10),
+		CompactionTableSize:           4 * opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+		CompactionTotalSize:           16 * opt.MiB,
+		BlockSize:                     64 * opt.KiB,
+	}
+
+	ds, err := tasdb.NewDataSource(chain.config.dbfile, options)
 	if err != nil {
 		Logger.Errorf("new datasource error:%v", err)
 		return err
@@ -176,6 +191,8 @@ func initBlockChain(helper types.ConsensusHelper) error {
 	chain.bonusManager = newBonusManager()
 	chain.batch = chain.blocks.CreateLDBBatch()
 	chain.transactionPool = newTransactionPool(chain, receiptdb)
+
+	chain.txBatch = newTxBatchAdder(chain.transactionPool)
 
 	chain.stateCache = account.NewDatabase(chain.stateDb)
 

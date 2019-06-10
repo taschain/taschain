@@ -323,6 +323,11 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natIP string, natPort uint16,
 		return err
 	}
 
+	enableTraceLog := common.GlobalConf.GetBool("gtas", "enable_trace_log", false)
+	if enableTraceLog {
+		monitor.InitPerformTraceLogger()
+	}
+
 	// Print related content
 	ShowPubKeyInfo(minerInfo, id)
 	ok := mediator.ConsensusInit(minerInfo, common.GlobalConf)

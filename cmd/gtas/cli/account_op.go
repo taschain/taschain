@@ -29,6 +29,9 @@ import (
 	"github.com/taschain/taschain/common"
 	"github.com/taschain/taschain/consensus/model"
 	"github.com/taschain/taschain/storage/tasdb"
+
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 const accountUnLockTime = time.Second * 120
@@ -95,7 +98,14 @@ func dirExists(dir string) bool {
 }
 
 func newAccountOp(ks string) (*AccountManager, error) {
-	db, err := tasdb.NewLDBDatabase(ks, 128, 128)
+	options := &opt.Options{
+		OpenFilesCacheCapacity:        10,
+		WriteBuffer:                   8 * opt.MiB, // Two of these are used internally
+		Filter:                        filter.NewBloomFilter(10),
+		CompactionTableSize:           2 * opt.MiB,
+		CompactionTableSizeMultiplier: 2,
+	}
+	db, err := tasdb.NewLDBDatabase(ks, options)
 	if err != nil {
 		return nil, fmt.Errorf("new ldb fail:%v", err.Error())
 	}

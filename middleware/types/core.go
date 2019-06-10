@@ -52,6 +52,8 @@ const (
 	SysCheckABIError            = 2002
 	SysABIJSONError             = 2003
 	SysContractCallMaxDeepError = 2004
+
+	txFixSize = 200 // Fixed size for each transaction
 )
 
 var (
@@ -155,6 +157,10 @@ func (tx *Transaction) RecoverSource() error {
 		tx.Source = &src
 	}
 	return err
+}
+
+func (tx *Transaction) Size() int {
+	return txFixSize + len(tx.Data) + len(tx.ExtraData)
 }
 
 func (tx Transaction) GetData() []byte            { return tx.Data }
@@ -377,6 +383,7 @@ type StateNode struct {
 
 // BlockWeight denotes the weight of one block
 type BlockWeight struct {
+	Hash    common.Hash
 	TotalQN uint64   // Same as TotalQN field of BlockHeader
 	PV      *big.Int // Converted from ProveValue field of BlockHeader
 }
@@ -405,6 +412,7 @@ func (bw *BlockWeight) Cmp(bw2 *BlockWeight) int {
 
 func NewBlockWeight(bh *BlockHeader) *BlockWeight {
 	return &BlockWeight{
+		Hash:    bh.Hash,
 		TotalQN: bh.TotalQN,
 		PV:      DefaultPVFunc(bh.ProveValue),
 	}

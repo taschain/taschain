@@ -168,6 +168,7 @@ func (p *Processor) verifyCastMessage(msg *model.ConsensusCastMessage, preBH *ty
 // and trigger it after the pre-block added on chain
 func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	bh := &ccm.BH
+	traceLog := monitor.NewPerformTraceLogger("OnMessageCast", bh.Hash, bh.Height)
 
 	le := &monitor.LogEntry{
 		LogType:  monitor.LogTypeProposal,
@@ -188,11 +189,11 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 	blog := newBizLog(mtype)
 
 	si := &ccm.SI
-	traceLog := newHashTraceLog(mtype, bh.Hash, si.GetID())
+	tlog := newHashTraceLog(mtype, bh.Hash, si.GetID())
 	castor := groupsig.DeserializeID(bh.Castor)
 	groupID := groupsig.DeserializeID(bh.GroupID)
 
-	traceLog.logStart("%v:height=%v, castor=%v", mtype, bh.Height, castor.ShortS())
+	tlog.logStart("%v:height=%v, castor=%v", mtype, bh.Height, castor.ShortS())
 	blog.debug("proc(%v) begin hash=%v, height=%v, sender=%v, castor=%v, groupID=%v", p.getPrefix(), bh.Hash.ShortS(), bh.Height, si.GetID().ShortS(), castor.ShortS(), groupID.ShortS())
 
 	var err error
@@ -202,8 +203,9 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		if err != nil {
 			result = err.Error()
 		}
-		traceLog.logEnd("%v:height=%v, hash=%v, preHash=%v,groupID=%v, result=%v", mtype, bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupID.ShortS(), result)
+		tlog.logEnd("%v:height=%v, hash=%v, preHash=%v,groupID=%v, result=%v", mtype, bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupID.ShortS(), result)
 		blog.debug("height=%v, hash=%v, preHash=%v, groupID=%v, result=%v", bh.Height, bh.Hash.ShortS(), bh.PreHash.ShortS(), groupID.ShortS(), result)
+		traceLog.Log("PreHash=%v,castor=%v,result=%v", bh.PreHash.ShortS(), ccm.SI.GetID().ShortS(), result)
 	}()
 	if ccm.GenHash() != ccm.SI.DataHash {
 		err = fmt.Errorf("msg genHash %v diff from si.DataHash %v", ccm.GenHash().ShortS(), ccm.SI.DataHash.ShortS())
@@ -244,6 +246,10 @@ func (p *Processor) OnMessageCast(ccm *model.ConsensusCastMessage) {
 		err = fmt.Errorf("parent block did not received")
 		return
 	}
+
+	verifyTraceLog := monitor.NewPerformTraceLogger("verifyCastMessage", bh.Hash, bh.Height)
+	verifyTraceLog.SetParent("OnMessageCast")
+	defer verifyTraceLog.Log("")
 
 	_, err = p.verifyCastMessage(ccm, preBH)
 
@@ -323,7 +329,8 @@ func (p *Processor) doVerify(cvm *model.ConsensusVerifyMessage, vctx *VerifyCont
 // Note that, it will cache the messages if the corresponding proposal message doesn't come yet and trigger them as long as the condition met
 func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 	blockHash := cvm.BlockHash
-	traceLog := newHashTraceLog("OMV", blockHash, cvm.SI.GetID())
+	tlog := newHashTraceLog("OMV", blockHash, cvm.SI.GetID())
+	traceLog := monitor.NewPerformTraceLogger("OnMessageVerify", blockHash, 0)
 
 	var (
 		err  error
@@ -337,7 +344,8 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 		} else if slot != nil {
 			result = slot.gSignGenerator.Brief()
 		}
-		traceLog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, result)
+		tlog.logEnd("sender=%v, ret=%v %v", cvm.SI.GetID().ShortS(), ret, result)
+		traceLog.Log("result=%v, %v", ret, err)
 	}()
 
 	// Cache the message in case of absence of the proposal message
@@ -347,6 +355,7 @@ func (p *Processor) OnMessageVerify(cvm *model.ConsensusVerifyMessage) {
 		p.blockContexts.addVerifyMsg(cvm)
 		return
 	}
+	traceLog.SetHeight(vctx.castHeight)
 
 	// Do the verification work
 	ret, err = p.doVerify(cvm, vctx)
@@ -582,8 +591,18 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 	blog := newBizLog("OMRPB")
 	blog.debug("hash %v", msg.Hash.ShortS())
 
+	from := groupsig.ID{}
+	from.SetHexString(sourceID)
+	tlog := newHashTraceLog("OMRPB", msg.Hash, from)
+
+	var s string
+	defer func() {
+		tlog.log("result:%v", s)
+	}()
+
 	pb := p.blockContexts.getProposed(msg.Hash)
 	if pb == nil || pb.block == nil {
+		s = fmt.Sprintf("block is nil")
 		blog.warn("block is nil hash=%v", msg.Hash.ShortS())
 		return
 	}
@@ -592,6 +611,7 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 		gid := groupsig.DeserializeID(pb.block.Header.GroupID)
 		group, err := p.globalGroups.GetGroupByID(gid)
 		if err != nil {
+			s = fmt.Sprintf("get group error")
 			blog.error("block proposal response, GetGroupByID err= %v,  hash=%v", err, msg.Hash.ShortS())
 			return
 		}
@@ -601,13 +621,14 @@ func (p *Processor) OnMessageReqProposalBlock(msg *model.ReqProposalBlock, sourc
 
 	// Only response to limited members of the group in case of network traffic
 	if pb.responseCount >= pb.maxResponseCount {
-
+		s = fmt.Sprintf("response count exceed")
 		blog.debug("block proposal response count >= maxResponseCount(%v), not response, hash=%v", pb.maxResponseCount, msg.Hash.ShortS())
 		return
 	}
 
 	pb.responseCount++
 
+	s = fmt.Sprintf("response txs size %v", len(pb.block.Transactions))
 	blog.debug("block proposal response, count=%v, max count=%v, hash=%v", pb.responseCount, pb.maxResponseCount, msg.Hash.ShortS())
 
 	m := &model.ResponseProposalBlock{
@@ -625,17 +646,27 @@ func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBl
 	blog := newBizLog("OMRSPB")
 	blog.debug("hash %v", msg.Hash.ShortS())
 
+	tlog := newHashTraceLog("OMRSPB", msg.Hash, groupsig.ID{})
+
+	var s string
+	defer func() {
+		tlog.log("result:%v", s)
+	}()
+
 	if p.blockOnChain(msg.Hash) {
+		s = "block onchain"
 		return
 	}
 	vctx := p.blockContexts.getVctxByHash(msg.Hash)
 	if vctx == nil {
 		blog.warn("verify context is nil, cache msg")
+		s = "vctx is nil"
 		return
 	}
 	slot := vctx.GetSlotByHash(msg.Hash)
 	if slot == nil {
 		blog.warn("slot is nil")
+		s = "slot is nil"
 		return
 	}
 	block := types.Block{Header: slot.BH, Transactions: msg.Transactions}
@@ -643,6 +674,8 @@ func (p *Processor) OnMessageResponseProposalBlock(msg *model.ResponseProposalBl
 	if err != nil {
 		blog.error("onBlockSignAggregation fail: %v", err)
 		slot.setSlotStatus(slFailed)
+		s = fmt.Sprintf("on block fail err=%v", err)
 		return
 	}
+	s = "success"
 }

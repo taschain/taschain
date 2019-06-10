@@ -17,7 +17,9 @@ package logical
 
 import (
 	"fmt"
+	"github.com/taschain/taschain/common"
 	"strings"
+	"sync"
 
 	"github.com/taschain/taschain/consensus/groupsig"
 	"github.com/taschain/taschain/consensus/model"
@@ -71,9 +73,13 @@ func (p *Processor) reserveBlock(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 	blog := newBizLog("reserveBLock")
 	blog.debug("height=%v, totalQN=%v, hash=%v, slotStatus=%v", bh.Height, bh.TotalQN, bh.Hash.ShortS(), slot.GetSlotStatus())
+
+	traceLog := monitor.NewPerformTraceLogger("reserveBlock", bh.Hash, bh.Height)
+	traceLog.SetParent("OnMessageVerify")
+	defer traceLog.Log("threshold sign cost %v", p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
+
 	if slot.IsRecovered() {
-		// The onBlockAddSuccess method is also marked, the call is asynchronous
-		vctx.markCastSuccess()
+		//vctx.markCastSuccess() //onBlockAddSuccess方法中也mark了，该处调用是异步的
 		p.blockContexts.addReservedVctx(vctx)
 		if !p.tryNotify(vctx) {
 			blog.warn("reserved, height=%v", vctx.castHeight)
@@ -144,11 +150,18 @@ func (p *Processor) onBlockSignAggregation(block *types.Block, sign groupsig.Sig
 func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	bh := slot.BH
 
+	var result string
+
+	traceLog := monitor.NewPerformTraceLogger("consensusFinalize", bh.Hash, bh.Height)
+	traceLog.SetParent("OnMessageVerify")
+	defer func() {
+		traceLog.Log("result=%v. consensusFinalize cost %v", result, p.ts.Now().Local().Sub(bh.CurTime.Local()).String())
+	}()
 	blog := newBizLog("consensusFinalize-" + bh.Hash.ShortS())
 
 	// Already on blockchain
 	if p.blockOnChain(bh.Hash) {
-		blog.warn("block alreayd onchain!")
+		blog.warn("block already onchain!")
 		return
 	}
 
@@ -169,6 +182,8 @@ func (p *Processor) consensusFinalize(vctx *VerifyContext, slot *SlotContext) {
 	tlog.log("send ReqProposalBlock msg to %v", slot.castor.ShortS())
 	p.NetServer.ReqProposalBlock(msg, slot.castor.GetHexString())
 
+	result = fmt.Sprintf("Request block body from %v", slot.castor.GetHexString())
+
 	slot.setSlotStatus(slSuccess)
 	vctx.markNotified()
 	vctx.successSlot = slot
@@ -180,6 +195,9 @@ func (p *Processor) blockProposal() {
 	blog := newBizLog("blockProposal")
 	top := p.MainChain.QueryTopBlock()
 	worker := p.getVrfWorker()
+
+	traceLogger := monitor.NewPerformTraceLogger("blockProposal", common.Hash{}, worker.castHeight)
+
 	if worker.getBaseBH().Hash != top.Hash {
 		blog.warn("vrf baseBH differ from top!")
 		return
@@ -220,12 +238,40 @@ func (p *Processor) blockProposal() {
 	}
 	gid := gb.Gid
 
-	block := p.MainChain.CastBlock(uint64(height), pi, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	var (
+		block         *types.Block
+		proveHashs    []common.Hash
+		proveTraceLog *monitor.PerformTraceLogger
+	)
+	// Parallelize the CastBlock and genProveHashs process
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		block = p.MainChain.CastBlock(uint64(height), pi, qn, p.GetMinerID().Serialize(), gid.Serialize())
+	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		//生成全量账本hash
+		proveTraceLog = monitor.NewPerformTraceLogger("genProveHashs", common.Hash{}, 0)
+		proveTraceLog.SetParent("blockProposal")
+		proveHashs = p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+		proveTraceLog.SetEnd()
+	}()
+	wg.Wait()
 	if block == nil {
 		blog.error("MainChain::CastingBlock failed, height=%v", height)
 		return
 	}
 	bh := block.Header
+
+	traceLogger.SetHash(bh.Hash)
+	traceLogger.SetTxNum(len(block.Transactions))
+	proveTraceLog.SetHash(bh.Hash)
+	proveTraceLog.SetHeight(bh.Height)
+	proveTraceLog.Log("")
+
 	tlog := newHashTraceLog("CASTBLOCK", bh.Hash, p.GetMinerID())
 	blog.debug("begin proposal, hash=%v, height=%v, qn=%v,, verifyGroup=%v, pi=%v...", bh.Hash.ShortS(), height, qn, gid.ShortS(), pi.ShortS())
 	tlog.logStart("height=%v,qn=%v, preHash=%v, verifyGroup=%v", bh.Height, qn, bh.PreHash.ShortS(), gid.ShortS())
@@ -242,8 +288,9 @@ func (p *Processor) blockProposal() {
 			blog.error("sign fail, id=%v, sk=%v", p.GetMinerID().ShortS(), skey.ShortS())
 			return
 		}
-		// Generate full account book hash
-		proveHashs := p.proveChecker.genProveHashs(height, worker.getBaseBH().Random, gb.MemIds)
+
+		traceLogger.Log("PreHash=%v,Qn=%v", bh.PreHash.ShortS(), qn)
+
 		p.NetServer.SendCastVerify(ccm, gb, proveHashs)
 
 		// ccm.GenRandomSign(skey, worker.baseBH.Random)

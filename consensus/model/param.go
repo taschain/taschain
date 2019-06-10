@@ -24,7 +24,7 @@ import (
 // defines some const params of the consensus engine
 const (
 	// MaxWaitBlockTime is group cast block maximum allowable time, it's 10s
-	MaxGroupBlockTime int = 10
+	MaxGroupBlockTime int = 20
 
 	// MaxWaitBlockTime is Waiting for the maximum time before broadcasting the block,it's 2s
 	MaxWaitBlockTime int = 2
@@ -41,7 +41,7 @@ const (
 	GroupInitMaxSeconds = 60 * 60 * 24
 
 	// MaxSlotSize means number of slots per round
-	MaxSlotSize = 3
+	MaxSlotSize = 5
 
 	// SSSSThreshold means value range 1-100
 	SSSSThreshold int = 51

@@ -25,6 +25,7 @@ import (
 	"github.com/taschain/taschain/network"
 	"github.com/taschain/taschain/taslog"
 
+	"fmt"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -87,36 +88,24 @@ func (fp *forkProcessor) targetTop(id string, bh *types.BlockHeader) *topBlockIn
 	return tb
 }
 
-func (fp *forkProcessor) updateContext(id string, bh *types.BlockHeader) bool {
-	ctx := fp.syncCtx
+func (fp *forkProcessor) updateContext(id string, bh *types.BlockHeader) *forkSyncContext {
 	targetTop := fp.targetTop(id, bh)
 
-	if ctx == nil || targetTop.MoreWeight(&ctx.targetTop.BlockWeight) {
-		newCtx := &forkSyncContext{
-			target:    id,
-			targetTop: targetTop,
-			localTop:  newTopBlockInfo(fp.chain.QueryTopBlock()),
-		}
-		fp.syncCtx = newCtx
-		return true
+	newCtx := &forkSyncContext{
+		target:    id,
+		targetTop: targetTop,
+		localTop:  newTopBlockInfo(fp.chain.QueryTopBlock()),
 	}
-	fp.logger.Warnf("old target %v %v %v, new target %v %v %v, won't process", fp.syncCtx.target, fp.syncCtx.targetTop.Height, fp.syncCtx.targetTop.TotalQN, id, targetTop.Height, targetTop.TotalQN)
-
-	return false
+	fp.syncCtx = newCtx
+	return newCtx
 }
 
 func (fp *forkProcessor) getLocalPieceInfo(topHash common.Hash) []common.Hash {
 	bh := fp.chain.queryBlockHeaderByHash(topHash)
 	pieces := make([]common.Hash, 0)
-	cnt := 0
-	for cnt < chainPieceLength {
-		if bh != nil {
-			pieces = append(pieces, bh.Hash)
-			cnt++
-			bh = fp.chain.queryBlockHeaderByHash(bh.PreHash)
-		} else {
-			break
-		}
+	for len(pieces) < chainPieceLength && bh != nil {
+		pieces = append(pieces, bh.Hash)
+		bh = fp.chain.queryBlockHeaderByHash(bh.PreHash)
 	}
 	return pieces
 }
@@ -137,11 +126,16 @@ func (fp *forkProcessor) tryToProcessFork(targetNode string, b *types.Block) {
 		fp.chain.AddBlockOnChain(targetNode, b)
 		return
 	}
+	ctx := fp.syncCtx
 
-	if !fp.updateContext(targetNode, bh) {
+	if ctx != nil {
+		fp.logger.Debugf("fork processing with %v: targetTop %v, local %v", ctx.target, ctx.targetTop.Height, ctx.localTop.Height)
 		return
 	}
 
+	ctx = fp.updateContext(targetNode, bh)
+
+	fp.logger.Debugf("fork process from %v: targetTop:%v-%v, local:%v-%v", ctx.target, ctx.targetTop.Hash.Hex(), ctx.targetTop.Height, ctx.localTop.Hash.Hex(), ctx.localTop.Height)
 	fp.requestPieceBlock(fp.chain.QueryTopBlock().Hash)
 }
 
@@ -163,6 +157,10 @@ func (fp *forkProcessor) reqPieceTimeout(id string) {
 
 func (fp *forkProcessor) reset() {
 	fp.syncCtx = nil
+}
+
+func (fp *forkProcessor) timeoutTickerName(id string) string {
+	return tickerReqPieceBlock + id
 }
 
 func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
@@ -194,7 +192,7 @@ func (fp *forkProcessor) requestPieceBlock(topHash common.Hash) {
 	fp.syncCtx.lastReqPiece = pieceReq
 
 	// Start ticker
-	fp.chain.ticker.RegisterOneTimeRoutine(tickerReqPieceBlock, func() bool {
+	fp.chain.ticker.RegisterOneTimeRoutine(fp.timeoutTickerName(fp.syncCtx.target), func() bool {
 		fp.reqPieceTimeout(fp.syncCtx.target)
 		return true
 	}, reqPieceTimeout)
@@ -260,10 +258,10 @@ func (fp *forkProcessor) reqFinished(id string, reset bool) {
 		return
 	}
 	peerManagerImpl.heardFromPeer(id)
-	fp.chain.ticker.RemoveRoutine(tickerReqPieceBlock)
+	fp.chain.ticker.RemoveRoutine(fp.timeoutTickerName(id))
 	peerManagerImpl.updateReqBlockCnt(id, true)
 	if reset {
-		fp.syncCtx = nil
+		fp.reset()
 	}
 	return
 }
@@ -300,6 +298,13 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 	blocks := chainPieceBlockMsg.Blocks
 	topHeader := chainPieceBlockMsg.TopHeader
 
+	localTop := fp.chain.QueryTopBlock()
+	s := "no blocks"
+	if len(blocks) > 0 {
+		s = fmt.Sprintf("%v-%v", blocks[0].Header.Height, blocks[len(blocks)-1].Header.Height)
+	}
+	fp.logger.Debugf("rev block piece from %v, top %v-%v, blocks %v, findAc %v, local %v-%v, ctx target:%v %v", source, topHeader.Hash.Hex(), topHeader.Height, s, chainPieceBlockMsg.FindAncestor, localTop.Hash.Hex(), localTop.Height, ctx.target, ctx.targetTop.Height)
+
 	// Target changed
 	if source != ctx.target {
 		// If the received block contains a branch of the ctx request, you can continue the add on chain process.
@@ -329,19 +334,19 @@ func (fp *forkProcessor) chainPieceBlockHandler(msg notify.Message) {
 		return
 	}
 
-	if topHeader == nil || len(blocks) == 0 {
-		return
-	}
-
 	// Giving a piece to go is not enough to find a common ancestor, continue to request a piece
 	if !chainPieceBlockMsg.FindAncestor {
-		fp.logger.Debugf("cannot find common ancestor from %v, keep finding", source)
 		nextSync := fp.getNextSyncHash()
 		if nextSync != nil {
+			fp.logger.Debugf("cannot find common ancestor from %v, keep finding", source)
 			fp.requestPieceBlock(*nextSync)
 			reset = false
 		}
 	} else {
+		if len(blocks) == 0 {
+			fp.logger.Errorf("from %v, find ancesotr, but blocks is empty!", source)
+			return
+		}
 		ancestorBH := blocks[0].Header
 		if !fp.chain.HasBlock(ancestorBH.Hash) {
 			fp.logger.Errorf("local ancestor block not exist, hash=%v, height=%v", ancestorBH.Hash.Hex(), ancestorBH.Height)
