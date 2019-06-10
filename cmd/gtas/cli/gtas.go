@@ -224,9 +224,7 @@ func (gtas *Gtas) Run() {
 		common.DefaultLogger = taslog.GetLoggerByIndex(taslog.DefaultConfig, common.GlobalConf.GetString("instance", "index", ""))
 		BonusLogger = taslog.GetLoggerByIndex(taslog.BonusStatConfig, common.GlobalConf.GetString("instance", "index", ""))
 		types.InitMiddleware()
-
-		//taslog.InitSlowLogger(*instanceIndex)
-
+		
 		if *natAddr != "" {
 			common.DefaultLogger.Infof("NAT server ip:%s", *natAddr)
 		}
@@ -323,6 +321,11 @@ func (gtas *Gtas) fullInit(isSuper, testMode bool, natAddr string, natPort uint1
 
 	if err != nil {
 		return err
+	}
+
+	enableTraceLog := common.GlobalConf.GetBool("gtas", "enable_trace_log", false)
+	if enableTraceLog {
+		monitor.InitPerformTraceLogger()
 	}
 
 	// Print related content
